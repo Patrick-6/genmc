@@ -26,3603 +26,485 @@
 #include "Static/ModuleInfo.hpp"
 
 IMMDriver::IMMDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		     std::unique_ptr<ModuleInfo> MI,
-		     GenMCDriver::Mode mode /* = GenMCDriver::VerificationMode{} */)
-	: GenMCDriver(conf, std::move(mod), std::move(MI), mode)
-{}
+		std::unique_ptr<ModuleInfo> MI, GenMCDriver::Mode mode /* = GenMCDriver::VerificationMode{} */)
+	: GenMCDriver(conf, std::move(mod), std::move(MI), mode) {}
 
-void IMMDriver::visitCalc0_0(const EventLabel *lab, View &calcRes)
+bool IMMDriver::isDepTracking() const
+{
+	return 1;
+}
+
+bool IMMDriver::visitCalc61_0(const EventLabel *lab, View &calcRes) const 
 {
 	auto &g = getGraph();
 
-	visitedCalc0_0[lab->getStamp().get()] = NodeStatus::entered;
-	calcRes.update(lab->view(0));
-	calcRes.updateIdx(lab->getPos());
+
+
+
+	return true;
+}
+
+bool IMMDriver::visitCalc61_1(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = getGraph();
+
+
+	if (auto pLab = lab; true)if (calcRes.update(pLab->view(0)); true) {
+			if (!visitCalc61_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	return true;
+}
+
+bool IMMDriver::visitCalc61_2(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = getGraph();
+
+	if (visitedCalc61_2[lab->getStamp().get()] != NodeStatus::unseen)
+		return true;
+	visitedCalc61_2[lab->getStamp().get()] = NodeStatus::entered;
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedCalc61_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCalc61_2(pLab, calcRes)){
+				return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab))if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc61_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab))if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc61_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+			if (!visitCalc61_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
+			if (!visitCalc61_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	visitedCalc61_2[lab->getStamp().get()] = NodeStatus::left;
+	return true;
+}
+
+bool IMMDriver::visitCalc61_3(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = getGraph();
+
+	if (visitedCalc61_3[lab->getStamp().get()] != NodeStatus::unseen)
+		return true;
+	visitedCalc61_3[lab->getStamp().get()] = NodeStatus::entered;
+
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto status = visitedCalc61_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCalc61_2(pLab, calcRes)){
+				return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease())if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc61_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto status = visitedCalc61_4[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCalc61_4(pLab, calcRes)){
+				return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+			if (!visitCalc61_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	visitedCalc61_3[lab->getStamp().get()] = NodeStatus::left;
+	return true;
+}
+
+bool IMMDriver::visitCalc61_4(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = getGraph();
+
+	if (visitedCalc61_4[lab->getStamp().get()] != NodeStatus::unseen)
+		return true;
+	visitedCalc61_4[lab->getStamp().get()] = NodeStatus::entered;
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto status = visitedCalc61_3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCalc61_3(pLab, calcRes)){
+				return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+
+	visitedCalc61_4[lab->getStamp().get()] = NodeStatus::left;
+	return true;
+}
+
+bool IMMDriver::visitCalc61_5(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = getGraph();
+
+	if (visitedCalc61_5[lab->getStamp().get()] != NodeStatus::unseen)
+		return true;
+	visitedCalc61_5[lab->getStamp().get()] = NodeStatus::entered;
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedCalc61_5[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCalc61_5(pLab, calcRes)){
+				return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto status = visitedCalc61_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCalc61_2(pLab, calcRes)){
+				return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease())if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc61_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto status = visitedCalc61_4[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCalc61_4(pLab, calcRes)){
+				return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+			if (!visitCalc61_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	visitedCalc61_5[lab->getStamp().get()] = NodeStatus::left;
+	return true;
+}
+
+bool IMMDriver::visitCalc61_6(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = getGraph();
+
+
+	if (true && lab->isAtLeastAcquire() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedCalc61_5[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCalc61_5(pLab, calcRes)){
+				return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedCalc61_5[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCalc61_5(pLab, calcRes)){
+				return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc61_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto status = visitedCalc61_3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCalc61_3(pLab, calcRes)){
+				return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCalc61_7(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCalc61_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	return true;
+}
+
+bool IMMDriver::visitCalc61_7(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = getGraph();
+
+
+	if (auto pLab = tc_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc61_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = tj_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc61_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
 	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto status = visitedCalc0_2[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_2(pLab, calcRes);
+			if (!visitCalc61_1(pLab, calcRes)){
+				return false;
+		}
+		
 	}
 	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto status = visitedCalc0_2[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_2(pLab, calcRes);
+			if (!visitCalc61_1(pLab, calcRes)){
+				return false;
+		}
+		
 	}
-	visitedCalc0_0[lab->getStamp().get()] = NodeStatus::left;
+
+	return true;
 }
 
-void IMMDriver::visitCalc0_1(const EventLabel *lab, View &calcRes)
-{
-	auto &g = getGraph();
-
-	visitedCalc0_1[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(pLab, calcRes);
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto status = visitedCalc0_4[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitCalc0_4(pLab, calcRes);
-		}
-	if (true && lab->isAtLeastAcquire() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto status = visitedCalc0_6[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitCalc0_6(pLab, calcRes);
-		}
-	if (true && lab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto status = visitedCalc0_6[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitCalc0_6(pLab, calcRes);
-		}
-	if (true && lab->isAtLeastAcquire() && llvm::isa<ThreadStartLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto status = visitedCalc0_6[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitCalc0_6(pLab, calcRes);
-		}
-	visitedCalc0_1[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void IMMDriver::visitCalc0_2(const EventLabel *lab, View &calcRes)
-{
-	auto &g = getGraph();
-
-	visitedCalc0_2[lab->getStamp().get()] = NodeStatus::entered;
-	calcRes.update(lab->view(0));
-	calcRes.updateIdx(lab->getPos());
-	visitedCalc0_2[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void IMMDriver::visitCalc0_3(const EventLabel *lab, View &calcRes)
-{
-	auto &g = getGraph();
-
-	visitedCalc0_3[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
-			auto status = visitedCalc0_2[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitCalc0_2(pLab, calcRes);
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
-			auto status = visitedCalc0_2[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitCalc0_2(pLab, calcRes);
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadFinishLabel>(pLab)) {
-			auto status = visitedCalc0_2[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitCalc0_2(pLab, calcRes);
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_3[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_3(pLab, calcRes);
-	}
-	visitedCalc0_3[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void IMMDriver::visitCalc0_4(const EventLabel *lab, View &calcRes)
-{
-	auto &g = getGraph();
-
-	visitedCalc0_4[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && llvm::isa<WriteLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto status = visitedCalc0_5[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitCalc0_5(pLab, calcRes);
-		}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease()) {
-			auto status = visitedCalc0_2[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitCalc0_2(pLab, calcRes);
-		}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto status = visitedCalc0_3[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_3(pLab, calcRes);
-	}
-	visitedCalc0_4[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void IMMDriver::visitCalc0_5(const EventLabel *lab, View &calcRes)
-{
-	auto &g = getGraph();
-
-	visitedCalc0_5[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<ReadLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto status = visitedCalc0_4[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitCalc0_4(pLab, calcRes);
-		}
-	visitedCalc0_5[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void IMMDriver::visitCalc0_6(const EventLabel *lab, View &calcRes)
-{
-	auto &g = getGraph();
-
-	visitedCalc0_6[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && llvm::isa<WriteLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto status = visitedCalc0_5[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitCalc0_5(pLab, calcRes);
-		}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease()) {
-			auto status = visitedCalc0_2[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitCalc0_2(pLab, calcRes);
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_6[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_6(pLab, calcRes);
-	}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto status = visitedCalc0_3[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_3(pLab, calcRes);
-	}
-	visitedCalc0_6[lab->getStamp().get()] = NodeStatus::left;
-}
-
-View IMMDriver::calculate0(const EventLabel *lab)
+View IMMDriver::visitCalc61(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 	View calcRes;
 
-	calcRes.updateIdx(lab->getPos().prev());
-	visitedCalc0_0.clear();
-	visitedCalc0_0.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedCalc0_1.clear();
-	visitedCalc0_1.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedCalc0_2.clear();
-	visitedCalc0_2.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedCalc0_3.clear();
-	visitedCalc0_3.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedCalc0_4.clear();
-	visitedCalc0_4.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedCalc0_5.clear();
-	visitedCalc0_5.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedCalc0_6.clear();
-	visitedCalc0_6.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+	visitedCalc61_2.clear();
+	visitedCalc61_2.resize(g.getMaxStamp().get() + 1);
+	visitedCalc61_3.clear();
+	visitedCalc61_3.resize(g.getMaxStamp().get() + 1);
+	visitedCalc61_4.clear();
+	visitedCalc61_4.resize(g.getMaxStamp().get() + 1);
+	visitedCalc61_5.clear();
+	visitedCalc61_5.resize(g.getMaxStamp().get() + 1);
 
-	visitCalc0_1(lab, calcRes);
+	visitCalc61_6(lab, calcRes);
 	return calcRes;
 }
-void IMMDriver::visitCalc1_0(const EventLabel *lab, View &calcRes)
+auto IMMDriver::checkCalc61(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
-	visitedCalc1_0[lab->getStamp().get()] = NodeStatus::entered;
-	calcRes.update(lab->view(1));
-	calcRes.updateIdx(lab->getPos());
+	return visitCalc61(lab);
+}
+bool IMMDriver::visitCalc73_0(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = getGraph();
+
+
+
+
+	return true;
+}
+
+bool IMMDriver::visitCalc73_1(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = getGraph();
+
+
+	if (auto pLab = lab; true)if (calcRes.update(pLab->view(1)); true) {
+			if (!visitCalc73_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	return true;
+}
+
+bool IMMDriver::visitCalc73_2(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = getGraph();
+
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc73_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCalc73_3(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCalc73_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	return true;
+}
+
+bool IMMDriver::visitCalc73_3(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = getGraph();
+
+
+	if (auto pLab = tc_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc73_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = tj_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc73_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc73_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
 	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto status = visitedCalc1_2[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_2(pLab, calcRes);
+			if (!visitCalc73_1(pLab, calcRes)){
+				return false;
+		}
+		
 	}
 	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto status = visitedCalc1_2[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_2(pLab, calcRes);
+			if (!visitCalc73_1(pLab, calcRes)){
+				return false;
+		}
+		
 	}
 	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto status = visitedCalc1_2[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_2(pLab, calcRes);
+			if (!visitCalc73_1(pLab, calcRes)){
+				return false;
+		}
+		
 	}
-	visitedCalc1_0[lab->getStamp().get()] = NodeStatus::left;
+
+	return true;
 }
 
-void IMMDriver::visitCalc1_1(const EventLabel *lab, View &calcRes)
-{
-	auto &g = getGraph();
-
-	visitedCalc1_1[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc1_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_0(pLab, calcRes);
-	}
-	visitedCalc1_1[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void IMMDriver::visitCalc1_2(const EventLabel *lab, View &calcRes)
-{
-	auto &g = getGraph();
-
-	visitedCalc1_2[lab->getStamp().get()] = NodeStatus::entered;
-	calcRes.update(lab->view(1));
-	calcRes.updateIdx(lab->getPos());
-	visitedCalc1_2[lab->getStamp().get()] = NodeStatus::left;
-}
-
-View IMMDriver::calculate1(const EventLabel *lab)
+View IMMDriver::visitCalc73(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 	View calcRes;
 
-	calcRes.updateIdx(lab->getPos().prev());
-	visitedCalc1_0.clear();
-	visitedCalc1_0.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedCalc1_1.clear();
-	visitedCalc1_1.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedCalc1_2.clear();
-	visitedCalc1_2.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
 
-	visitCalc1_1(lab, calcRes);
+	visitCalc73_2(lab, calcRes);
 	return calcRes;
 }
-std::vector<VSet<Event>> IMMDriver::calculateSaved(const EventLabel *lab)
+auto IMMDriver::checkCalc73(const EventLabel *lab) const
 {
-	return std::move(saved);
+	auto &g = getGraph();
+
+	return visitCalc73(lab);
+}
+void IMMDriver::calculateSaved(EventLabel *lab)
+{
 }
 
-std::vector<View> IMMDriver::calculateViews(const EventLabel *lab)
+void IMMDriver::calculateViews(EventLabel *lab)
 {
-	views.push_back(calculate0(lab));
-	views.push_back(calculate1(lab));
-	return std::move(views);
+	lab->addView(checkCalc61(lab));
+	lab->addView(checkCalc73(lab));
 }
 
 void IMMDriver::updateMMViews(EventLabel *lab)
 {
-	lab->setCalculated(calculateSaved(lab));
-	lab->setViews(calculateViews(lab));
+	calculateViews(lab);
+	calculateSaved(lab);
 }
 
-bool IMMDriver::isDepTracking() const { return 1; }
-
-bool IMMDriver::visitRaceLHS0_0(const EventLabel *lab, const View &v) const
+const View &IMMDriver::getHbView(const EventLabel *lab) const
 {
-	auto &g = getGraph();
-
-	visitedRaceLHS0_0[lab->getStamp().get()] = NodeStatus::entered;
-	if (!v.contains(lab->getPos())) {
-		racyLab0 = lab;
-		return false;
-	}
-	visitedRaceLHS0_0[lab->getStamp().get()] = NodeStatus::left;
-	return true;
+	return lab->view(0);
 }
 
-bool IMMDriver::visitRaceLHS0_1(const EventLabel *lab, const View &v) const
-{
-	auto &g = getGraph();
-
-	visitedRaceLHS0_1[lab->getStamp().get()] = NodeStatus::entered;
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &tmp : samelocs(g, lab))
-			if (auto *pLab = &tmp; true)
-				if (true && llvm::isa<WriteLabel>(pLab)) {
-					auto status = visitedRaceLHS0_0[pLab->getStamp().get()];
-					if (status == NodeStatus::unseen &&
-					    !visitRaceLHS0_0(pLab, v))
-						return false;
-				}
-	visitedRaceLHS0_1[lab->getStamp().get()] = NodeStatus::left;
-	return true;
-}
-
-bool IMMDriver::checkRace0(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-	auto &v = lab->view(1);
-
-	visitedRaceLHS0_0.clear();
-	visitedRaceLHS0_0.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedRaceLHS0_1.clear();
-	visitedRaceLHS0_1.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	return true && visitRaceLHS0_1(lab, v);
-}
-
-VerificationError IMMDriver::checkErrors(const EventLabel *lab, const EventLabel *&race) const
-{
-	return VerificationError::VE_OK;
-}
-
-std::vector<VerificationError>
-IMMDriver::checkWarnings(const EventLabel *lab, const VSet<VerificationError> &seenWarnings,
-			 std::vector<const EventLabel *> &racyLabs) const
-{
-	std::vector<VerificationError> result;
-
-	if (seenWarnings.count(VerificationError::VE_WWRace) == 0 && !checkRace0(lab)) {
-		racyLabs.push_back(racyLab0);
-		result.push_back(VerificationError::VE_WWRace);
-	}
-
-	return result;
-}
-
-bool IMMDriver::visitAcyclic0_0(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_0[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_0[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_0(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_4[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_4(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
-			auto &node = visitedAcyclic0_4[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_4(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadStartLabel>(pLab)) {
-			auto &node = visitedAcyclic0_4[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_4(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_5[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_5(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto &node = visitedAcyclic0_2[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_2(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isSC()) {
-			auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	visitedAcyclic0_0[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_1(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_1[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_0[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_0(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
-			auto &node = visitedAcyclic0_0[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_0(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadFinishLabel>(pLab)) {
-			auto &node = visitedAcyclic0_0[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_0(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && pLab->isAtLeastRelease() &&
-		    llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_4[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_4(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_1(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	visitedAcyclic0_1[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_2(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_2[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease()) {
-			auto &node = visitedAcyclic0_0[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_0(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && llvm::isa<WriteLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_1(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	visitedAcyclic0_2[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_3(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_3[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<ReadLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto &node = visitedAcyclic0_2[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_2(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	visitedAcyclic0_3[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_4(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_4[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_4[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_4(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_2[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_2(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	visitedAcyclic0_4[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_5(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_5[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_0[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_0(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_0[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_0(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isSC()) {
-			auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	visitedAcyclic0_5[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_6(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_6[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_0[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_0(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_0[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_0(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_4[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_4(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
-			auto &node = visitedAcyclic0_4[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_4(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadStartLabel>(pLab)) {
-			auto &node = visitedAcyclic0_4[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_4(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto &node = visitedAcyclic0_2[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_2(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isSC()) {
-			auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_6[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_6(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	visitedAcyclic0_6[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_7(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_7[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto &node = visitedAcyclic0_9[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_9(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_11[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_11(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
-			auto &node = visitedAcyclic0_11[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_11(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadStartLabel>(pLab)) {
-			auto &node = visitedAcyclic0_11[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_11(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_12[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_12(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isSC() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	visitedAcyclic0_7[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_8(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_8[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
-			auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadFinishLabel>(pLab)) {
-			auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_8[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_8(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && pLab->isAtLeastRelease() &&
-		    llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_11[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_11(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && pLab->isSC() &&
-		    llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	visitedAcyclic0_8[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_9(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_9[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && llvm::isa<WriteLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto &node = visitedAcyclic0_10[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_10(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease()) {
-			auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_8[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_8(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	visitedAcyclic0_9[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_10(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_10[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<ReadLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto &node = visitedAcyclic0_9[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_9(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	visitedAcyclic0_10[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_11(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_11[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_9[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_9(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_11[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_11(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	visitedAcyclic0_11[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_12(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_12[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	visitedAcyclic0_12[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_13(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_13[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto &node = visitedAcyclic0_16[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_16(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_18[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_18(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
-			auto &node = visitedAcyclic0_18[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_18(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadStartLabel>(pLab)) {
-			auto &node = visitedAcyclic0_18[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_18(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_19[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_19(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_20[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_20(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && pLab->isSC()) {
-			auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isSC()) {
-			auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isSC() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_13[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_13(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_14[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_14(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	visitedAcyclic0_13[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_14(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_14[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = co_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto &node = visitedAcyclic0_9[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_9(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	for (auto &tmp : fr_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true)
-			if (true && pLab->isAtLeastAcquire()) {
-				auto &node = visitedAcyclic0_9[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_9(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (auto pLab = co_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	for (auto &tmp : fr_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true) {
-			auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = co_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_12[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_12(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	for (auto &tmp : fr_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true) {
-			auto &node = visitedAcyclic0_12[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_12(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = co_imm_pred(g, lab); pLab)
-		if (true && pLab->isSC()) {
-			auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	for (auto &tmp : fr_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true)
-			if (true && pLab->isSC()) {
-				auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (auto pLab = co_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_14[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_14(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	visitedAcyclic0_14[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_15(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_15[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_15[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_15(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && pLab->isAtLeastRelease() &&
-		    llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_18[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_18(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_20[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_20(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
-			auto &node = visitedAcyclic0_20[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_20(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadFinishLabel>(pLab)) {
-			auto &node = visitedAcyclic0_20[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_20(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && pLab->isSC() &&
-		    llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_13[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_13(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
-			auto &node = visitedAcyclic0_13[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_13(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadFinishLabel>(pLab)) {
-			auto &node = visitedAcyclic0_13[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_13(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic0_14[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_14(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
-			auto &node = visitedAcyclic0_14[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_14(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadFinishLabel>(pLab)) {
-			auto &node = visitedAcyclic0_14[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_14(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	visitedAcyclic0_15[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_16(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_16[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_15[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_15(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && llvm::isa<WriteLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto &node = visitedAcyclic0_17[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_17(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease()) {
-			auto &node = visitedAcyclic0_20[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_20(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease()) {
-			auto &node = visitedAcyclic0_13[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_13(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease()) {
-			auto &node = visitedAcyclic0_14[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_14(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	visitedAcyclic0_16[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_17(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_17[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<ReadLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto &node = visitedAcyclic0_16[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_16(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	visitedAcyclic0_17[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_18(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_18[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_16[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_16(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_18[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_18(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	visitedAcyclic0_18[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_19(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_19[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_20[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_20(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_20[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_20(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_13[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_13(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_13[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_13(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_14[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_14(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_14[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_14(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	visitedAcyclic0_19[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_20(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic0_20[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_20[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_20(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = co_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_20[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_20(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	for (auto &tmp : fr_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true) {
-			auto &node = visitedAcyclic0_20[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_20(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto &node = visitedAcyclic0_9[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_9(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = co_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto &node = visitedAcyclic0_9[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_9(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	for (auto &tmp : fr_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true)
-			if (true && pLab->isAtLeastAcquire()) {
-				auto &node = visitedAcyclic0_9[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_9(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = co_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	for (auto &tmp : fr_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true) {
-			auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_12[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_12(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	if (auto pLab = co_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0_12[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0_12(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
-			return false;
-	}
-	for (auto &tmp : fr_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true) {
-			auto &node = visitedAcyclic0_12[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_12(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	visitedAcyclic0_20[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic0_21(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	++visitedAccepting0;
-	visitedAcyclic0_21[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::entered};
-	if (true && lab->isAtLeastAcquire() && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_16[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_16(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire()) {
-				auto &node = visitedAcyclic0_16[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_16(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isAtLeastAcquire() && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_18[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_18(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
-				auto &node = visitedAcyclic0_18[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_18(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
-				auto &node = visitedAcyclic0_18[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_18(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadStartLabel>(pLab)) {
-				auto &node = visitedAcyclic0_18[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_18(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_19[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_19(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_20[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_20(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (true && lab->isSC())
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
-				auto &node = visitedAcyclic0_4[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_4(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
-				auto &node = visitedAcyclic0_4[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_4(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadStartLabel>(pLab)) {
-				auto &node = visitedAcyclic0_4[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_4(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		if (auto pLab = rf_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire()) {
-				auto &node = visitedAcyclic0_9[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_9(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		if (auto pLab = co_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire()) {
-				auto &node = visitedAcyclic0_9[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_9(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		for (auto &tmp : fr_imm_preds(g, lab))
-			if (auto *pLab = &tmp; true)
-				if (true && pLab->isAtLeastAcquire()) {
-					auto &node = visitedAcyclic0_9[pLab->getStamp().get()];
-					if (node.status == NodeStatus::unseen &&
-					    !visitAcyclic0_9(pLab))
-						return false;
-					else if (node.status == NodeStatus::entered &&
-						 visitedAccepting0 > node.count)
-						return false;
-				}
-	if (true && lab->isSC())
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire()) {
-				auto &node = visitedAcyclic0_9[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_9(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire()) {
-				auto &node = visitedAcyclic0_2[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_2(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		if (auto pLab = rf_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (true && lab->isSC())
-		if (auto pLab = co_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (true && lab->isSC())
-		for (auto &tmp : fr_imm_preds(g, lab))
-			if (auto *pLab = &tmp; true) {
-				auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (true && lab->isSC())
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
-				auto &node = visitedAcyclic0_11[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_11(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
-				auto &node = visitedAcyclic0_11[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_11(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadStartLabel>(pLab)) {
-				auto &node = visitedAcyclic0_11[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_11(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		if (auto pLab = rf_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_12[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_12(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (true && lab->isSC())
-		if (auto pLab = co_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_12[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_12(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (true && lab->isSC())
-		for (auto &tmp : fr_imm_preds(g, lab))
-			if (auto *pLab = &tmp; true) {
-				auto &node = visitedAcyclic0_12[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_12(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_12[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_12(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (true && lab->isSC())
-		if (auto pLab = rf_pred(g, lab); pLab)
-			if (true && pLab->isSC()) {
-				auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		if (auto pLab = co_imm_pred(g, lab); pLab)
-			if (true && pLab->isSC()) {
-				auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC())
-		for (auto &tmp : fr_imm_preds(g, lab))
-			if (auto *pLab = &tmp; true)
-				if (true && pLab->isSC()) {
-					auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-					if (node.status == NodeStatus::unseen &&
-					    !visitAcyclic0_21(pLab))
-						return false;
-					else if (node.status == NodeStatus::entered &&
-						 visitedAccepting0 > node.count)
-						return false;
-				}
-	if (true && lab->isSC())
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isSC()) {
-				auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isSC() && llvm::isa<FenceLabel>(pLab)) {
-				auto &node = visitedAcyclic0_21[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic0_21(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting0 > node.count)
-					return false;
-			}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_13[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_13(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (true && lab->isSC())
-		if (auto pLab = co_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_14[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_14(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_14[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_14(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	if (true && lab->isSC())
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic0_6[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic0_6(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting0 > node.count)
-				return false;
-		}
-	--visitedAccepting0;
-	visitedAcyclic0_21[lab->getStamp().get()] = {visitedAccepting0, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::isAcyclic0(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	if (!shouldVisitAcyclic0())
-		return true;
-
-	visitedAccepting0 = 0;
-	visitedAcyclic0_0.clear();
-	visitedAcyclic0_0.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_1.clear();
-	visitedAcyclic0_1.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_2.clear();
-	visitedAcyclic0_2.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_3.clear();
-	visitedAcyclic0_3.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_4.clear();
-	visitedAcyclic0_4.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_5.clear();
-	visitedAcyclic0_5.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_6.clear();
-	visitedAcyclic0_6.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_7.clear();
-	visitedAcyclic0_7.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_8.clear();
-	visitedAcyclic0_8.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_9.clear();
-	visitedAcyclic0_9.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_10.clear();
-	visitedAcyclic0_10.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_11.clear();
-	visitedAcyclic0_11.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_12.clear();
-	visitedAcyclic0_12.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_13.clear();
-	visitedAcyclic0_13.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_14.clear();
-	visitedAcyclic0_14.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_15.clear();
-	visitedAcyclic0_15.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_16.clear();
-	visitedAcyclic0_16.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_17.clear();
-	visitedAcyclic0_17.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_18.clear();
-	visitedAcyclic0_18.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_19.clear();
-	visitedAcyclic0_19.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_20.clear();
-	visitedAcyclic0_20.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic0_21.clear();
-	visitedAcyclic0_21.resize(g.getMaxStamp().get() + 1);
-	return true && visitAcyclic0_0(lab) && visitAcyclic0_7(lab) && visitAcyclic0_9(lab) &&
-	       visitAcyclic0_12(lab) && visitAcyclic0_13(lab) && visitAcyclic0_14(lab) &&
-	       visitAcyclic0_20(lab) && visitAcyclic0_21(lab);
-}
-
-bool IMMDriver::shouldVisitAcyclic0_0(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	shouldVisitedAcyclic0_0[lab->getStamp().get()] = NodeStatus::entered;
-	return false;
-	shouldVisitedAcyclic0_0[lab->getStamp().get()] = NodeStatus::left;
-	return true;
-}
-
-bool IMMDriver::shouldVisitAcyclic0_1(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	shouldVisitedAcyclic0_1[lab->getStamp().get()] = NodeStatus::entered;
-	if (true && lab->isSC())
-		if (auto pLab = lab; true) {
-			auto &status = shouldVisitedAcyclic0_0[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen && !shouldVisitAcyclic0_0(pLab))
-				return false;
-		}
-	shouldVisitedAcyclic0_1[lab->getStamp().get()] = NodeStatus::left;
-	return true;
-}
-
-bool IMMDriver::shouldVisitAcyclic0(void) const
-{
-	auto &g = getGraph();
-
-	shouldVisitedAcyclic0_0.clear();
-	shouldVisitedAcyclic0_0.resize(g.getMaxStamp().get() + 1);
-	shouldVisitedAcyclic0_1.clear();
-	shouldVisitedAcyclic0_1.resize(g.getMaxStamp().get() + 1);
-	return false || std::any_of(label_begin(g), label_end(g),
-				    [&](auto &lab) { return !shouldVisitAcyclic0_1(&lab); });
-}
-
-bool IMMDriver::visitAcyclic1_0(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_0[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_0[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_0(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	visitedAcyclic1_0[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_1(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_1[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic1_5[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_5(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
-			auto &node = visitedAcyclic1_5[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_5(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadStartLabel>(pLab)) {
-			auto &node = visitedAcyclic1_5[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_5(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_1(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto &node = visitedAcyclic1_3[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_3(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isSC() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_6[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_6(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	visitedAcyclic1_1[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_2(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_2[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && pLab->isAtLeastRelease() &&
-		    llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic1_5[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_5(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic1_1[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_1(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
-			auto &node = visitedAcyclic1_1[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_1(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadFinishLabel>(pLab)) {
-			auto &node = visitedAcyclic1_1[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_1(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_2[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_2(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && pLab->isSC() &&
-		    llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	visitedAcyclic1_2[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_3(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_3[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && llvm::isa<WriteLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto &node = visitedAcyclic1_4[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_4(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease()) {
-			auto &node = visitedAcyclic1_1[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_1(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_2[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_2(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	visitedAcyclic1_3[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_4(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_4[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<ReadLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto &node = visitedAcyclic1_3[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_3(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	visitedAcyclic1_4[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_5(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_5[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_5[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_5(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_3(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	visitedAcyclic1_5[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_6(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_6[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_1(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_1(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	visitedAcyclic1_6[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_7(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_7[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_1(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = co_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_1(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	for (auto &tmp : fr_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true) {
-			auto &node = visitedAcyclic1_1[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_1(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto &node = visitedAcyclic1_3[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_3(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = co_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto &node = visitedAcyclic1_3[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_3(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	for (auto &tmp : fr_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true)
-			if (true && pLab->isAtLeastAcquire()) {
-				auto &node = visitedAcyclic1_3[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_3(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_6[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_6(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = co_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_6[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_6(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	for (auto &tmp : fr_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true) {
-			auto &node = visitedAcyclic1_6[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_6(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_7[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_7(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = co_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_7[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_7(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	for (auto &tmp : fr_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true) {
-			auto &node = visitedAcyclic1_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	visitedAcyclic1_7[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_8(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_8[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_8[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_8(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic1_12[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_12(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
-			auto &node = visitedAcyclic1_12[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_12(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadStartLabel>(pLab)) {
-			auto &node = visitedAcyclic1_12[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_12(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_13[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_13(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto &node = visitedAcyclic1_10[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_10(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_7[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_7(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	visitedAcyclic1_8[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_9(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_9[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_9[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_9(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic1_8[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_8(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
-			auto &node = visitedAcyclic1_8[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_8(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadFinishLabel>(pLab)) {
-			auto &node = visitedAcyclic1_8[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_8(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire() && pLab->isAtLeastRelease() &&
-		    llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic1_12[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_12(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic1_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
-			auto &node = visitedAcyclic1_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadFinishLabel>(pLab)) {
-			auto &node = visitedAcyclic1_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	visitedAcyclic1_9[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_10(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_10[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_9[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_9(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && llvm::isa<WriteLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto &node = visitedAcyclic1_11[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_11(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease()) {
-			auto &node = visitedAcyclic1_8[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_8(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = rf_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastRelease()) {
-			auto &node = visitedAcyclic1_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	visitedAcyclic1_10[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_11(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_11[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<ReadLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto &node = visitedAcyclic1_10[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_10(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	visitedAcyclic1_11[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_12(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_12[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_12[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_12(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_10[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_10(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	visitedAcyclic1_12[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_13(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_13[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_8[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_8(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_8[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_8(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_7[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_7(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_7[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_7(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	visitedAcyclic1_13[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_14(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_14[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_14[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_14(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	visitedAcyclic1_14[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_15(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_15[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	for (auto &tmp : poloc_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true) {
-			auto &node = visitedAcyclic1_15[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_15(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	for (auto &tmp : poloc_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true)
-			if (true && pLab->isAtLeastRelease() && llvm::isa<WriteLabel>(pLab)) {
-				auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	visitedAcyclic1_15[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_16(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_16[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	for (auto &p : data_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true)
-			if (true && pLab->isDependable()) {
-				auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (auto pLab = rfi_pred(g, lab); pLab)
-		if (true && llvm::isa<WriteLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto &node = visitedAcyclic1_18[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_18(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	for (auto &p : data_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true) {
-			auto &node = visitedAcyclic1_16[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_16(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = rfi_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_16[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_16(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	for (auto &p : data_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true) {
-			auto &node = visitedAcyclic1_17[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_17(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = rfi_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_17[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_17(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	visitedAcyclic1_16[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_17(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_17[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	for (auto &p : ctrl_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true)
-			if (true && pLab->isDependable()) {
-				auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	for (auto &p : addr_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true)
-			if (true && pLab->isDependable()) {
-				auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	for (auto &p : ctrl_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true) {
-			auto &node = visitedAcyclic1_16[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_16(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	for (auto &p : addr_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true) {
-			auto &node = visitedAcyclic1_16[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_16(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	for (auto &p : ctrl_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true) {
-			auto &node = visitedAcyclic1_17[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_17(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	for (auto &p : addr_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true) {
-			auto &node = visitedAcyclic1_17[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_17(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_17[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_17(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	visitedAcyclic1_17[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_18(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	visitedAcyclic1_18[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<ReadLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab))) &&
-		    pLab->isDependable()) {
-			auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<ReadLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto &node = visitedAcyclic1_16[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_16(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<ReadLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto &node = visitedAcyclic1_17[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_17(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	visitedAcyclic1_18[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::visitAcyclic1_19(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	++visitedAccepting1;
-	visitedAcyclic1_19[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::entered};
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_14[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_14(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &tmp : poloc_imm_preds(g, lab))
-			if (auto *pLab = &tmp; true) {
-				auto &node = visitedAcyclic1_15[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_15(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (auto pLab = rfe_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting1 > node.count)
-			return false;
-	}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : ctrl_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true)
-				if (true && pLab->isDependable()) {
-					auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-					if (node.status == NodeStatus::unseen &&
-					    !visitAcyclic1_19(pLab))
-						return false;
-					else if (node.status == NodeStatus::entered &&
-						 visitedAccepting1 > node.count)
-						return false;
-				}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : addr_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true)
-				if (true && pLab->isDependable()) {
-					auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-					if (node.status == NodeStatus::unseen &&
-					    !visitAcyclic1_19(pLab))
-						return false;
-					else if (node.status == NodeStatus::entered &&
-						 visitedAccepting1 > node.count)
-						return false;
-				}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : data_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true)
-				if (true && pLab->isDependable()) {
-					auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-					if (node.status == NodeStatus::unseen &&
-					    !visitAcyclic1_19(pLab))
-						return false;
-					else if (node.status == NodeStatus::entered &&
-						 visitedAccepting1 > node.count)
-						return false;
-				}
-	for (auto &tmp : detour_preds(g, lab))
-		if (auto *pLab = &tmp; true) {
-			auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &tmp : poloc_imm_preds(g, lab))
-			if (auto *pLab = &tmp; true)
-				if (true && pLab->isAtLeastRelease() &&
-				    llvm::isa<WriteLabel>(pLab)) {
-					auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-					if (node.status == NodeStatus::unseen &&
-					    !visitAcyclic1_19(pLab))
-						return false;
-					else if (node.status == NodeStatus::entered &&
-						 visitedAccepting1 > node.count)
-						return false;
-				}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<FenceLabel>(pLab)) {
-			auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (true && lab->isAtLeastRelease())
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (true && llvm::isa<WriteLabel>(lab) &&
-	    ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) ||
-	     (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && llvm::isa<ReadLabel>(pLab) &&
-			    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-			     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab))) &&
-			    pLab->isDependable()) {
-				auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (true && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic1_19[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_19(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic1_8[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_8(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (true && lab->isAtLeastRelease())
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic1_0[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_0(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (true && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic1_0[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_0(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (true && lab->isAtLeastAcquire() && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic1_12[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_12(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
-				auto &node = visitedAcyclic1_12[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_12(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
-				auto &node = visitedAcyclic1_12[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_12(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadStartLabel>(pLab)) {
-				auto &node = visitedAcyclic1_12[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_12(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic1_13[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_13(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : ctrl_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true) {
-				auto &node = visitedAcyclic1_16[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_16(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : addr_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true) {
-				auto &node = visitedAcyclic1_16[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_16(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : data_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true) {
-				auto &node = visitedAcyclic1_16[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_16(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (true && llvm::isa<WriteLabel>(lab) &&
-	    ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) ||
-	     (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && llvm::isa<ReadLabel>(pLab) &&
-			    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-			     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-				auto &node = visitedAcyclic1_16[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_16(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : ctrl_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true) {
-				auto &node = visitedAcyclic1_17[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_17(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : addr_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true) {
-				auto &node = visitedAcyclic1_17[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_17(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : data_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true) {
-				auto &node = visitedAcyclic1_17[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_17(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (true && llvm::isa<WriteLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic1_17[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_17(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (true && llvm::isa<WriteLabel>(lab) &&
-	    ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) ||
-	     (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && llvm::isa<ReadLabel>(pLab) &&
-			    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-			     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-				auto &node = visitedAcyclic1_17[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_17(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (true && lab->isAtLeastAcquire() && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic1_10[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_10(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && pLab->isAtLeastAcquire()) {
-				auto &node = visitedAcyclic1_10[pLab->getStamp().get()];
-				if (node.status == NodeStatus::unseen && !visitAcyclic1_10(pLab))
-					return false;
-				else if (node.status == NodeStatus::entered &&
-					 visitedAccepting1 > node.count)
-					return false;
-			}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto &node = visitedAcyclic1_7[pLab->getStamp().get()];
-			if (node.status == NodeStatus::unseen && !visitAcyclic1_7(pLab))
-				return false;
-			else if (node.status == NodeStatus::entered &&
-				 visitedAccepting1 > node.count)
-				return false;
-		}
-	--visitedAccepting1;
-	visitedAcyclic1_19[lab->getStamp().get()] = {visitedAccepting1, NodeStatus::left};
-	return true;
-}
-
-bool IMMDriver::isAcyclic1(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-
-	if (!shouldVisitAcyclic1())
-		return true;
-
-	visitedAccepting1 = 0;
-	visitedAcyclic1_0.clear();
-	visitedAcyclic1_0.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_1.clear();
-	visitedAcyclic1_1.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_2.clear();
-	visitedAcyclic1_2.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_3.clear();
-	visitedAcyclic1_3.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_4.clear();
-	visitedAcyclic1_4.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_5.clear();
-	visitedAcyclic1_5.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_6.clear();
-	visitedAcyclic1_6.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_7.clear();
-	visitedAcyclic1_7.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_8.clear();
-	visitedAcyclic1_8.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_9.clear();
-	visitedAcyclic1_9.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_10.clear();
-	visitedAcyclic1_10.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_11.clear();
-	visitedAcyclic1_11.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_12.clear();
-	visitedAcyclic1_12.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_13.clear();
-	visitedAcyclic1_13.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_14.clear();
-	visitedAcyclic1_14.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_15.clear();
-	visitedAcyclic1_15.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_16.clear();
-	visitedAcyclic1_16.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_17.clear();
-	visitedAcyclic1_17.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_18.clear();
-	visitedAcyclic1_18.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1_19.clear();
-	visitedAcyclic1_19.resize(g.getMaxStamp().get() + 1);
-	return true && visitAcyclic1_1(lab) && visitAcyclic1_3(lab) && visitAcyclic1_6(lab) &&
-	       visitAcyclic1_7(lab) && visitAcyclic1_8(lab);
-}
-
-bool IMMDriver::isConsistent(const EventLabel *lab) const
-{
-
-	return true && isAcyclic0(lab) && isAcyclic1(lab);
-}
-
-bool IMMDriver::isRecAcyclic(const EventLabel *lab) const
-{
-	visitedRecAccepting = 0;
-	return true;
-}
-
-bool IMMDriver::isRecoveryValid(const EventLabel *lab) const { return isRecAcyclic(lab); }
-
-void IMMDriver::visitPPoRf0(const EventLabel *lab, DepView &pporf) const
-{
-	auto &g = getGraph();
-
-	visitedPPoRf0[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedPPoRf0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf0(pLab, pporf);
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedPPoRf6[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf6(pLab, pporf);
-	}
-	visitedPPoRf0[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void IMMDriver::visitPPoRf1(const EventLabel *lab, DepView &pporf) const
-{
-	auto &g = getGraph();
-
-	visitedPPoRf1[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedPPoRf1[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf1(pLab, pporf);
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto status = visitedPPoRf6[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf6(pLab, pporf);
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<FenceLabel>(pLab)) {
-			auto status = visitedPPoRf6[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf6(pLab, pporf);
-		}
-	visitedPPoRf1[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void IMMDriver::visitPPoRf2(const EventLabel *lab, DepView &pporf) const
-{
-	auto &g = getGraph();
-
-	visitedPPoRf2[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = rfi_pred(g, lab); pLab)
-		if (true && llvm::isa<WriteLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto status = visitedPPoRf4[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf4(pLab, pporf);
-		}
-	for (auto &p : data_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true)
-			if (true && pLab->isDependable()) {
-				auto status = visitedPPoRf6[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf6(pLab, pporf);
-			}
-	for (auto &p : data_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true) {
-			auto status = visitedPPoRf2[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf2(pLab, pporf);
-		}
-	if (auto pLab = rfi_pred(g, lab); pLab) {
-		auto status = visitedPPoRf2[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf2(pLab, pporf);
-	}
-	for (auto &p : data_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true) {
-			auto status = visitedPPoRf3[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf3(pLab, pporf);
-		}
-	if (auto pLab = rfi_pred(g, lab); pLab) {
-		auto status = visitedPPoRf3[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf3(pLab, pporf);
-	}
-	visitedPPoRf2[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void IMMDriver::visitPPoRf3(const EventLabel *lab, DepView &pporf) const
-{
-	auto &g = getGraph();
-
-	visitedPPoRf3[lab->getStamp().get()] = NodeStatus::entered;
-	for (auto &p : ctrl_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true)
-			if (true && pLab->isDependable()) {
-				auto status = visitedPPoRf6[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf6(pLab, pporf);
-			}
-	for (auto &p : addr_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true)
-			if (true && pLab->isDependable()) {
-				auto status = visitedPPoRf6[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf6(pLab, pporf);
-			}
-	for (auto &p : ctrl_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true) {
-			auto status = visitedPPoRf2[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf2(pLab, pporf);
-		}
-	for (auto &p : addr_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true) {
-			auto status = visitedPPoRf2[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf2(pLab, pporf);
-		}
-	for (auto &p : ctrl_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true) {
-			auto status = visitedPPoRf3[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf3(pLab, pporf);
-		}
-	for (auto &p : addr_preds(g, lab))
-		if (auto *pLab = g.getEventLabel(p); true) {
-			auto status = visitedPPoRf3[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf3(pLab, pporf);
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedPPoRf3[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf3(pLab, pporf);
-	}
-	visitedPPoRf3[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void IMMDriver::visitPPoRf4(const EventLabel *lab, DepView &pporf) const
-{
-	auto &g = getGraph();
-
-	visitedPPoRf4[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<ReadLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab))) &&
-		    pLab->isDependable()) {
-			auto status = visitedPPoRf6[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf6(pLab, pporf);
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<ReadLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto status = visitedPPoRf2[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf2(pLab, pporf);
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<ReadLabel>(pLab) &&
-		    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-		     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-			auto status = visitedPPoRf3[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf3(pLab, pporf);
-		}
-	visitedPPoRf4[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void IMMDriver::visitPPoRf5(const EventLabel *lab, DepView &pporf) const
-{
-	auto &g = getGraph();
-
-	visitedPPoRf5[lab->getStamp().get()] = NodeStatus::entered;
-	for (auto &tmp : poloc_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true) {
-			auto status = visitedPPoRf5[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf5(pLab, pporf);
-		}
-	for (auto &tmp : poloc_imm_preds(g, lab))
-		if (auto *pLab = &tmp; true)
-			if (true && pLab->isAtLeastRelease() && llvm::isa<WriteLabel>(pLab)) {
-				auto status = visitedPPoRf6[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf6(pLab, pporf);
-			}
-	visitedPPoRf5[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void IMMDriver::visitPPoRf6(const EventLabel *lab, DepView &pporf) const
-{
-	auto &g = getGraph();
-
-	visitedPPoRf6[lab->getStamp().get()] = NodeStatus::entered;
-	pporf.updateIdx(lab->getPos());
-	if (true && lab->isAtLeastRelease())
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto status = visitedPPoRf0[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf0(pLab, pporf);
-		}
-	if (true && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto status = visitedPPoRf0[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf0(pLab, pporf);
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedPPoRf1[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf1(pLab, pporf);
-	}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &tmp : poloc_imm_preds(g, lab))
-			if (auto *pLab = &tmp; true) {
-				auto status = visitedPPoRf5[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf5(pLab, pporf);
-			}
-	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto status = visitedPPoRf6[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf6(pLab, pporf);
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto status = visitedPPoRf6[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf6(pLab, pporf);
-	}
-	if (auto pLab = rfe_pred(g, lab); pLab) {
-		auto status = visitedPPoRf6[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf6(pLab, pporf);
-	}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : ctrl_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true)
-				if (true && pLab->isDependable()) {
-					auto status = visitedPPoRf6[pLab->getStamp().get()];
-					if (status == NodeStatus::unseen)
-						visitPPoRf6(pLab, pporf);
-				}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : addr_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true)
-				if (true && pLab->isDependable()) {
-					auto status = visitedPPoRf6[pLab->getStamp().get()];
-					if (status == NodeStatus::unseen)
-						visitPPoRf6(pLab, pporf);
-				}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : data_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true)
-				if (true && pLab->isDependable()) {
-					auto status = visitedPPoRf6[pLab->getStamp().get()];
-					if (status == NodeStatus::unseen)
-						visitPPoRf6(pLab, pporf);
-				}
-	for (auto &tmp : detour_preds(g, lab))
-		if (auto *pLab = &tmp; true) {
-			auto status = visitedPPoRf6[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf6(pLab, pporf);
-		}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &tmp : poloc_imm_preds(g, lab))
-			if (auto *pLab = &tmp; true)
-				if (true && pLab->isAtLeastRelease() &&
-				    llvm::isa<WriteLabel>(pLab)) {
-					auto status = visitedPPoRf6[pLab->getStamp().get()];
-					if (status == NodeStatus::unseen)
-						visitPPoRf6(pLab, pporf);
-				}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && pLab->isAtLeastAcquire()) {
-			auto status = visitedPPoRf6[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf6(pLab, pporf);
-		}
-	if (auto pLab = po_imm_pred(g, lab); pLab)
-		if (true && llvm::isa<FenceLabel>(pLab)) {
-			auto status = visitedPPoRf6[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf6(pLab, pporf);
-		}
-	if (true && lab->isAtLeastRelease())
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto status = visitedPPoRf6[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf6(pLab, pporf);
-		}
-	if (true && llvm::isa<WriteLabel>(lab) &&
-	    ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) ||
-	     (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && llvm::isa<ReadLabel>(pLab) &&
-			    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-			     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab))) &&
-			    pLab->isDependable()) {
-				auto status = visitedPPoRf6[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf6(pLab, pporf);
-			}
-	if (true && llvm::isa<FenceLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto status = visitedPPoRf6[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf6(pLab, pporf);
-		}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : ctrl_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true) {
-				auto status = visitedPPoRf2[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf2(pLab, pporf);
-			}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : addr_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true) {
-				auto status = visitedPPoRf2[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf2(pLab, pporf);
-			}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : data_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true) {
-				auto status = visitedPPoRf2[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf2(pLab, pporf);
-			}
-	if (true && llvm::isa<WriteLabel>(lab) &&
-	    ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) ||
-	     (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && llvm::isa<ReadLabel>(pLab) &&
-			    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-			     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-				auto status = visitedPPoRf2[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf2(pLab, pporf);
-			}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : ctrl_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true) {
-				auto status = visitedPPoRf3[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf3(pLab, pporf);
-			}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : addr_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true) {
-				auto status = visitedPPoRf3[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf3(pLab, pporf);
-			}
-	if (true && llvm::isa<WriteLabel>(lab))
-		for (auto &p : data_preds(g, lab))
-			if (auto *pLab = g.getEventLabel(p); true) {
-				auto status = visitedPPoRf3[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf3(pLab, pporf);
-			}
-	if (true && llvm::isa<WriteLabel>(lab))
-		if (auto pLab = po_imm_pred(g, lab); pLab) {
-			auto status = visitedPPoRf3[pLab->getStamp().get()];
-			if (status == NodeStatus::unseen)
-				visitPPoRf3(pLab, pporf);
-		}
-	if (true && llvm::isa<WriteLabel>(lab) &&
-	    ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) ||
-	     (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))
-		if (auto pLab = po_imm_pred(g, lab); pLab)
-			if (true && llvm::isa<ReadLabel>(pLab) &&
-			    ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) ||
-			     (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
-				auto status = visitedPPoRf3[pLab->getStamp().get()];
-				if (status == NodeStatus::unseen)
-					visitPPoRf3(pLab, pporf);
-			}
-	visitedPPoRf6[lab->getStamp().get()] = NodeStatus::left;
-}
-
-DepView IMMDriver::calcPPoRfBefore(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-	DepView pporf;
-	pporf.updateIdx(lab->getPos());
-	visitedPPoRf0.clear();
-	visitedPPoRf0.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedPPoRf1.clear();
-	visitedPPoRf1.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedPPoRf2.clear();
-	visitedPPoRf2.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedPPoRf3.clear();
-	visitedPPoRf3.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedPPoRf4.clear();
-	visitedPPoRf4.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedPPoRf5.clear();
-	visitedPPoRf5.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedPPoRf6.clear();
-	visitedPPoRf6.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-
-	visitPPoRf6(lab, pporf);
-	return pporf;
-}
-std::unique_ptr<VectorClock> IMMDriver::calculatePrefixView(const EventLabel *lab) const
-{
-	return std::make_unique<DepView>(calcPPoRfBefore(lab));
-}
-
-const View &IMMDriver::getHbView(const EventLabel *lab) const { return lab->view(0); }
 
 bool IMMDriver::isWriteRfBefore(Event a, Event b)
 {
@@ -3641,7 +523,8 @@ bool IMMDriver::isWriteRfBefore(Event a, Event b)
 	return false;
 }
 
-std::vector<Event> IMMDriver::getInitRfsAtLoc(SAddr addr)
+std::vector<Event>
+IMMDriver::getInitRfsAtLoc(SAddr addr)
 {
 	std::vector<Event> result;
 
@@ -3670,45 +553,58 @@ bool IMMDriver::isHbOptRfBefore(const Event e, const Event write)
 	return false;
 }
 
-ExecutionGraph::co_iterator IMMDriver::splitLocMOBefore(SAddr addr, Event e)
+ExecutionGraph::co_iterator
+IMMDriver::splitLocMOBefore(SAddr addr, Event e)
 {
 	auto &g = getGraph();
-	auto rit = std::find_if(g.co_rbegin(addr), g.co_rend(addr),
-				[&](auto &lab) { return isWriteRfBefore(lab.getPos(), e); });
+	auto rit = std::find_if(g.co_rbegin(addr), g.co_rend(addr), [&](auto &lab){
+		return isWriteRfBefore(lab.getPos(), e);
+	});
 	/* Convert to forward iterator, but be _really_ careful */
 	if (rit == g.co_rend(addr))
 		return g.co_begin(addr);
 	return ++ExecutionGraph::co_iterator(*rit);
 }
 
-ExecutionGraph::co_iterator IMMDriver::splitLocMOAfterHb(SAddr addr, const Event read)
+ExecutionGraph::co_iterator
+IMMDriver::splitLocMOAfterHb(SAddr addr, const Event read)
 {
 	auto &g = getGraph();
 
 	auto initRfs = g.getInitRfsAtLoc(addr);
-	if (std::any_of(initRfs.begin(), initRfs.end(), [&read, &g](const Event &rf) {
-		    return g.getEventLabel(rf)->view(0).contains(read);
-	    }))
+	if (std::any_of(initRfs.begin(), initRfs.end(), [&read,&g](const Event &rf){
+		return g.getEventLabel(rf)->view(0).contains(read);
+	}))
 		return g.co_begin(addr);
 
-	auto it = std::find_if(g.co_begin(addr), g.co_end(addr),
-			       [&](auto &lab) { return isHbOptRfBefore(read, lab.getPos()); });
+	auto it = std::find_if(g.co_begin(addr), g.co_end(addr), [&](auto &lab){
+		return isHbOptRfBefore(read, lab.getPos());
+	});
 	if (it == g.co_end(addr) || it->view(0).contains(read))
 		return it;
 	return ++it;
 }
 
-ExecutionGraph::co_iterator IMMDriver::splitLocMOAfter(SAddr addr, const Event e)
+ExecutionGraph::co_iterator
+IMMDriver::splitLocMOAfter(SAddr addr, const Event e)
 {
 	auto &g = getGraph();
-	return std::find_if(g.co_begin(addr), g.co_end(addr),
-			    [&](auto &lab) { return isHbOptRfBefore(e, lab.getPos()); });
+	return std::find_if(g.co_begin(addr), g.co_end(addr), [&](auto &lab){
+		return isHbOptRfBefore(e, lab.getPos());
+	});
 }
 
-std::vector<Event> IMMDriver::getCoherentStores(SAddr addr, Event read)
+std::vector<Event>
+IMMDriver::getCoherentStores(SAddr addr, Event read)
 {
 	auto &g = getGraph();
 	std::vector<Event> stores;
+
+	/* Fastpath: co_max(G) is po-before R */
+	auto comax = g.co_rbegin(addr) == g.co_rend(addr) ? Event::getInit() :
+		     g.co_rbegin(addr)->getPos();
+	if (comax.thread == read.thread && comax.index < read.index)
+		return {comax};
 
 	/*
 	 * If there are no stores (rf?;hb)-before the current event
@@ -3730,41 +626,48 @@ std::vector<Event> IMMDriver::getCoherentStores(SAddr addr, Event read)
 	 * store, or some read that reads from a store.
 	 */
 	auto endIt = (isDepTracking()) ? splitLocMOAfterHb(addr, read) : g.co_end(addr);
-	std::transform(begIt, endIt, std::back_inserter(stores),
-		       [&](auto &lab) { return lab.getPos(); });
+	std::transform(begIt, endIt, std::back_inserter(stores), [&](auto &lab){
+		return lab.getPos();
+	});
 	return stores;
 }
 
-std::vector<Event> IMMDriver::getMOOptRfAfter(const WriteLabel *sLab)
+std::vector<Event>
+IMMDriver::getMOOptRfAfter(const WriteLabel *sLab)
 {
 	std::vector<Event> after;
 	std::vector<const ReadLabel *> rfAfter;
 
 	const auto &g = getGraph();
-	std::for_each(g.co_succ_begin(sLab), g.co_succ_end(sLab), [&](auto &wLab) {
-		after.push_back(wLab.getPos());
-		std::transform(wLab.readers_begin(), wLab.readers_end(),
-			       std::back_inserter(rfAfter), [&](auto &rLab) { return &rLab; });
+	std::for_each(g.co_succ_begin(sLab), g.co_succ_end(sLab),
+		      [&](auto &wLab){
+			      after.push_back(wLab.getPos());
+			      std::transform(wLab.readers_begin(), wLab.readers_end(), std::back_inserter(rfAfter),
+			      [&](auto &rLab){ return &rLab; });
 	});
-	std::transform(rfAfter.begin(), rfAfter.end(), std::back_inserter(after),
-		       [](auto *rLab) { return rLab->getPos(); });
+	std::transform(rfAfter.begin(), rfAfter.end(), std::back_inserter(after), [](auto *rLab){
+		return rLab->getPos();
+	});
 	return after;
 }
 
-std::vector<Event> IMMDriver::getMOInvOptRfAfter(const WriteLabel *sLab)
+std::vector<Event>
+IMMDriver::getMOInvOptRfAfter(const WriteLabel *sLab)
 {
 	auto &g = getGraph();
 	std::vector<Event> after;
 	std::vector<const ReadLabel *> rfAfter;
 
 	/* First, add (mo;rf?)-before */
-	std::for_each(g.co_pred_begin(sLab), g.co_pred_end(sLab), [&](auto &wLab) {
-		after.push_back(wLab.getPos());
-		std::transform(wLab.readers_begin(), wLab.readers_end(),
-			       std::back_inserter(rfAfter), [&](auto &rLab) { return &rLab; });
+	std::for_each(g.co_pred_begin(sLab),
+		      g.co_pred_end(sLab), [&](auto &wLab){
+			      after.push_back(wLab.getPos());
+			      std::transform(wLab.readers_begin(), wLab.readers_end(), std::back_inserter(rfAfter),
+			      [&](auto &rLab){ return &rLab; });
 	});
-	std::transform(rfAfter.begin(), rfAfter.end(), std::back_inserter(after),
-		       [](auto *rLab) { return rLab->getPos(); });
+	std::transform(rfAfter.begin(), rfAfter.end(), std::back_inserter(after), [](auto *rLab){
+		return rLab->getPos();
+	});
 
 	/* Then, we add the reader list for the initializer */
 	auto initRfs = g.getInitRfsAtLoc(sLab->getAddr());
@@ -3772,10 +675,43 @@ std::vector<Event> IMMDriver::getMOInvOptRfAfter(const WriteLabel *sLab)
 	return after;
 }
 
-std::vector<Event> IMMDriver::getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf)
+static std::vector<Event>
+getRevisitableFrom(const ExecutionGraph &g, const WriteLabel *sLab,
+		   const VectorClock &pporf, const WriteLabel *coPred)
+{
+	auto pendingRMW = g.getPendingRMW(sLab);
+	std::vector<Event> loads;
+
+	for (auto &rLab : coPred->readers()) {
+		if (!pporf.contains(rLab.getPos()) && rLab.getAddr() == sLab->getAddr() &&
+		    rLab.isRevisitable() && rLab.wasAddedMax())
+			loads.push_back(rLab.getPos());
+	}
+	if (!pendingRMW.isInitializer())
+		loads.erase(std::remove_if(loads.begin(), loads.end(),
+					   [&](Event &e) {
+						   auto *confLab = g.getEventLabel(pendingRMW);
+						   return g.getEventLabel(e)->getStamp() >
+							  confLab->getStamp();
+					   }),
+			    loads.end());
+	return loads;
+}
+
+std::vector<Event>
+IMMDriver::getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf)
 {
 	auto &g = getGraph();
-	auto ls = g.getRevisitable(sLab, pporf);
+	std::vector<Event> ls;
+
+	/* Fastpath: previous co-max is ppo-before SLAB */
+	auto prevCoMaxIt = std::find_if(g.co_rbegin(sLab->getAddr()), g.co_rend(sLab->getAddr()),
+					[&](auto &lab) { return lab.getPos() != sLab->getPos(); });
+	if (prevCoMaxIt != g.co_rend(sLab->getAddr()) && pporf.contains(prevCoMaxIt->getPos())) {
+		ls = getRevisitableFrom(g, sLab, pporf, &*prevCoMaxIt);
+	} else {
+		ls = g.getRevisitable(sLab, pporf);
+	}
 
 	/* If this store is po- and mo-maximal then we are done */
 	if (!isDepTracking() && g.isCoMaximal(sLab->getAddr(), sLab->getPos()))
@@ -3783,14 +719,12 @@ std::vector<Event> IMMDriver::getCoherentRevisits(const WriteLabel *sLab, const 
 
 	/* First, we have to exclude (mo;rf?;hb?;sb)-after reads */
 	auto optRfs = getMOOptRfAfter(sLab);
-	ls.erase(std::remove_if(ls.begin(), ls.end(),
-				[&](Event e) {
-					const View &before = g.getEventLabel(e)->view(0);
-					return std::any_of(
-						optRfs.begin(), optRfs.end(),
-						[&](Event ev) { return before.contains(ev); });
-				}),
-		 ls.end());
+	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
+				{ const View &before = g.getEventLabel(e)->view(0);
+				  return std::any_of(optRfs.begin(), optRfs.end(),
+					 [&](Event ev)
+					 { return before.contains(ev); });
+				}), ls.end());
 
 	/* If out-of-order event addition is not supported, then we are done
 	 * due to po-maximality */
@@ -3798,34 +732,31 @@ std::vector<Event> IMMDriver::getCoherentRevisits(const WriteLabel *sLab, const 
 		return ls;
 
 	/* Otherwise, we also have to exclude hb-before loads */
-	ls.erase(std::remove_if(ls.begin(), ls.end(),
-				[&](Event e) {
-					return g.getEventLabel(sLab->getPos())->view(0).contains(e);
-				}),
-		 ls.end());
+	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
+		{ return g.getEventLabel(sLab->getPos())->view(0).contains(e); }),
+		ls.end());
 
 	/* ...and also exclude (mo^-1; rf?; (hb^-1)?; sb^-1)-after reads in
 	 * the resulting graph */
 	auto &before = pporf;
 	auto moInvOptRfs = getMOInvOptRfAfter(sLab);
-	ls.erase(std::remove_if(
-			 ls.begin(), ls.end(),
-			 [&](Event e) {
-				 auto *eLab = g.getEventLabel(e);
-				 auto v = g.getViewFromStamp(eLab->getStamp());
-				 v->update(before);
-				 return std::any_of(
-					 moInvOptRfs.begin(), moInvOptRfs.end(), [&](Event ev) {
-						 return v->contains(ev) &&
-							g.getEventLabel(ev)->view(0).contains(e);
-					 });
-			 }),
+	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
+				{ auto *eLab = g.getEventLabel(e);
+				  auto v = g.getViewFromStamp(eLab->getStamp());
+				  v->update(before);
+				  return std::any_of(moInvOptRfs.begin(),
+						     moInvOptRfs.end(),
+						     [&](Event ev)
+						     { return v->contains(ev) &&
+						       g.getEventLabel(ev)->view(0).contains(e); });
+				}),
 		 ls.end());
 
 	return ls;
 }
 
-std::vector<Event> IMMDriver::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
+std::vector<Event>
+IMMDriver::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
 {
 	auto &g = getGraph();
 	std::vector<Event> result;
@@ -3855,3 +786,4655 @@ std::vector<Event> IMMDriver::getCoherentPlacings(SAddr addr, Event store, bool 
 						      : g.co_imm_pred(&*rangeEnd)->getPos());
 	return result;
 }
+bool IMMDriver::visitCoherence_0(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	++visitedCoherenceAccepting;
+
+
+	--visitedCoherenceAccepting;
+	return true;
+}
+
+bool IMMDriver::visitCoherence_1(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedCoherence_1[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedCoherence_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_3(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isAtLeastAcquire() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedCoherence_5[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_5(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedCoherence_5[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_5(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedCoherence_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_1(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCoherence_6(pLab)){
+				return false;
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCoherence_0(pLab)){
+				return false;
+		}
+	}
+	visitedCoherence_1[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitCoherence_2(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedCoherence_2[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedCoherence_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedCoherence_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_1(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
+		auto &node = visitedCoherence_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_1(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+			if (!visitCoherence_0(pLab)){
+				return false;
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
+			if (!visitCoherence_0(pLab)){
+				return false;
+		}
+	}
+	visitedCoherence_2[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitCoherence_3(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedCoherence_3[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::entered };
+
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedCoherence_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+		auto &node = visitedCoherence_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_1(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+			if (!visitCoherence_0(pLab)){
+				return false;
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedCoherence_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedCoherence_3[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitCoherence_4(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedCoherence_4[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedCoherence_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_3(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedCoherence_4[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitCoherence_5(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedCoherence_5[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedCoherence_5[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_5(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedCoherence_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+		auto &node = visitedCoherence_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_1(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+			if (!visitCoherence_0(pLab)){
+				return false;
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedCoherence_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedCoherence_5[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitCoherence_6(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto &node = visitedCoherence_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_1(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto &node = visitedCoherence_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitCoherence_1(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tc_pred(g, lab); pLab) {
+			if (!visitCoherence_0(pLab)){
+				return false;
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+			if (!visitCoherence_0(pLab)){
+				return false;
+		}
+	}
+	return true;
+}
+
+bool IMMDriver::visitCoherenceFull() const
+{
+	auto &g = getGraph();
+
+	visitedCoherenceAccepting = 0;
+	visitedCoherence_1.clear();
+	visitedCoherence_1.resize(g.getMaxStamp().get() + 1);
+	visitedCoherence_2.clear();
+	visitedCoherence_2.resize(g.getMaxStamp().get() + 1);
+	visitedCoherence_3.clear();
+	visitedCoherence_3.resize(g.getMaxStamp().get() + 1);
+	visitedCoherence_4.clear();
+	visitedCoherence_4.resize(g.getMaxStamp().get() + 1);
+	visitedCoherence_5.clear();
+	visitedCoherence_5.resize(g.getMaxStamp().get() + 1);
+	return true
+		&& std::ranges::all_of(labels(g), [&](auto &lab){ return visitedCoherence_1[lab.getStamp().get()].status != NodeStatus::unseen || visitCoherence_1(&lab); });
+}
+
+bool IMMDriver::visitConsAcyclic1_0(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_0[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_0(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isSC()) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_6[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_6(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_6[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_6(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_0[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_1(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_1[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_1(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_6[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_6(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_6[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_6(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_1[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_2(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_2[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+			if (!visitConsAcyclic1_3(pLab)){
+				return false;
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_1(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+		auto &node = visitedConsAcyclic1_6[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_6(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_2[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_3(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedConsAcyclic1_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_4(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_4[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_4[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_5(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_6[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_6(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_6[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_6(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_6(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_6[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isSC()) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_6[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_6(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitConsAcyclic1_5(pLab)){
+				return false;
+		}
+	}
+	visitedConsAcyclic1_6[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_7(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_7[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_7[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_8(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_8[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_10[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_10(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isSC() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_8[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_9(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_9[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && pLab->isSC() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_9[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_9(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_9[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_10(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_10[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+			if (!visitConsAcyclic1_11(pLab)){
+				return false;
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_9[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_9(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_10[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_11(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedConsAcyclic1_10[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_10(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_12(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_12[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_10[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_10(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_12[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_13(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_13[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_16[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_16(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isSC()) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isSC()) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isSC() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_14[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_14(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_18[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_18(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_18[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_18(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_20[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_20(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_13[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_14(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_14[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = co_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_10[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_10(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_10[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_10(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab)if (true && pLab->isSC()) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true)if (true && pLab->isSC()) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto &node = visitedConsAcyclic1_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_14[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_14(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_14[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_15(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_15[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && pLab->isSC() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_14[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_14(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_14[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_14(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_15[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_15(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_18[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_18(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_20[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_20(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_20[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_20(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_15[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_16(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_16[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+		auto &node = visitedConsAcyclic1_14[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_14(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+		auto &node = visitedConsAcyclic1_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_15[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_15(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+			if (!visitConsAcyclic1_17(pLab)){
+				return false;
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+		auto &node = visitedConsAcyclic1_20[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_20(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_16[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_17(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedConsAcyclic1_16[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_16(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_18(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_18[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_16[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_16(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_18[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_18(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_18[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_19(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_19[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_14[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_14(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_14[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_14(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_20[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_20(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_20[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_20(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_19[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_20(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1_20[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_10[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_10(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_10[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_10(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_10[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_10(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto &node = visitedConsAcyclic1_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_20[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_20(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_20[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_20(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto &node = visitedConsAcyclic1_20[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_20(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic1_20[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1_21(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	++visitedConsAcyclic1Accepting;
+	visitedConsAcyclic1_21[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+
+
+	if (true && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_10[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_10(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = co_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_10[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_10(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_10[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_10(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_10[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_10(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_0(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isAtLeastAcquire() && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_16[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_16(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic1_16[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_16(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isSC()) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = co_imm_pred(g, lab); pLab)if (true && pLab->isSC()) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true)if (true && pLab->isSC()) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isSC()) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isSC() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_21[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_21(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto &node = visitedConsAcyclic1_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_14[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_14(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_14[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_14(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isAtLeastAcquire() && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_18[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_18(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_18[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_18(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedConsAcyclic1_18[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_18(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic1_20[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_20(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	--visitedConsAcyclic1Accepting;
+	visitedConsAcyclic1_21[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic1(const EventLabel *lab) const
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1Accepting = 0;
+	visitedConsAcyclic1_0.clear();
+	visitedConsAcyclic1_0.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_1.clear();
+	visitedConsAcyclic1_1.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_2.clear();
+	visitedConsAcyclic1_2.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_4.clear();
+	visitedConsAcyclic1_4.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_6.clear();
+	visitedConsAcyclic1_6.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_7.clear();
+	visitedConsAcyclic1_7.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_8.clear();
+	visitedConsAcyclic1_8.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_9.clear();
+	visitedConsAcyclic1_9.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_10.clear();
+	visitedConsAcyclic1_10.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_12.clear();
+	visitedConsAcyclic1_12.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_13.clear();
+	visitedConsAcyclic1_13.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_14.clear();
+	visitedConsAcyclic1_14.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_15.clear();
+	visitedConsAcyclic1_15.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_16.clear();
+	visitedConsAcyclic1_16.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_18.clear();
+	visitedConsAcyclic1_18.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_19.clear();
+	visitedConsAcyclic1_19.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_20.clear();
+	visitedConsAcyclic1_20.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_21.clear();
+	visitedConsAcyclic1_21.resize(g.getMaxStamp().get() + 1);
+	return true
+		&& (visitedConsAcyclic1_6[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_6(lab))
+		&& (visitedConsAcyclic1_7[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_7(lab))
+		&& (visitedConsAcyclic1_8[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_8(lab))
+		&& (visitedConsAcyclic1_10[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_10(lab))
+		&& (visitedConsAcyclic1_13[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_13(lab))
+		&& (visitedConsAcyclic1_14[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_14(lab))
+		&& (visitedConsAcyclic1_20[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_20(lab))
+		&& (visitedConsAcyclic1_21[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_21(lab));
+}
+
+bool IMMDriver::visitConsAcyclic1Full() const
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic1Accepting = 0;
+	visitedConsAcyclic1_0.clear();
+	visitedConsAcyclic1_0.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_1.clear();
+	visitedConsAcyclic1_1.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_2.clear();
+	visitedConsAcyclic1_2.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_4.clear();
+	visitedConsAcyclic1_4.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_6.clear();
+	visitedConsAcyclic1_6.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_7.clear();
+	visitedConsAcyclic1_7.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_8.clear();
+	visitedConsAcyclic1_8.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_9.clear();
+	visitedConsAcyclic1_9.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_10.clear();
+	visitedConsAcyclic1_10.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_12.clear();
+	visitedConsAcyclic1_12.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_13.clear();
+	visitedConsAcyclic1_13.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_14.clear();
+	visitedConsAcyclic1_14.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_15.clear();
+	visitedConsAcyclic1_15.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_16.clear();
+	visitedConsAcyclic1_16.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_18.clear();
+	visitedConsAcyclic1_18.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_19.clear();
+	visitedConsAcyclic1_19.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_20.clear();
+	visitedConsAcyclic1_20.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic1_21.clear();
+	visitedConsAcyclic1_21.resize(g.getMaxStamp().get() + 1);
+	return true
+		&& std::ranges::all_of(labels(g), [&](auto &lab){ return visitedConsAcyclic1_21[lab.getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_21(&lab); });
+}
+
+bool IMMDriver::visitLHSUnlessConsAcyclic1_0(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+
+	return false;
+
+
+	return true;
+}
+
+bool IMMDriver::visitLHSUnlessConsAcyclic1_1(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+
+	for (auto &tmp : other_labels(g, lab)) if (auto *pLab = &tmp; true)if (true && pLab->isSC()) {
+			if (!visitLHSUnlessConsAcyclic1_0(pLab)){
+			return false;
+		}
+		
+	}
+
+	return true;
+}
+
+bool IMMDriver::visitUnlessConsAcyclic1(const EventLabel *lab) const
+{
+	auto &g = getGraph();
+
+	visitedLHSUnlessConsAcyclic1Accepting.clear();
+ 	visitedLHSUnlessConsAcyclic1Accepting.resize(g.getMaxStamp().get() + 1, false);
+	visitedRHSUnlessConsAcyclic1Accepting.clear();
+	visitedRHSUnlessConsAcyclic1Accepting.resize(g.getMaxStamp().get() + 1, false);
+
+	if (!visitLHSUnlessConsAcyclic1_1(lab))
+		return false;
+	for (auto i = 0u; i < visitedLHSUnlessConsAcyclic1Accepting.size(); i++) {
+		if (visitedLHSUnlessConsAcyclic1Accepting[i] && !visitedRHSUnlessConsAcyclic1Accepting[i]) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool IMMDriver::checkConsAcyclic1(const EventLabel *lab) const
+{
+	auto &g = getGraph();
+
+
+	if (visitUnlessConsAcyclic1(lab))
+		return true;
+
+	return visitConsAcyclic1(lab);
+}
+bool IMMDriver::visitConsAcyclic2_0(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_0[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_0[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_0(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_0[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_1(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_1[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_1(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_1[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_2(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_2[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rfi_pred(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+			if (!visitConsAcyclic2_3(pLab)){
+				return false;
+		}
+	}
+	for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto &node = visitedConsAcyclic2_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto &node = visitedConsAcyclic2_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rfi_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto &node = visitedConsAcyclic2_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto &node = visitedConsAcyclic2_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rfi_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_2[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_3(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab))) && pLab->isDependable()) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedConsAcyclic2_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedConsAcyclic2_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_4(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_4[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto &node = visitedConsAcyclic2_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto &node = visitedConsAcyclic2_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_4[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_5(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_5[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = poloc_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<WriteLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = poloc_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_5[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_5(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_5[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_6(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_6[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_6[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_7(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_7[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isSC() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_11[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_11(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_11[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_11(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic2_9[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_9(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_6[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_6(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_7[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_8(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_8[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && pLab->isSC() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_11[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_11(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_8[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_9(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_9[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_8[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_8(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+		auto &node = visitedConsAcyclic2_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+			if (!visitConsAcyclic2_10(pLab)){
+				return false;
+		}
+	}
+	visitedConsAcyclic2_9[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_10(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedConsAcyclic2_9[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_9(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_11(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_11[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_11[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_11(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_9[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_9(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_11[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_12(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_12[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto &node = visitedConsAcyclic2_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto &node = visitedConsAcyclic2_7[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_7(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic2_9[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_9(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic2_9[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_9(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic2_9[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_9(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_6[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_6(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_6[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_6(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto &node = visitedConsAcyclic2_6[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_6(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_12[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_13(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_13[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_18[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_18(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic2_15[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_15(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_17[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_17(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_17[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_17(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_13[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_14(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_14[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<ThreadCreateLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && pLab->isAtLeastRelease() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_17[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_17(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_14[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_14(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_14[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_15(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_15[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+		auto &node = visitedConsAcyclic2_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+			if (!visitConsAcyclic2_16(pLab)){
+				return false;
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease()) {
+		auto &node = visitedConsAcyclic2_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_14[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_14(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_15[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_16(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedConsAcyclic2_15[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_15(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_17(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_17[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_15[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_15(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_17[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_17(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_17[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_18(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2_18[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	visitedConsAcyclic2_18[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2_19(const EventLabel *lab) const 
+{
+	auto &g = getGraph();
+
+	++visitedConsAcyclic2Accepting;
+	visitedConsAcyclic2_19[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::entered };
+
+
+	if (auto pLab = rfe_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : detour_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab))if (auto pLab = poloc_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<WriteLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isAtLeastRelease())if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab) && ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) || (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab))) && pLab->isDependable()) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_19[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_19(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_18[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_18(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_12[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_12(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isAtLeastRelease())if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_1(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_1(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isAtLeastAcquire() && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_15[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_15(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto &node = visitedConsAcyclic2_15[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_15(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_13[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_13(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_0[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_0(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isAtLeastAcquire() && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_17[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_17(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_17[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_17(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire() && llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedConsAcyclic2_17[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_17(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto &node = visitedConsAcyclic2_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto &node = visitedConsAcyclic2_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto &node = visitedConsAcyclic2_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab) && ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) || (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedConsAcyclic2_4[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_4(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto &node = visitedConsAcyclic2_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto &node = visitedConsAcyclic2_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto &node = visitedConsAcyclic2_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab) && ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) || (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedConsAcyclic2_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_2(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	if (true && llvm::isa<WriteLabel>(lab))if (auto pLab = poloc_imm_pred(g, lab); pLab) {
+		auto &node = visitedConsAcyclic2_5[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic2_5(pLab)){
+				return false;
+		}
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic2Accepting > node.count || 0)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	--visitedConsAcyclic2Accepting;
+	visitedConsAcyclic2_19[lab->getStamp().get()] = { visitedConsAcyclic2Accepting, NodeStatus::left };
+	return true;
+}
+
+bool IMMDriver::visitConsAcyclic2(const EventLabel *lab) const
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2Accepting = 0;
+	visitedConsAcyclic2_0.clear();
+	visitedConsAcyclic2_0.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_1.clear();
+	visitedConsAcyclic2_1.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_2.clear();
+	visitedConsAcyclic2_2.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_4.clear();
+	visitedConsAcyclic2_4.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_5.clear();
+	visitedConsAcyclic2_5.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_6.clear();
+	visitedConsAcyclic2_6.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_7.clear();
+	visitedConsAcyclic2_7.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_8.clear();
+	visitedConsAcyclic2_8.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_9.clear();
+	visitedConsAcyclic2_9.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_11.clear();
+	visitedConsAcyclic2_11.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_12.clear();
+	visitedConsAcyclic2_12.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_13.clear();
+	visitedConsAcyclic2_13.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_14.clear();
+	visitedConsAcyclic2_14.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_15.clear();
+	visitedConsAcyclic2_15.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_17.clear();
+	visitedConsAcyclic2_17.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_18.clear();
+	visitedConsAcyclic2_18.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_19.clear();
+	visitedConsAcyclic2_19.resize(g.getMaxStamp().get() + 1);
+	return true
+		&& (visitedConsAcyclic2_6[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic2_6(lab))
+		&& (visitedConsAcyclic2_7[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic2_7(lab))
+		&& (visitedConsAcyclic2_9[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic2_9(lab))
+		&& (visitedConsAcyclic2_12[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic2_12(lab))
+		&& (visitedConsAcyclic2_13[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic2_13(lab));
+}
+
+bool IMMDriver::visitConsAcyclic2Full() const
+{
+	auto &g = getGraph();
+
+	visitedConsAcyclic2Accepting = 0;
+	visitedConsAcyclic2_0.clear();
+	visitedConsAcyclic2_0.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_1.clear();
+	visitedConsAcyclic2_1.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_2.clear();
+	visitedConsAcyclic2_2.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_4.clear();
+	visitedConsAcyclic2_4.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_5.clear();
+	visitedConsAcyclic2_5.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_6.clear();
+	visitedConsAcyclic2_6.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_7.clear();
+	visitedConsAcyclic2_7.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_8.clear();
+	visitedConsAcyclic2_8.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_9.clear();
+	visitedConsAcyclic2_9.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_11.clear();
+	visitedConsAcyclic2_11.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_12.clear();
+	visitedConsAcyclic2_12.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_13.clear();
+	visitedConsAcyclic2_13.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_14.clear();
+	visitedConsAcyclic2_14.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_15.clear();
+	visitedConsAcyclic2_15.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_17.clear();
+	visitedConsAcyclic2_17.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_18.clear();
+	visitedConsAcyclic2_18.resize(g.getMaxStamp().get() + 1);
+	visitedConsAcyclic2_19.clear();
+	visitedConsAcyclic2_19.resize(g.getMaxStamp().get() + 1);
+	return true
+		&& std::ranges::all_of(labels(g), [&](auto &lab){ return visitedConsAcyclic2_19[lab.getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic2_19(&lab); });
+}
+
+bool IMMDriver::checkConsAcyclic2(const EventLabel *lab) const
+{
+	auto &g = getGraph();
+
+
+	return visitConsAcyclic2(lab);
+}
+bool IMMDriver::visitWarning3(const EventLabel *lab) const
+{
+	return false;
+}
+
+bool IMMDriver::visitLHSUnlessWarning3_0(const EventLabel *lab, const View &v) const 
+{
+	auto &g = getGraph();
+
+
+	if (!v.contains(lab->getPos())) {
+cexLab = lab;
+		return false;
+	}
+
+
+	return true;
+}
+
+bool IMMDriver::visitLHSUnlessWarning3_1(const EventLabel *lab, const View &v) const 
+{
+	auto &g = getGraph();
+
+
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<WriteLabel>(pLab)) {
+			if (!visitLHSUnlessWarning3_0(pLab, v)){
+			return false;
+		}
+		
+	}
+
+	return true;
+}
+
+bool IMMDriver::visitUnlessWarning3(const EventLabel *lab) const
+{
+	auto &g = getGraph();
+
+	visitedLHSUnlessWarning3Accepting.clear();
+ 	visitedLHSUnlessWarning3Accepting.resize(g.getMaxStamp().get() + 1, false);
+	auto &v = lab->view(1);
+
+	return true
+		&& visitLHSUnlessWarning3_1(lab, v);
+}
+
+bool IMMDriver::checkWarning3(const EventLabel *lab) const
+{
+	auto &g = getGraph();
+
+
+	if (visitUnlessWarning3(lab))
+		return true;
+
+	return visitWarning3(lab);
+}
+VerificationError IMMDriver::checkErrors(const EventLabel *lab, const EventLabel *&race) const
+{
+	return VerificationError::VE_OK;
+}
+
+std::vector<VerificationError> IMMDriver::checkWarnings(const EventLabel *lab, const VSet<VerificationError> &seenWarnings, std::vector<const EventLabel *> &racyLabs) const
+{
+	std::vector<VerificationError> result;
+
+	if (seenWarnings.count(VerificationError::VE_WWRace) == 0 && !checkWarning3(lab)) {
+		racyLabs.push_back(cexLab);
+		result.push_back(VerificationError::VE_WWRace);
+	}
+
+	return result;
+}
+
+bool IMMDriver::isConsistent(const EventLabel *lab) const
+{
+
+	return true
+		&& checkConsAcyclic1(lab)
+		&& checkConsAcyclic2(lab);
+}
+
+void IMMDriver::visitPPoRf0(const EventLabel *lab, DepView &pporf) const
+{
+	auto &g = getGraph();
+
+	visitedPPoRf0[lab->getStamp().get()] = NodeStatus::entered;
+	pporf.updateIdx(lab->getPos());
+	visitedPPoRf0[lab->getStamp().get()] = NodeStatus::left;
+}
+
+void IMMDriver::visitPPoRf1(const EventLabel *lab, DepView &pporf) const
+{
+	auto &g = getGraph();
+
+	visitedPPoRf1[lab->getStamp().get()] = NodeStatus::entered;
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<FenceLabel>(pLab)) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire())if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<FenceLabel>(pLab))if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastAcquire()) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<FenceLabel>(pLab)) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	visitedPPoRf1[lab->getStamp().get()] = NodeStatus::left;
+}
+
+void IMMDriver::visitPPoRf2(const EventLabel *lab, DepView &pporf) const
+{
+	auto &g = getGraph();
+
+	visitedPPoRf2[lab->getStamp().get()] = NodeStatus::entered;
+	pporf.updateIdx(lab->getPos());
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf2(pLab, pporf);
+	}
+	visitedPPoRf2[lab->getStamp().get()] = NodeStatus::left;
+}
+
+void IMMDriver::visitPPoRf3(const EventLabel *lab, DepView &pporf) const
+{
+	auto &g = getGraph();
+
+	visitedPPoRf3[lab->getStamp().get()] = NodeStatus::entered;
+	if (true && llvm::isa<WriteLabel>(lab))if (auto pLab = poloc_imm_pred(g, lab); pLab) {
+		auto status = visitedPPoRf4[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf4(pLab, pporf);
+	}
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (auto pLab = rfe_pred(g, lab); pLab) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	for (auto &tmp : detour_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))if (auto pLab = poloc_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<WriteLabel>(pLab)) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (true && lab->isAtLeastRelease())if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab) && ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) || (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab))) && pLab->isDependable()) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (true && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto status = visitedPPoRf6[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf6(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto status = visitedPPoRf6[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf6(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto status = visitedPPoRf6[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf6(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab) && ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) || (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto status = visitedPPoRf6[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf6(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto status = visitedPPoRf7[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf7(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto status = visitedPPoRf7[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf7(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto status = visitedPPoRf7[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf7(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedPPoRf7[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf7(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab) && ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) || (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto status = visitedPPoRf7[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf7(pLab, pporf);
+	}
+	if (auto pLab = tc_pred(g, lab); pLab)if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	if (auto pLab = tj_pred(g, lab); pLab)if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	if (auto pLab = rfe_pred(g, lab); pLab)if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable())if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable())if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable())if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	for (auto &tmp : detour_preds(g, lab)) if (auto *pLab = &tmp; true)if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))if (auto pLab = poloc_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<WriteLabel>(pLab))if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab) && ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) || (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab))) && pLab->isDependable())if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	if (true && lab->isAtLeastRelease())if (auto pLab = po_imm_pred(g, lab); pLab)if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf2(pLab, pporf);
+	}
+	if (true && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab)if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf2(pLab, pporf);
+	}
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	if (auto pLab = rfe_pred(g, lab); pLab) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	for (auto &tmp : detour_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))if (auto pLab = poloc_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<WriteLabel>(pLab)) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	if (true && lab->isAtLeastRelease())if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	if (true && llvm::isa<WriteLabel>(lab) && ((llvm::isa<ReadLabel>(lab) && g.isRMWLoad(lab)) || (llvm::isa<WriteLabel>(lab) && g.isRMWStore(lab))))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab))) && pLab->isDependable()) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	if (true && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	visitedPPoRf3[lab->getStamp().get()] = NodeStatus::left;
+}
+
+void IMMDriver::visitPPoRf4(const EventLabel *lab, DepView &pporf) const
+{
+	auto &g = getGraph();
+
+	visitedPPoRf4[lab->getStamp().get()] = NodeStatus::entered;
+	if (auto pLab = poloc_imm_pred(g, lab); pLab) {
+		auto status = visitedPPoRf4[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf4(pLab, pporf);
+	}
+	if (auto pLab = poloc_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<WriteLabel>(pLab)) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (auto pLab = poloc_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<WriteLabel>(pLab))if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	if (auto pLab = poloc_imm_pred(g, lab); pLab)if (true && pLab->isAtLeastRelease() && llvm::isa<WriteLabel>(pLab)) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	visitedPPoRf4[lab->getStamp().get()] = NodeStatus::left;
+}
+
+void IMMDriver::visitPPoRf5(const EventLabel *lab, DepView &pporf) const
+{
+	auto &g = getGraph();
+
+	visitedPPoRf5[lab->getStamp().get()] = NodeStatus::entered;
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab))) && pLab->isDependable()) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto status = visitedPPoRf6[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf6(pLab, pporf);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto status = visitedPPoRf7[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf7(pLab, pporf);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab))) && pLab->isDependable())if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab))) && pLab->isDependable()) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	visitedPPoRf5[lab->getStamp().get()] = NodeStatus::left;
+}
+
+void IMMDriver::visitPPoRf6(const EventLabel *lab, DepView &pporf) const
+{
+	auto &g = getGraph();
+
+	visitedPPoRf6[lab->getStamp().get()] = NodeStatus::entered;
+	for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	if (auto pLab = rfi_pred(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto status = visitedPPoRf5[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf5(pLab, pporf);
+	}
+	for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto status = visitedPPoRf6[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf6(pLab, pporf);
+	}
+	for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto status = visitedPPoRf6[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf6(pLab, pporf);
+	}
+	if (auto pLab = rfi_pred(g, lab); pLab) {
+		auto status = visitedPPoRf6[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf6(pLab, pporf);
+	}
+	for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto status = visitedPPoRf7[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf7(pLab, pporf);
+	}
+	for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto status = visitedPPoRf7[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf7(pLab, pporf);
+	}
+	if (auto pLab = rfi_pred(g, lab); pLab) {
+		auto status = visitedPPoRf7[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf7(pLab, pporf);
+	}
+	for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable())if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable())if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	for (auto &p : ctrl_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	for (auto &p : data_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	visitedPPoRf6[lab->getStamp().get()] = NodeStatus::left;
+}
+
+void IMMDriver::visitPPoRf7(const EventLabel *lab, DepView &pporf) const
+{
+	auto &g = getGraph();
+
+	visitedPPoRf7[lab->getStamp().get()] = NodeStatus::entered;
+	for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto status = visitedPPoRf3[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(pLab, pporf);
+	}
+	for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto status = visitedPPoRf6[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf6(pLab, pporf);
+	}
+	for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true) {
+		auto status = visitedPPoRf7[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf7(pLab, pporf);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedPPoRf7[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf7(pLab, pporf);
+	}
+	for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable())if (pporf.updateIdx(pLab->getPos()); true) {
+		auto status = visitedPPoRf0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(pLab, pporf);
+	}
+	for (auto &p : addr_preds(g, lab)) if (auto *pLab = g.getEventLabel(p); true)if (true && pLab->isDependable()) {
+		auto status = visitedPPoRf1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(pLab, pporf);
+	}
+	visitedPPoRf7[lab->getStamp().get()] = NodeStatus::left;
+}
+
+DepView IMMDriver::calcPPoRfBefore(const EventLabel *lab) const
+{
+	auto &g = getGraph();
+	DepView pporf;
+	pporf.updateIdx(lab->getPos());
+	visitedPPoRf0.clear();
+	visitedPPoRf0.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+	visitedPPoRf1.clear();
+	visitedPPoRf1.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+	visitedPPoRf2.clear();
+	visitedPPoRf2.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+	visitedPPoRf3.clear();
+	visitedPPoRf3.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+	visitedPPoRf4.clear();
+	visitedPPoRf4.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+	visitedPPoRf5.clear();
+	visitedPPoRf5.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+	visitedPPoRf6.clear();
+	visitedPPoRf6.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+	visitedPPoRf7.clear();
+	visitedPPoRf7.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+
+	visitPPoRf1(lab, pporf);
+	visitPPoRf3(lab, pporf);
+	return pporf;
+}
+std::unique_ptr<VectorClock> IMMDriver::calculatePrefixView(const EventLabel *lab) const
+{
+	return std::make_unique<DepView>(calcPPoRfBefore(lab));
+}
+

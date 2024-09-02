@@ -530,24 +530,11 @@ inline const_poloc_range poloc_succs(const ExecutionGraph &G, const EventLabel *
 	return poloc_succs(G, lab->getPos());
 }
 
-inline const_poloc_iterator poloc_imm_succ_begin(const ExecutionGraph &G, Event e)
+inline const EventLabel *poloc_imm_succ(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return poloc_succ_begin(G, e);
-}
-
-inline const_poloc_iterator poloc_imm_succ_end(const ExecutionGraph &G, Event e)
-{
-	return poloc_succ_begin(G, e) == poloc_succ_end(G, e) ? poloc_imm_succ_begin(G, e)
-							      : ++poloc_imm_succ_begin(G, e);
-}
-
-inline const_poloc_range poloc_imm_succs(const ExecutionGraph &G, Event e)
-{
-	return const_poloc_range(poloc_imm_succ_begin(G, e), poloc_imm_succ_end(G, e));
-}
-inline const_poloc_range poloc_imm_succs(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return poloc_imm_succs(G, lab->getPos());
+	return poloc_succ_begin(G, lab->getPos()) == poloc_succ_end(G, lab->getPos())
+		       ? nullptr
+		       : &*poloc_succ_begin(G, lab->getPos());
 }
 
 inline const_reverse_poloc_iterator poloc_pred_begin(const ExecutionGraph &G, Event e)
@@ -580,24 +567,11 @@ inline const_reverse_poloc_range poloc_preds(const ExecutionGraph &G, const Even
 	return poloc_preds(G, lab->getPos());
 }
 
-inline const_reverse_poloc_iterator poloc_imm_pred_begin(const ExecutionGraph &G, Event e)
+inline const EventLabel *poloc_imm_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return poloc_pred_begin(G, e);
-}
-
-inline const_reverse_poloc_iterator poloc_imm_pred_end(const ExecutionGraph &G, Event e)
-{
-	return poloc_pred_begin(G, e) == poloc_pred_end(G, e) ? poloc_imm_pred_begin(G, e)
-							      : ++poloc_imm_pred_begin(G, e);
-}
-
-inline const_reverse_poloc_range poloc_imm_preds(const ExecutionGraph &G, Event e)
-{
-	return const_reverse_poloc_range(poloc_imm_pred_begin(G, e), poloc_imm_pred_end(G, e));
-}
-inline const_reverse_poloc_range poloc_imm_preds(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return poloc_imm_preds(G, lab->getPos());
+	return poloc_pred_begin(G, lab->getPos()) == poloc_pred_end(G, lab->getPos())
+		       ? nullptr
+		       : &*poloc_pred_begin(G, lab->getPos());
 }
 
 /*******************************************************************************
