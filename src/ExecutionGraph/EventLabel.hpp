@@ -733,14 +733,14 @@ private:
 	void setRf(EventLabel *rfLab) { readsFrom = rfLab; }
 
 	/* Position of the write it is reading from in the graph */
-	EventLabel *readsFrom;
+	EventLabel *readsFrom = nullptr;
 
 	/* Whether the read has been revisited in place */
-	bool ipr;
+	bool ipr = false;
 
 	/* SAVer: Expression for annotatable loads. This needs to have
 	 * heap-value semantics so that it does not create concurrency issues */
-	AnnotVP annotExpr;
+	AnnotVP annotExpr = nullptr;
 };
 
 #define READ_PURE_SUBCLASS(name)                                                                   \
@@ -846,7 +846,7 @@ private:
 	SVal opValue;
 
 	/* Attributes for the write part of the RMW */
-	WriteAttr wattr;
+	WriteAttr wattr = WriteAttr::None;
 };
 
 #define FAIREAD_PURE_SUBCLASS(name)                                                                \
@@ -956,7 +956,7 @@ private:
 	const SVal swapValue;
 
 	/* The attributes of the write part of the RMW */
-	WriteAttr wattr;
+	WriteAttr wattr = WriteAttr::None;
 };
 
 #define CASREAD_PURE_SUBCLASS(name)                                                                \
@@ -1160,7 +1160,7 @@ private:
 	ReaderList readerList;
 
 	/* Attributes of the write */
-	WriteAttr wattr;
+	WriteAttr wattr = WriteAttr::None;
 };
 
 #define WRITE_PURE_SUBCLASS(_class_kind)                                                           \
@@ -1528,10 +1528,10 @@ private:
 	AccessList accessList;
 
 	/* The size of the requested allocation */
-	unsigned int allocSize;
+	unsigned int allocSize{};
 
 	/* Allocation alignment */
-	unsigned int alignment;
+	unsigned int alignment{};
 
 	/* Storage duration */
 	StorageDuration sdur;
@@ -1546,7 +1546,7 @@ private:
 	std::string name;
 
 	/* Naming information for this allocation */
-	const NameInfo *nameInfo;
+	const NameInfo *nameInfo{};
 };
 
 /*******************************************************************************
@@ -1618,10 +1618,10 @@ private:
 	SAddr freeAddr;
 
 	/* The size of the memory freed */
-	unsigned int freedSize;
+	unsigned int freedSize{};
 
 	/* The corresponding allocation */
-	MallocLabel *aLab = nullptr;
+	MallocLabel *aLab{};
 };
 
 /*******************************************************************************
@@ -1700,7 +1700,7 @@ public:
 
 private:
 	/* The identifier of the child */
-	const unsigned int childId;
+	const unsigned int childId{};
 };
 
 /*******************************************************************************
