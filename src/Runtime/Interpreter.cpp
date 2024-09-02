@@ -390,19 +390,6 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
 
 Interpreter::~Interpreter() { delete IL; }
 
-void Interpreter::runAtExitHandlers()
-{
-	auto oldState = getProgramState();
-	setProgramState(ProgramState::Dtors);
-	while (!dynState.AtExitHandlers.empty()) {
-		scheduleThread(0);
-		callFunction(dynState.AtExitHandlers.back(), std::vector<GenericValue>(), nullptr);
-		dynState.AtExitHandlers.pop_back();
-		run();
-	}
-	setProgramState(oldState);
-}
-
 namespace {
 class ArgvArray {
 	std::unique_ptr<char[]> Array;

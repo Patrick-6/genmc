@@ -3781,6 +3781,29 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 	}
 }
 
+void Interpreter::runAtExitHandlers()
+{
+	auto oldState = getProgramState();
+	setProgramState(ProgramState::Dtors);
+	while (!dynState.AtExitHandlers.empty()) {
+		scheduleThread(0);
+		callFunction(dynState.AtExitHandlers.back(), std::vector<GenericValue>(), nullptr);
+		dynState.AtExitHandlers.pop_back();
+
+		// Don't call run; just run for one frame...
+		auto size = ECStack().size();
+		while (ECStack().size() == size) {
+			if (driver->tryOptimizeScheduling(currPos()))
+				continue;
+			llvm::ExecutionContext &SF = ECStack().back();
+			llvm::Instruction &I = *SF.CurInst++;
+			visit(I);
+		}
+		// run();
+	}
+	setProgramState(oldState);
+}
+
 void Interpreter::run()
 {
 	while (driver->scheduleNext()) {
