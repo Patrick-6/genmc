@@ -254,6 +254,15 @@ inline const_label_range labels(const ExecutionGraph &G)
 	return const_label_range(label_begin(G), label_end(G));
 }
 
+inline auto other_labels(ExecutionGraph &G, const EventLabel *lab)
+{
+	return labels(G) | std::views::filter([&](auto &olab) { return &olab != lab; });
+}
+inline auto other_labels(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return labels(G) | std::views::filter([&](auto &olab) { return &olab != lab; });
+}
+
 /*******************************************************************************
  **                         store-iteration utilities
  ******************************************************************************/
