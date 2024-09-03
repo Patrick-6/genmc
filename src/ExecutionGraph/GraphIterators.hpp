@@ -256,11 +256,13 @@ inline const_label_range labels(const ExecutionGraph &G)
 
 inline auto other_labels(ExecutionGraph &G, const EventLabel *lab)
 {
-	return labels(G) | std::views::filter([&](auto &olab) { return &olab != lab; });
+	return labels(G) |
+	       std::views::filter([lab](auto &olab) { return olab.getPos() != lab->getPos(); });
 }
 inline auto other_labels(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return labels(G) | std::views::filter([&](auto &olab) { return &olab != lab; });
+	return labels(G) |
+	       std::views::filter([lab](auto &olab) { return olab.getPos() != lab->getPos(); });
 }
 
 /*******************************************************************************
