@@ -410,7 +410,11 @@ void *ArgvArray::reset(LLVMContext &C, ExecutionEngine *EE,
 	Array = std::make_unique<char[]>((InputArgv.size() + 1) * PtrSize);
 
 	// LLVM_DEBUG(dbgs() << "JIT: ARGV = " << (void *)Array.get() << "\n");
+#if LLVM_VERSION_MAJOR < 18
 	Type *SBytePtr = Type::getInt8PtrTy(C);
+#else
+	Type *SBytePtr = PointerType::getUnqual(C);
+#endif
 
 	for (unsigned i = 0; i != InputArgv.size(); ++i) {
 		unsigned Size = InputArgv[i].size() + 1;
@@ -541,7 +545,11 @@ void Interpreter::setupMain(Function *Fn, const std::vector<std::string> &argv,
 	// Check main() type
 	unsigned NumArgs = Fn->getFunctionType()->getNumParams();
 	FunctionType *FTy = Fn->getFunctionType();
+#if LLVM_VERSION_MAJOR < 18
 	Type *PPInt8Ty = Type::getInt8PtrTy(Fn->getContext())->getPointerTo();
+#else
+	Type *PPInt8Ty = PointerType::get(Fn->getContext(), 0);
+#endif
 
 	// Check the argument types.
 	if (NumArgs > 3)
