@@ -94,6 +94,14 @@ public:
 	const_reverse_iterator rbegin() const { return events.rbegin(); };
 	const_reverse_iterator rend() const { return events.rend(); };
 
+	auto label_begin() const { return insertionOrder.begin(); }
+	auto label_end() const { return insertionOrder.end(); }
+	auto labels() const { return std::views::all(insertionOrder); }
+
+	auto label_begin() { return insertionOrder.begin(); }
+	auto label_end() { return insertionOrder.end(); }
+	auto labels() { return std::views::all(insertionOrder); }
+
 	auto thr_ids() const { return std::views::iota(0, (int)getNumThreads()); }
 	auto thr_ids() { return std::views::iota(0, (int)getNumThreads()); }
 
@@ -623,6 +631,8 @@ protected:
 	Stamp timestamp = 0;
 
 	LocMap coherence;
+
+	llvm::simple_ilist<EventLabel> insertionOrder;
 
 	/* Pers: The ID of the recovery routine.
 	 * It should be -1 if not in recovery mode, or have the

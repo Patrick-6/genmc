@@ -248,11 +248,8 @@ inline const_label_iterator label_end(const ExecutionGraph &G)
 	return const_label_iterator(G, true);
 }
 
-inline label_range labels(ExecutionGraph &G) { return label_range(label_begin(G), label_end(G)); }
-inline const_label_range labels(const ExecutionGraph &G)
-{
-	return const_label_range(label_begin(G), label_end(G));
-}
+inline auto labels(ExecutionGraph &G) { return G.labels(); }
+inline auto labels(const ExecutionGraph &G) { return G.labels(); }
 
 inline auto other_labels(ExecutionGraph &G, const EventLabel *lab)
 {

@@ -37,6 +37,7 @@
 #include "Support/SExpr.hpp"
 #include "Support/SVal.hpp"
 #include "Support/ThreadInfo.hpp"
+#include <llvm/ADT/ilist_node.h>
 #include <llvm/IR/Instructions.h> /* For AtomicOrdering in older LLVMs */
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>
@@ -73,7 +74,7 @@ public:
  * getter methods are private. One can obtain information about such relations
  * by querying the execution graph.
  */
-class EventLabel {
+class EventLabel : public llvm::ilist_node<EventLabel> {
 
 public:
 	/* Discriminator for LLVM-style RTTI (dyn_cast<> et al).
