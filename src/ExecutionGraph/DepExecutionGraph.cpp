@@ -130,6 +130,7 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 				continue;
 			setEventLabel(Event(i, j), createHoleLabel(Event(i, j)));
 			getEventLabel(Event(i, j))->setStamp(nextStamp());
+			getEventLabel(Event(i, j))->setParent(this);
 			insertionOrder.push_back(*getEventLabel(Event(i, j)));
 		}
 	}

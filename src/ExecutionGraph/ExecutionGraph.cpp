@@ -273,6 +273,8 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
 
 EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
+	lab->setParent(this);
+
 	/* Assign stamp if necessary */
 	if (!lab->hasStamp())
 		lab->setStamp(nextStamp());

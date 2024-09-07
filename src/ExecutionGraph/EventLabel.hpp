@@ -48,6 +48,7 @@ class ReadLabel;
 class MallocLabel;
 class FreeLabel;
 class ThreadJoinLabel;
+class ExecutionGraph;
 
 template <typename T, class... Options>
 class CopyableIList : public llvm::simple_ilist<T, Options...> {
@@ -114,6 +115,13 @@ public:
 
 	/* Returns the discriminator of this object */
 	EventLabelKind getKind() const { return kind; }
+
+	/* Returns the parent graph of this label */
+	const ExecutionGraph *getParent() const { return parent; }
+	ExecutionGraph *getParent() { return parent; }
+
+	/* Sets the parent graph for this label */
+	void setParent(ExecutionGraph *graph) { parent = graph; }
 
 	/* Returns the position in the execution graph (thread, index) */
 	Event getPos() const { return position; }
@@ -242,6 +250,7 @@ public:
 	/* Resets all graph-related info on a label to their default values */
 	virtual void reset()
 	{
+		parent = nullptr;
 		stamp = std::nullopt;
 		calculatedRels.clear();
 		calculatedViews.clear();
@@ -263,6 +272,8 @@ private:
 
 	/* Discriminator enum for LLVM-style RTTI */
 	const EventLabelKind kind;
+
+	ExecutionGraph *parent{};
 
 	/* Position of this label within the execution graph (thread, index) */
 	Event position;
