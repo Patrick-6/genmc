@@ -493,10 +493,11 @@ std::pair<std::vector<SVal>, Event> GenMCDriver::extractValPrefix(Event pos)
 
 Event findNextLabelToAdd(const ExecutionGraph &g, Event pos)
 {
-	auto first = Event(pos.thread, 0);
-	auto it = std::find_if(po_succ_begin(g, first), po_succ_end(g, first),
-			       [&](auto &lab) { return llvm::isa<EmptyLabel>(&lab); });
-	return it == po_succ_end(g, first) ? g.getLastThreadEvent(pos.thread).next() : it->getPos();
+	const auto *firstLab = g.getFirstThreadLabel(pos.thread);
+	auto succs = po_succs(g, firstLab);
+	auto it =
+		std::ranges::find_if(succs, [&](auto &lab) { return llvm::isa<EmptyLabel>(&lab); });
+	return it == succs.end() ? g.getLastThreadEvent(pos.thread).next() : (*it).getPos();
 }
 
 bool GenMCDriver::tryOptimizeScheduling(Event pos)
@@ -964,7 +965,7 @@ bool GenMCDriver::isRevisitValid(const Revisit &revisit)
 		return false;
 
 	/* If an extra event is added, re-check consistency */
-	auto *nLab = g.getNextLabel(pos);
+	auto *nLab = g.getNextLabel(mLab);
 	return !g.isRMWLoad(pos) ||
 	       (isExecutionValid(nLab) && checkForRaces(nLab) == VerificationError::VE_OK);
 }
@@ -2552,19 +2553,20 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab,
 	auto bs = g.collectAllEvents([&](const EventLabel *lab) {
 		if (!llvm::isa<BarrierBlockLabel>(lab))
 			return false;
-		auto *pLab =
-			llvm::dyn_cast<BIncFaiWriteLabel>(g.getPreviousLabel(lab->getPos().prev()));
+		auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(
+			g.getPreviousLabel(g.getPreviousLabel(lab)));
 		return pLab->getAddr() == sLab->getAddr();
 	});
 	auto unblockedLoads = std::count_if(loads.begin(), loads.end(), [&](auto &l) {
-		auto *nLab = llvm::dyn_cast_or_null<BlockLabel>(g.getNextLabel(l));
+		auto *nLab = llvm::dyn_cast_or_null<BlockLabel>(g.getNextLabel(g.getEventLabel(l)));
 		return !nLab;
 	});
 	if (bs.size() > iVal.get() || unblockedLoads > 0)
 		WARN_ONCE("bam-well-formed", "Execution not barrier-well-formed!\n");
 
 	std::for_each(bs.begin(), bs.end(), [&](const Event &b) {
-		auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(g.getPreviousLabel(b.prev()));
+		auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(
+			g.getPreviousLabel(g.getPreviousLabel(g.getEventLabel(b))));
 		BUG_ON(!pLab);
 		unblockThread(b);
 		g.removeLast(b.thread);
@@ -2828,7 +2830,7 @@ std::unique_ptr<BackwardRevisit> GenMCDriver::constructBackwardRevisit(const Rea
 
 	/* Check whether there is a conflicting RevBlocker */
 	auto pending = g.getPendingRMW(sLab);
-	auto *pLab = llvm::dyn_cast_or_null<WriteLabel>(g.getNextLabel(pending));
+	auto *pLab = llvm::dyn_cast_or_null<WriteLabel>(g.getNextLabel(g.getEventLabel(pending)));
 	pending = (!pending.isInitializer() && pLab->hasAttr(WriteAttr::RevBlocker))
 			  ? pending.next()
 			  : Event::getInit();

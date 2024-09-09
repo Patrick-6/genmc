@@ -105,6 +105,59 @@ public:
 	auto thr_ids() const { return std::views::iota(0, (int)getNumThreads()); }
 	auto thr_ids() { return std::views::iota(0, (int)getNumThreads()); }
 
+	auto po_succs(const EventLabel *lab) const
+	{
+		const auto &thr = events[lab->getThread()];
+		return std::ranges::subrange(thr.begin() + lab->getIndex() + 1, thr.end()) |
+		       std::ranges::views::transform(indirect);
+	}
+	auto po_succs(EventLabel *lab)
+	{
+		auto &thr = events[lab->getThread()];
+		return std::ranges::subrange(thr.begin() + lab->getIndex() + 1, thr.end()) |
+		       std::ranges::views::transform(indirect);
+	}
+
+	auto po_preds(const EventLabel *lab) const
+	{
+		const auto &thr = events[lab->getThread()];
+		return std::ranges::subrange(thr.begin(), thr.begin() + lab->getIndex()) |
+		       std::views::reverse | std::ranges::views::transform(indirect);
+	}
+	auto po_preds(EventLabel *lab)
+	{
+		const auto &thr = events[lab->getThread()];
+		return std::ranges::subrange(thr.begin(), thr.begin() + lab->getIndex()) |
+		       std::views::reverse | std::ranges::views::transform(indirect);
+	}
+
+	/* Returns the label in the previous position of E.
+	 * Returns nullptr if E is the first event of a thread */
+	const EventLabel *getPreviousLabel(const EventLabel *lab) const
+	{
+		return lab->getIndex() == 0 ? nullptr
+					    : events[lab->getThread()][lab->getIndex() - 1].get();
+	}
+	EventLabel *getPreviousLabel(EventLabel *lab)
+	{
+		return const_cast<EventLabel *>(
+			static_cast<const ExecutionGraph &>(*this).getPreviousLabel(lab));
+	}
+
+	/* Returns the label in the next position of E.
+	 * Returns nullptr if E is the last event of a thread */
+	const EventLabel *getNextLabel(const EventLabel *lab) const
+	{
+		return lab->getIndex() == getThreadSize(lab->getThread()) - 1
+			       ? nullptr
+			       : events[lab->getThread()][lab->getIndex() + 1].get();
+	}
+	EventLabel *getNextLabel(EventLabel *lab)
+	{
+		return const_cast<EventLabel *>(
+			static_cast<const ExecutionGraph &>(*this).getNextLabel(lab));
+	}
+
 	loc_iterator loc_begin() { return coherence.begin(); }
 	const_loc_iterator loc_begin() const { return coherence.begin(); };
 	loc_iterator loc_end() { return coherence.end(); }
@@ -347,40 +400,6 @@ public:
 			static_cast<const ExecutionGraph &>(*this).getWriteLabel(e));
 	}
 
-	/* Returns the label in the previous position of E.
-	 * Returns nullptr if E is the first event of a thread */
-	const EventLabel *getPreviousLabel(Event e) const
-	{
-		return e.index == 0 ? nullptr : getEventLabel(e.prev());
-	}
-	EventLabel *getPreviousLabel(Event e)
-	{
-		return const_cast<EventLabel *>(
-			static_cast<const ExecutionGraph &>(*this).getPreviousLabel(e));
-	}
-	const EventLabel *getPreviousLabel(const EventLabel *lab) const
-	{
-		return getPreviousLabel(lab->getPos());
-	}
-	EventLabel *getPreviousLabel(EventLabel *lab) { return getPreviousLabel(lab->getPos()); }
-
-	/* Returns the label in the next position of E.
-	 * Returns nullptr if E is the last event of a thread */
-	const EventLabel *getNextLabel(Event e) const
-	{
-		return e == getLastThreadEvent(e.thread) ? nullptr : getEventLabel(e.next());
-	}
-	EventLabel *getNextLabel(Event e)
-	{
-		return const_cast<EventLabel *>(
-			static_cast<const ExecutionGraph &>(*this).getNextLabel(e));
-	}
-	const EventLabel *getNextLabel(const EventLabel *lab) const
-	{
-		return getNextLabel(lab->getPos());
-	}
-	EventLabel *getNextLabel(EventLabel *lab) { return getNextLabel(lab->getPos()); }
-
 	/* Returns the previous non-empty label of e. Since all threads
 	 * have an initializing event, it returns that as a base case */
 	const EventLabel *getPreviousNonEmptyLabel(Event e) const;
@@ -585,6 +604,11 @@ public:
 	friend llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
 protected:
+	static auto indirect(const std::unique_ptr<EventLabel> &ptr) -> EventLabel &
+	{
+		return *ptr;
+	}
+
 	void resizeThread(unsigned int tid, unsigned int size) { events[tid].resize(size); };
 	void resizeThread(Event pos) { resizeThread(pos.thread, pos.index); }
 
