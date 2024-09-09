@@ -170,6 +170,8 @@ public:
 	const_co_iterator co_begin(SAddr addr) const { return coherence.at(addr).begin(); };
 	co_iterator co_end(SAddr addr) { return coherence[addr].end(); }
 	const_co_iterator co_end(SAddr addr) const { return coherence.at(addr).end(); }
+	auto co(SAddr addr) { return std::views::all(coherence[addr]); }
+	auto co(SAddr addr) const { return std::views::all(coherence.at(addr)); }
 
 	reverse_co_iterator co_rbegin(SAddr addr) { return coherence[addr].rbegin(); }
 	const_reverse_co_iterator co_rbegin(SAddr addr) const
@@ -178,6 +180,11 @@ public:
 	};
 	reverse_co_iterator co_rend(SAddr addr) { return coherence[addr].rend(); }
 	const_reverse_co_iterator co_rend(SAddr addr) const { return coherence.at(addr).rend(); }
+	auto rco(SAddr addr) { return std::views::all(coherence[addr]) | std::views::reverse; }
+	auto rco(SAddr addr) const
+	{
+		return std::views::all(coherence.at(addr)) | std::views::reverse;
+	}
 
 	initrf_iterator init_rf_begin(SAddr addr) { return getInitLabel()->rf_begin(addr); }
 	const_initrf_iterator init_rf_begin(SAddr addr) const

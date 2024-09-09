@@ -63,41 +63,6 @@ inline auto other_labels(const ExecutionGraph &G, const EventLabel *lab)
 }
 
 /*******************************************************************************
- **                         store-iteration utilities
- ******************************************************************************/
-
-using const_store_iterator = ExecutionGraph::const_co_iterator;
-using const_store_range = llvm::iterator_range<const_store_iterator>;
-using const_reverse_store_iterator = ExecutionGraph::const_reverse_co_iterator;
-using const_reverse_store_range = llvm::iterator_range<const_reverse_store_iterator>;
-
-inline const_store_iterator store_begin(const ExecutionGraph &G, SAddr addr)
-{
-	return G.co_begin(addr);
-}
-inline const_store_iterator store_end(const ExecutionGraph &G, SAddr addr)
-{
-	return G.co_end(addr);
-}
-inline const_store_range stores(const ExecutionGraph &G, SAddr addr)
-{
-	return const_store_range(store_begin(G, addr), store_end(G, addr));
-}
-
-inline const_reverse_store_iterator store_rbegin(const ExecutionGraph &G, SAddr addr)
-{
-	return G.co_rbegin(addr);
-}
-inline const_reverse_store_iterator store_rend(const ExecutionGraph &G, SAddr addr)
-{
-	return G.co_rend(addr);
-}
-inline const_reverse_store_range rstores(const ExecutionGraph &G, SAddr addr)
-{
-	return const_reverse_store_range(store_rbegin(G, addr), store_rend(G, addr));
-}
-
-/*******************************************************************************
  **                         co-iteration utilities
  ******************************************************************************/
 
@@ -107,23 +72,23 @@ using const_co_range = llvm::iterator_range<const_co_iterator>;
 using const_reverse_co_range = llvm::iterator_range<const_reverse_co_iterator>;
 
 namespace detail {
-inline const_store_iterator coSentinel;
+inline const_co_iterator coSentinel;
 inline const_reverse_co_iterator coRevSentinel;
 }; // namespace detail
 
-inline const_store_iterator co_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
+inline auto co_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
 {
 	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 	return wLab ? G.co_succ_begin(wLab) : ::detail::coSentinel;
 }
-inline const_store_iterator co_succ_end(const ExecutionGraph &G, const EventLabel *lab)
+inline auto co_succ_end(const ExecutionGraph &G, const EventLabel *lab)
 {
 	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 	return wLab ? G.co_succ_end(wLab) : ::detail::coSentinel;
 }
-inline const_store_range co_succs(const ExecutionGraph &G, const EventLabel *lab)
+inline auto co_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_store_range(co_succ_begin(G, lab), co_succ_end(G, lab));
+	return const_co_range(co_succ_begin(G, lab), co_succ_end(G, lab));
 }
 inline const WriteLabel *co_imm_succ(const ExecutionGraph &G, const EventLabel *lab)
 {

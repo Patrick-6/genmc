@@ -98,9 +98,9 @@ GenMCDriver::Execution::~Execution() = default;
 
 void repairRead(ExecutionGraph &g, ReadLabel *lab)
 {
-	auto last = (store_rbegin(g, lab->getAddr()) == store_rend(g, lab->getAddr()))
+	auto last = (g.co_rbegin(lab->getAddr()) == g.co_rend(lab->getAddr()))
 			    ? Event::getInit()
-			    : store_rbegin(g, lab->getAddr())->getPos();
+			    : g.co_rbegin(lab->getAddr())->getPos();
 	g.changeRf(lab->getPos(), last);
 	lab->setAddedMax(true);
 	lab->setIPRStatus(g.getEventLabel(last)->getStamp() > lab->getStamp());
@@ -547,7 +547,7 @@ void GenMCDriver::checkHelpingCasAnnotation()
 		/* Check that all stores that would make this helping
 		 * CAS succeed are read by a helped CAS.
 		 * We don't need to check the swap value of the helped CAS */
-		if (std::any_of(store_begin(g, hLab->getAddr()), store_end(g, hLab->getAddr()),
+		if (std::any_of(g.co_begin(hLab->getAddr()), g.co_end(hLab->getAddr()),
 				[&](auto &sLab) {
 					return hLab->getExpected() == sLab.getVal() &&
 					       std::none_of(
@@ -1194,7 +1194,7 @@ SVal GenMCDriver::getStartValue(const ThreadStartLabel *bLab) const
 SVal GenMCDriver::getBarrierInitValue(const AAccess &access)
 {
 	const auto &g = getGraph();
-	auto sIt = std::find_if(store_begin(g, access.getAddr()), store_end(g, access.getAddr()),
+	auto sIt = std::find_if(g.co_begin(access.getAddr()), g.co_end(access.getAddr()),
 				[&access, &g](auto &bLab) {
 					BUG_ON(!llvm::isa<WriteLabel>(bLab));
 					return bLab.getAddr() == access.getAddr() &&
@@ -1202,7 +1202,7 @@ SVal GenMCDriver::getBarrierInitValue(const AAccess &access)
 				});
 
 	/* All errors pertinent to initialization should be captured elsewhere */
-	BUG_ON(sIt == store_end(g, access.getAddr()));
+	BUG_ON(sIt == g.co_end(access.getAddr()));
 	return getWriteValue(&*sIt, access);
 }
 
@@ -1323,11 +1323,11 @@ VerificationError GenMCDriver::checkInitializedMem(const WriteLabel *wLab)
 			     "Called barrier_init() with 0!"});
 		return VerificationError::VE_InvalidBInit;
 	}
-	if (bLab && std::any_of(store_begin(g, bLab->getAddr()), store_end(g, bLab->getAddr()),
-				[&](auto &sLab) {
-					return &sLab != wLab && sLab.getAddr() == wLab->getAddr() &&
-					       llvm::isa<BInitWriteLabel>(sLab);
-				})) {
+	if (bLab &&
+	    std::any_of(g.co_begin(bLab->getAddr()), g.co_end(bLab->getAddr()), [&](auto &sLab) {
+		    return &sLab != wLab && sLab.getAddr() == wLab->getAddr() &&
+			   llvm::isa<BInitWriteLabel>(sLab);
+	    })) {
 		reportError({wLab->getPos(), VerificationError::VE_InvalidBInit,
 			     "Called barrier_init() multiple times!"});
 		return VerificationError::VE_InvalidBInit;
@@ -1345,11 +1345,10 @@ VerificationError GenMCDriver::checkFinalAnnotations(const WriteLabel *wLab)
 	if (g.hasLocMoreThanOneStore(wLab->getAddr()))
 		return VerificationError::VE_OK;
 	if ((wLab->isFinal() &&
-	     std::any_of(store_begin(g, wLab->getAddr()), store_end(g, wLab->getAddr()),
+	     std::any_of(g.co_begin(wLab->getAddr()), g.co_end(wLab->getAddr()),
 			 [&](auto &sLab) { return !getHbView(wLab).contains(sLab.getPos()); })) ||
-	    (!wLab->isFinal() &&
-	     std::any_of(store_begin(g, wLab->getAddr()), store_end(g, wLab->getAddr()),
-			 [&](auto &sLab) { return sLab.isFinal(); }))) {
+	    (!wLab->isFinal() && std::any_of(g.co_begin(wLab->getAddr()), g.co_end(wLab->getAddr()),
+					     [&](auto &sLab) { return sLab.isFinal(); }))) {
 		reportError({wLab->getPos(), VerificationError::VE_Annotation,
 			     "Multiple stores at final location!"});
 		return VerificationError::VE_Annotation;
@@ -1363,9 +1362,9 @@ VerificationError GenMCDriver::checkIPRValidity(const ReadLabel *rLab)
 		return VerificationError::VE_OK;
 
 	auto &g = getGraph();
-	auto racyIt = std::find_if(store_begin(g, rLab->getAddr()), store_end(g, rLab->getAddr()),
+	auto racyIt = std::find_if(g.co_begin(rLab->getAddr()), g.co_end(rLab->getAddr()),
 				   [&](auto &wLab) { return wLab.hasAttr(WriteAttr::WWRacy); });
-	if (racyIt == store_end(g, rLab->getAddr()))
+	if (racyIt == g.co_end(rLab->getAddr()))
 		return VerificationError::VE_OK;
 
 	auto msg = "Unordered writes do not constitute a bug per se, though they often "
@@ -2655,7 +2654,7 @@ void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vecto
 
 	/* If there is already a write with the same value, report a possible ABA */
 	auto valid = std::count_if(
-		store_begin(g, sLab->getAddr()), store_end(g, sLab->getAddr()), [&](auto &wLab) {
+		g.co_begin(sLab->getAddr()), g.co_end(sLab->getAddr()), [&](auto &wLab) {
 			return wLab.getPos() != sLab->getPos() && wLab.getVal() == sLab->getVal();
 		});
 	if (sLab->getAddr().isStatic() &&
@@ -2708,10 +2707,10 @@ bool GenMCDriver::tryOptimizeRevBlockerAddition(const WriteLabel *sLab, std::vec
 
 	auto &g = getGraph();
 	auto *pLab = getPreviousVisibleAccessLabel(sLab->getPos().prev());
-	if (std::find_if(store_begin(g, sLab->getAddr()), store_end(g, sLab->getAddr()),
+	if (std::find_if(g.co_begin(sLab->getAddr()), g.co_end(sLab->getAddr()),
 			 [this, pLab, sLab](auto &lab) {
 				 return isConflictingNonRevBlocker(pLab, sLab, lab.getPos());
-			 }) != store_end(g, sLab->getAddr())) {
+			 }) != g.co_end(sLab->getAddr())) {
 		moot();
 		loads.clear();
 		return true;
@@ -3590,7 +3589,7 @@ void GenMCDriver::printGraph(bool printMetadata /* false */,
 			}
 			auto *wLab = &*g.co_begin(locIt->first);
 			s << getVarName(wLab->getAddr()) << ": [ ";
-			for (const auto &w : stores(g, locIt->first))
+			for (const auto &w : g.co(locIt->first))
 				s << w << " ";
 			s << "]\n";
 		}
