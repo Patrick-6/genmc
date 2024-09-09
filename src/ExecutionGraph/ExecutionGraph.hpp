@@ -76,6 +76,9 @@ public:
 	using loc_iterator = LocMap::iterator;
 	using const_loc_iterator = LocMap::const_iterator;
 
+	using label_iterator = llvm::simple_ilist<EventLabel>::iterator;
+	using const_label_iterator = llvm::simple_ilist<EventLabel>::const_iterator;
+
 	using co_iterator = StoreList::iterator;
 	using const_co_iterator = StoreList::const_iterator;
 	using reverse_co_iterator = StoreList::reverse_iterator;

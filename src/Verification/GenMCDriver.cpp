@@ -1006,7 +1006,7 @@ bool GenMCDriver::inReplay() const
 	return getEE()->getExecState() == llvm::ExecutionState::Replay;
 }
 
-MallocLabel *findAllocatingLabel(const ExecutionGraph &g, const SAddr &addr)
+MallocLabel *findAllocatingLabel(ExecutionGraph &g, const SAddr &addr)
 {
 	/* Don't iterate over the graph if you don't have to */
 	if (!addr.isDynamic())
