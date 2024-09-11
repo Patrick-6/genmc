@@ -1012,11 +1012,11 @@ MallocLabel *findAllocatingLabel(ExecutionGraph &g, const SAddr &addr)
 	if (!addr.isDynamic())
 		return nullptr;
 
-	auto labIt = std::find_if(label_begin(g), label_end(g), [&](auto &lab) {
+	auto labIt = std::find_if(g.label_begin(), g.label_end(), [&](auto &lab) {
 		auto *mLab = llvm::dyn_cast<MallocLabel>(&lab);
 		return mLab && mLab->contains(addr);
 	});
-	if (labIt != label_end(g))
+	if (labIt != g.label_end())
 		return llvm::dyn_cast<MallocLabel>(&*labIt);
 	return nullptr;
 }
@@ -1438,7 +1438,7 @@ void GenMCDriver::checkUnfreedMemory()
 
 	auto &g = getGraph();
 	const MallocLabel *unfreedAlloc = nullptr;
-	if (std::ranges::any_of(labels(g), [&](auto &lab) {
+	if (std::ranges::any_of(g.labels(), [&](auto &lab) {
 		    unfreedAlloc = llvm::dyn_cast<MallocLabel>(&lab);
 		    return unfreedAlloc && unfreedAlloc->getFree() == nullptr;
 	    })) {
@@ -2976,7 +2976,7 @@ bool GenMCDriver::isMaximalExtension(const BackwardRevisit &r)
 	auto &g = getGraph();
 	auto &v = r.getViewNoRel();
 
-	for (const auto &lab : labels(g)) {
+	for (const auto &lab : g.labels()) {
 		if ((lab.getPos() != r.getPos() && v->contains(lab.getPos())) ||
 		    prefixContainsSameLoc(r, &lab))
 			continue;
@@ -3034,7 +3034,7 @@ std::unique_ptr<ExecutionGraph> GenMCDriver::copyGraph(const BackwardRevisit *br
 	auto *revLab = og->getReadLabel(br->getPos());
 
 	og->compressStampsAfter(revLab->getStamp());
-	for (auto &lab : labels(*og)) {
+	for (auto &lab : og->labels()) {
 		if (prefix.contains(lab.getPos()))
 			lab.setRevisitStatus(false);
 	}
@@ -3047,7 +3047,7 @@ GenMCDriver::ChoiceMap GenMCDriver::createChoiceMapForCopy(const ExecutionGraph 
 	const auto &choices = getChoiceMap();
 	ChoiceMap result;
 
-	for (auto &lab : labels(g)) {
+	for (auto &lab : g.labels()) {
 		if (!og.containsPos(lab.getPos()) || !choices.count(lab.getStamp()))
 			continue;
 
@@ -3330,7 +3330,7 @@ bool GenMCDriver::handleOptional(std::unique_ptr<OptionalLabel> lab)
 	if (isExecutionDrivenByGraph(&*lab))
 		return llvm::dyn_cast<OptionalLabel>(g.getEventLabel(lab->getPos()))->isExpanded();
 
-	if (std::any_of(label_begin(g), label_end(g), [&](auto &lab) {
+	if (std::any_of(g.label_begin(), g.label_end(), [&](auto &lab) {
 		    auto *oLab = llvm::dyn_cast<OptionalLabel>(&lab);
 		    return oLab && !oLab->isExpandable();
 	    }))
@@ -3438,7 +3438,7 @@ bool GenMCDriver::areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab)
 
 	/* All stores in the RMW chain need to be read from at most 1 read,
 	 * and there need to be no other stores that are not hb-before lab */
-	for (auto &lab : labels(g)) {
+	for (auto &lab : g.labels()) {
 		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(&lab)) {
 			if (mLab->getAddr() == wLab->getAddr() && !llvm::isa<FaiReadLabel>(mLab) &&
 			    !llvm::isa<FaiWriteLabel>(mLab) &&

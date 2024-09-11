@@ -303,7 +303,7 @@ TSODriver::getInitRfsAtLoc(SAddr addr)
 {
 	std::vector<Event> result;
 
-	for (const auto &lab : labels(getGraph())) {
+	for (const auto &lab : getGraph().labels()) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab))
 			if (rLab->getRf()->getPos().isInitializer() && rLab->getAddr() == addr)
 				result.push_back(rLab->getPos());
@@ -675,7 +675,7 @@ bool TSODriver::visitCoherenceFull() const
 	visitedCoherence_1.clear();
 	visitedCoherence_1.resize(g.getMaxStamp().get() + 1);
 	return true
-		&& std::ranges::all_of(labels(g), [&](auto &lab){ return visitedCoherence_1[lab.getStamp().get()].status != NodeStatus::unseen || visitCoherence_1(&lab); });
+		&& std::ranges::all_of(g.labels(), [&](auto &lab){ return visitedCoherence_1[lab.getStamp().get()].status != NodeStatus::unseen || visitCoherence_1(&lab); });
 }
 
 bool TSODriver::visitConsAcyclic1_0(const EventLabel *lab) const 
@@ -1129,7 +1129,7 @@ bool TSODriver::visitConsAcyclic1Full() const
 	visitedConsAcyclic1_3.clear();
 	visitedConsAcyclic1_3.resize(g.getMaxStamp().get() + 1);
 	return true
-		&& std::ranges::all_of(labels(g), [&](auto &lab){ return visitedConsAcyclic1_3[lab.getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_3(&lab); });
+		&& std::ranges::all_of(g.labels(), [&](auto &lab){ return visitedConsAcyclic1_3[lab.getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_3(&lab); });
 }
 
 bool TSODriver::checkConsAcyclic1(const EventLabel *lab) const
@@ -1257,7 +1257,7 @@ bool TSODriver::visitUnlessError3(const EventLabel *lab) const
 		return false;
 	for (auto i = 0u; i < visitedLHSUnlessError3Accepting.size(); i++) {
 		if (visitedLHSUnlessError3Accepting[i] && !visitedRHSUnlessError3Accepting[i]) {
-			cexLab = &*std::find_if(label_begin(g), label_end(g), [&](auto &lab){ return lab.getStamp() == i; });
+			cexLab = &*std::find_if(g.label_begin(), g.label_end(), [&](auto &lab){ return lab.getStamp() == i; });
 			return false;
 		}
 	}
@@ -1410,7 +1410,7 @@ bool TSODriver::visitUnlessError5(const EventLabel *lab) const
 		return false;
 	for (auto i = 0u; i < visitedLHSUnlessError5Accepting.size(); i++) {
 		if (visitedLHSUnlessError5Accepting[i] && !visitedRHSUnlessError5Accepting[i]) {
-			cexLab = &*std::find_if(label_begin(g), label_end(g), [&](auto &lab){ return lab.getStamp() == i; });
+			cexLab = &*std::find_if(g.label_begin(), g.label_end(), [&](auto &lab){ return lab.getStamp() == i; });
 			return false;
 		}
 	}
@@ -1563,7 +1563,7 @@ bool TSODriver::visitUnlessError7(const EventLabel *lab) const
 		return false;
 	for (auto i = 0u; i < visitedLHSUnlessError7Accepting.size(); i++) {
 		if (visitedLHSUnlessError7Accepting[i] && !visitedRHSUnlessError7Accepting[i]) {
-			cexLab = &*std::find_if(label_begin(g), label_end(g), [&](auto &lab){ return lab.getStamp() == i; });
+			cexLab = &*std::find_if(g.label_begin(), g.label_end(), [&](auto &lab){ return lab.getStamp() == i; });
 			return false;
 		}
 	}

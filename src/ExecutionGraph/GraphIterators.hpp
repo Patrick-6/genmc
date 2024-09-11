@@ -42,23 +42,14 @@ using const_label_iterator = ExecutionGraph::const_label_iterator;
 using label_range = llvm::iterator_range<ExecutionGraph::label_iterator>;
 using const_label_range = llvm::iterator_range<ExecutionGraph::const_label_iterator>;
 
-inline auto label_begin(ExecutionGraph &G) { return G.label_begin(); }
-inline auto label_begin(const ExecutionGraph &G) { return G.label_begin(); }
-
-inline auto label_end(ExecutionGraph &G) { return G.label_end(); }
-inline auto label_end(const ExecutionGraph &G) { return G.label_end(); }
-
-inline auto labels(ExecutionGraph &G) { return G.labels(); }
-inline auto labels(const ExecutionGraph &G) { return G.labels(); }
-
 inline auto other_labels(ExecutionGraph &G, const EventLabel *lab)
 {
-	return labels(G) |
+	return G.labels() |
 	       std::views::filter([lab](auto &olab) { return olab.getPos() != lab->getPos(); });
 }
 inline auto other_labels(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return labels(G) |
+	return G.labels() |
 	       std::views::filter([lab](auto &olab) { return olab.getPos() != lab->getPos(); });
 }
 
@@ -607,9 +598,9 @@ inline const_sameloc_iterator sameloc_begin(const ExecutionGraph &G, const Event
 {
 	using namespace ::detail;
 	return hasLocation(lab)
-		       ? const_sameloc_iterator(label_begin(G), label_end(G),
+		       ? const_sameloc_iterator(G.label_begin(), G.label_end(),
 						IDAndLocFilter(G, getLocation(lab), lab->getPos()))
-		       : const_sameloc_iterator(label_end(G), label_end(G),
+		       : const_sameloc_iterator(G.label_end(), G.label_end(),
 						IDAndLocFilter(G, SAddr(), lab->getPos()));
 }
 
@@ -617,7 +608,7 @@ inline const_sameloc_iterator sameloc_end(const ExecutionGraph &G, const EventLa
 {
 	using namespace ::detail;
 	auto addr = hasLocation(lab) ? getLocation(lab) : SAddr();
-	return const_sameloc_iterator(label_end(G), label_end(G),
+	return const_sameloc_iterator(G.label_end(), G.label_end(),
 				      IDAndLocFilter(G, addr, lab->getPos()));
 }
 

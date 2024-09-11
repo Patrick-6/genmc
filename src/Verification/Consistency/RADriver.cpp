@@ -554,7 +554,7 @@ RADriver::getInitRfsAtLoc(SAddr addr)
 {
 	std::vector<Event> result;
 
-	for (const auto &lab : labels(getGraph())) {
+	for (const auto &lab : getGraph().labels()) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab))
 			if (rLab->getRf()->getPos().isInitializer() && rLab->getAddr() == addr)
 				result.push_back(rLab->getPos());
@@ -1189,7 +1189,7 @@ bool RADriver::visitCoherenceFull() const
 	visitedCoherence_5.clear();
 	visitedCoherence_5.resize(g.getMaxStamp().get() + 1);
 	return true
-		&& std::ranges::all_of(labels(g), [&](auto &lab){ return visitedCoherence_1[lab.getStamp().get()].status != NodeStatus::unseen || visitCoherence_1(&lab); });
+		&& std::ranges::all_of(g.labels(), [&](auto &lab){ return visitedCoherence_1[lab.getStamp().get()].status != NodeStatus::unseen || visitCoherence_1(&lab); });
 }
 
 bool RADriver::visitError1(const EventLabel *lab) const
@@ -1310,7 +1310,7 @@ bool RADriver::visitUnlessError2(const EventLabel *lab) const
 		return false;
 	for (auto i = 0u; i < visitedLHSUnlessError2Accepting.size(); i++) {
 		if (visitedLHSUnlessError2Accepting[i] && !visitedRHSUnlessError2Accepting[i]) {
-			cexLab = &*std::find_if(label_begin(g), label_end(g), [&](auto &lab){ return lab.getStamp() == i; });
+			cexLab = &*std::find_if(g.label_begin(), g.label_end(), [&](auto &lab){ return lab.getStamp() == i; });
 			return false;
 		}
 	}
@@ -1463,7 +1463,7 @@ bool RADriver::visitUnlessError4(const EventLabel *lab) const
 		return false;
 	for (auto i = 0u; i < visitedLHSUnlessError4Accepting.size(); i++) {
 		if (visitedLHSUnlessError4Accepting[i] && !visitedRHSUnlessError4Accepting[i]) {
-			cexLab = &*std::find_if(label_begin(g), label_end(g), [&](auto &lab){ return lab.getStamp() == i; });
+			cexLab = &*std::find_if(g.label_begin(), g.label_end(), [&](auto &lab){ return lab.getStamp() == i; });
 			return false;
 		}
 	}
@@ -1616,7 +1616,7 @@ bool RADriver::visitUnlessError6(const EventLabel *lab) const
 		return false;
 	for (auto i = 0u; i < visitedLHSUnlessError6Accepting.size(); i++) {
 		if (visitedLHSUnlessError6Accepting[i] && !visitedRHSUnlessError6Accepting[i]) {
-			cexLab = &*std::find_if(label_begin(g), label_end(g), [&](auto &lab){ return lab.getStamp() == i; });
+			cexLab = &*std::find_if(g.label_begin(), g.label_end(), [&](auto &lab){ return lab.getStamp() == i; });
 			return false;
 		}
 	}
