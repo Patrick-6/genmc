@@ -165,12 +165,13 @@ Event ExecutionGraph::getMatchingSpeculativeRead(Event conf, Event *sc /* = null
 
 Event ExecutionGraph::getMalloc(const SAddr &addr) const
 {
-	auto it = std::find_if(label_begin(*this), label_end(*this), [&](auto &lab) {
+	auto range = labels();
+	auto it = std::ranges::find_if(range, [&](auto &lab) {
 		if (auto *aLab = llvm::dyn_cast<MallocLabel>(&lab))
 			return aLab->contains(addr);
 		return false;
 	});
-	return it != label_end(*this) ? it->getPos() : Event::getInit();
+	return it != std::ranges::end(range) ? it->getPos() : Event::getInit();
 }
 
 Event ExecutionGraph::getMallocCounterpart(const FreeLabel *fLab) const
@@ -257,7 +258,7 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
 {
 	std::vector<Event> result;
 
-	for (const auto &lab : labels(*this)) {
+	for (const auto &lab : labels()) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab))
 			if (rLab->getRf() && rLab->getRf()->getPos().isInitializer() &&
 			    rLab->getAddr() == addr)
@@ -272,18 +273,26 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
 
 EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
+	lab->setParent(this);
+
 	/* Assign stamp if necessary */
 	if (!lab->hasStamp())
 		lab->setStamp(nextStamp());
+
+	/* Track coherence if necessary */
+	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(&*lab))
+		trackCoherenceAtLoc(mLab->getAddr());
 
 	auto pos = lab->getPos();
 	if (pos.index < events[pos.thread].size()) {
 		auto eLab = getEventLabel(pos);
 		BUG_ON(eLab && !llvm::isa<EmptyLabel>(eLab));
+		insertionOrder.remove(*events[pos.thread][pos.index]);
 		events[pos.thread][pos.index] = std::move(lab);
 	} else {
 		events[pos.thread].push_back(std::move(lab));
 	}
+	insertionOrder.push_back(*events[pos.thread][pos.index]);
 	BUG_ON(pos.index > events[pos.thread].size());
 	return getEventLabel(pos);
 }
@@ -334,12 +343,13 @@ void ExecutionGraph::removeLast(unsigned int thread)
 			dLab->setAlloc(nullptr);
 	}
 	/* Nothing to do for create/join: childId remains the same */
+	insertionOrder.remove(*lab);
 	resizeThread(lab->getPos());
 }
 
 bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, SAddr ptr) const
 {
-	for (const auto &lab : labels(*this)) {
+	for (const auto &lab : labels()) {
 		if (!isRMWLoad(&lab))
 			continue;
 
@@ -353,7 +363,7 @@ bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, SAddr ptr) const
 bool ExecutionGraph::isStoreReadBySettledRMW(Event store, SAddr ptr,
 					     const VectorClock &prefix) const
 {
-	for (const auto &lab : labels(*this)) {
+	for (const auto &lab : labels()) {
 		if (!isRMWLoad(&lab))
 			continue;
 
@@ -483,6 +493,9 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 
 	/* Inform all calculators about the events cutted */
 	removeAfter(*preds);
+	for (auto labIt = insertionOrder.begin(), labE = insertionOrder.end(); labIt != labE;) {
+		labIt = preds->contains(labIt->getPos()) ? ++labIt : insertionOrder.erase(labIt);
+	}
 
 	/* Remove any 'pointers' to events that will be removed */
 	for (auto i = 0u; i < preds->size(); i++) {
@@ -534,7 +547,7 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 void ExecutionGraph::compressStampsAfter(Stamp st)
 {
 	resetStamp(st + 1);
-	for (auto &lab : labels(*this)) {
+	for (auto &lab : labels()) {
 		if (lab.getStamp() > st)
 			lab.setStamp(nextStamp());
 	}
@@ -573,7 +586,16 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 		}
 	}
 
-	for (auto &lab : labels(other)) {
+	other.insertionOrder.clear();
+	for (auto &lab : insertionOrder) {
+		if (v.contains(lab.getPos())) {
+			other.insertionOrder.push_back(*other.getEventLabel(lab.getPos()));
+		} else if (lab.getIndex() <= v.getMax(lab.getThread())) {
+			other.insertionOrder.push_back(*other.getEventLabel(lab.getPos()));
+		}
+	}
+
+	for (auto &lab : other.labels()) {
 		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
 		if (rLab && rLab->getRf()) {
 			if (!other.containsPos(rLab->getRf()->getPos()))
@@ -638,19 +660,11 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 	}
 
 	/* Finally, copy coherence info */
-	/* FIXME: Temporary ugly hack */
-	// for (auto it = cc->begin(); it != cc->end(); ++it) {
-	// 	for (auto sIt = it->second.begin(); sIt != it->second.end(); ++sIt) {
-	// 		if (v.contains(*sIt)) {
-	// 			occ->addStoreToLoc(it->first, *sIt, -1);
-	// 		}
-	// 	}
-	// }
 	for (auto lIt = loc_begin(), lE = loc_end(); lIt != lE; ++lIt) {
 		for (auto sIt = lIt->second.begin(); sIt != lIt->second.end(); ++sIt)
 			if (v.contains(sIt->getPos())) {
-				other.addStoreToCO(other.getWriteLabel(sIt->getPos()),
-						   other.co_end(lIt->first));
+				other.addStoreToCOAfter(other.getWriteLabel(sIt->getPos()),
+							other.co_max(sIt->getAddr()));
 			}
 	}
 	for (auto it = loc_begin(); it != loc_end(); ++it) {
@@ -662,7 +676,6 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 			}
 		}
 	}
-	/* FIXME: Make sure all fields are copied */
 	return;
 }
 
@@ -700,7 +713,7 @@ bool ExecutionGraph::isRMWLoad(const EventLabel *lab) const
 
 void ExecutionGraph::validate(void)
 {
-	for (auto &lab : labels(*this)) {
+	for (auto &lab : labels()) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab)) {
 			if (!rLab->getRf())
 				continue;

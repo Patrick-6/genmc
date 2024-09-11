@@ -516,20 +516,19 @@ private:
 	/* If LAB accesses a valid location, reports an error  */
 	VerificationError checkAccessValidity(const MemAccessLabel *lab);
 
-	/* If LAB accesses an uninitialized location, erports an error */
+	/* If LAB accesses an uninitialized location, reports an error */
 	VerificationError checkInitializedMem(const ReadLabel *lab);
 
-	/* If LAB accesses improperly initialized memory, erports an error */
+	/* If LAB accesses improperly initialized memory, reports an error */
 	VerificationError checkInitializedMem(const WriteLabel *lab);
+
+	/* If LAB is an IPR read in a location with WW-races, reports an error */
+	VerificationError checkIPRValidity(const ReadLabel *rLab);
 
 	/* Checks whether final annotations are used properly in a program:
 	 * if there are more than one stores annotated as final at the time WLAB
-	 * is added, visitError() is called */
-	void checkFinalAnnotations(const WriteLabel *wLab);
-
-	/* Checks whether the IPR optimization is valid (i.e., no WW-races),
-	 * and reports an error if it's not. Returns the validity result */
-	void checkIPRValidity(const ReadLabel *rLab);
+	 * is added, reports an error */
+	VerificationError checkFinalAnnotations(const WriteLabel *wLab);
 
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph(const EventLabel *lab);
@@ -553,11 +552,10 @@ private:
 	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
 
 	/* Est: Picks (and sets) a random RF among some possible options */
-	std::optional<SVal> pickRandomRf(ReadLabel *rLab, std::vector<Event> &stores);
+	Event pickRandomRf(ReadLabel *rLab, std::vector<Event> &stores);
 
 	/* Est: Picks (and sets) a random CO among some possible options */
-	void pickRandomCo(WriteLabel *sLab,
-			  const llvm::iterator_range<ExecutionGraph::co_iterator> &coRange);
+	void pickRandomCo(WriteLabel *sLab, std::vector<Event> &cos);
 
 	/* BAM: Tries to optimize barrier-related revisits */
 	bool tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std::vector<Event> &loads);
@@ -627,7 +625,7 @@ private:
 
 	/* Calculates all possible coherence placings for SLAB and
 	 * pushes them to the worklist. */
-	void calcCoOrderings(WriteLabel *sLab);
+	void calcCoOrderings(WriteLabel *sLab, const std::vector<Event> &cos);
 
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
@@ -668,25 +666,22 @@ private:
 	/* Given a list of stores that it is consistent to read-from,
 	 * filters out options that can be skipped (according to the conf),
 	 * and determines the order in which these options should be explored */
-	bool filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores);
+	void filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores);
 
 	bool isExecutionValid(const EventLabel *lab)
 	{
 		return isSymmetryOK(lab) && isConsistent(lab) && !partialExecutionExceedsBound();
 	}
 
-	/* Removes rfs from "rfs" until a consistent option for rLab is found,
-	 * if that is dictated by the CLI options */
-	bool ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs);
+	/* Removes rfs from RFS until a consistent option for RLAB is found */
+	std::optional<Event> findConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs);
+
+	/* Remove cos from COS until a consistent option for WLAB is found */
+	std::optional<Event> findConsistentCo(WriteLabel *wLab, std::vector<Event> &cos);
 
 	/* Checks whether the addition of WLAB creates an atomicity violation.
 	 * If so, returns false and moots the execution if possible. */
 	bool checkAtomicity(const WriteLabel *wLab);
-
-	/* Makes sure that the current graph is consistent, if that is dictated
-	 * by the CLI options. Since that is not always the case for stores
-	 * (e.g., w/ LAPOR), it returns whether it is the case or not */
-	bool ensureConsistentStore(const WriteLabel *wLab);
 
 	/* Helper: Annotates a store as RevBlocker, if possible */
 	void annotateStoreHELPER(WriteLabel *wLab);
@@ -737,7 +732,7 @@ private:
 	void handleFenceLKMM(std::unique_ptr<FenceLabel> fLab);
 
 	/* Helper: Wake up any threads blocked on a helping CAS */
-	void unblockWaitingHelping();
+	void unblockWaitingHelping(const WriteLabel *lab);
 
 	bool writesBeforeHelpedContainedInView(const HelpedCasReadLabel *lab, const View &view);
 
@@ -848,8 +843,7 @@ private:
 	virtual std::vector<Event> getCoherentRevisits(const WriteLabel *sLab,
 						       const VectorClock &pporf) = 0;
 	virtual std::vector<Event> getCoherentStores(SAddr addr, Event read) = 0;
-	virtual llvm::iterator_range<ExecutionGraph::co_iterator>
-	getCoherentPlacings(SAddr addr, Event read, bool isRMW) = 0;
+	virtual std::vector<Event> getCoherentPlacings(SAddr addr, Event read, bool isRMW) = 0;
 
 	virtual bool isDepTracking() const = 0;
 

@@ -76,6 +76,9 @@ public:
 	using loc_iterator = LocMap::iterator;
 	using const_loc_iterator = LocMap::const_iterator;
 
+	using label_iterator = llvm::simple_ilist<EventLabel>::iterator;
+	using const_label_iterator = llvm::simple_ilist<EventLabel>::const_iterator;
+
 	using co_iterator = StoreList::iterator;
 	using const_co_iterator = StoreList::const_iterator;
 	using reverse_co_iterator = StoreList::reverse_iterator;
@@ -94,8 +97,69 @@ public:
 	const_reverse_iterator rbegin() const { return events.rbegin(); };
 	const_reverse_iterator rend() const { return events.rend(); };
 
+	auto label_begin() const { return insertionOrder.begin(); }
+	auto label_end() const { return insertionOrder.end(); }
+	auto labels() const { return std::views::all(insertionOrder); }
+
+	auto label_begin() { return insertionOrder.begin(); }
+	auto label_end() { return insertionOrder.end(); }
+	auto labels() { return std::views::all(insertionOrder); }
+
 	auto thr_ids() const { return std::views::iota(0, (int)getNumThreads()); }
 	auto thr_ids() { return std::views::iota(0, (int)getNumThreads()); }
+
+	auto po_succs(const EventLabel *lab) const
+	{
+		const auto &thr = events[lab->getThread()];
+		return std::ranges::subrange(thr.begin() + lab->getIndex() + 1, thr.end()) |
+		       std::ranges::views::transform(indirect);
+	}
+	auto po_succs(EventLabel *lab)
+	{
+		auto &thr = events[lab->getThread()];
+		return std::ranges::subrange(thr.begin() + lab->getIndex() + 1, thr.end()) |
+		       std::ranges::views::transform(indirect);
+	}
+
+	auto po_preds(const EventLabel *lab) const
+	{
+		const auto &thr = events[lab->getThread()];
+		return std::ranges::subrange(thr.begin(), thr.begin() + lab->getIndex()) |
+		       std::views::reverse | std::ranges::views::transform(indirect);
+	}
+	auto po_preds(EventLabel *lab)
+	{
+		const auto &thr = events[lab->getThread()];
+		return std::ranges::subrange(thr.begin(), thr.begin() + lab->getIndex()) |
+		       std::views::reverse | std::ranges::views::transform(indirect);
+	}
+
+	/* Returns the label in the previous position of E.
+	 * Returns nullptr if E is the first event of a thread */
+	const EventLabel *getPreviousLabel(const EventLabel *lab) const
+	{
+		return lab->getIndex() == 0 ? nullptr
+					    : events[lab->getThread()][lab->getIndex() - 1].get();
+	}
+	EventLabel *getPreviousLabel(EventLabel *lab)
+	{
+		return const_cast<EventLabel *>(
+			static_cast<const ExecutionGraph &>(*this).getPreviousLabel(lab));
+	}
+
+	/* Returns the label in the next position of E.
+	 * Returns nullptr if E is the last event of a thread */
+	const EventLabel *getNextLabel(const EventLabel *lab) const
+	{
+		return lab->getIndex() == getThreadSize(lab->getThread()) - 1
+			       ? nullptr
+			       : events[lab->getThread()][lab->getIndex() + 1].get();
+	}
+	EventLabel *getNextLabel(EventLabel *lab)
+	{
+		return const_cast<EventLabel *>(
+			static_cast<const ExecutionGraph &>(*this).getNextLabel(lab));
+	}
 
 	loc_iterator loc_begin() { return coherence.begin(); }
 	const_loc_iterator loc_begin() const { return coherence.begin(); };
@@ -106,6 +170,8 @@ public:
 	const_co_iterator co_begin(SAddr addr) const { return coherence.at(addr).begin(); };
 	co_iterator co_end(SAddr addr) { return coherence[addr].end(); }
 	const_co_iterator co_end(SAddr addr) const { return coherence.at(addr).end(); }
+	auto co(SAddr addr) { return std::views::all(coherence[addr]); }
+	auto co(SAddr addr) const { return std::views::all(coherence.at(addr)); }
 
 	reverse_co_iterator co_rbegin(SAddr addr) { return coherence[addr].rbegin(); }
 	const_reverse_co_iterator co_rbegin(SAddr addr) const
@@ -114,6 +180,11 @@ public:
 	};
 	reverse_co_iterator co_rend(SAddr addr) { return coherence[addr].rend(); }
 	const_reverse_co_iterator co_rend(SAddr addr) const { return coherence.at(addr).rend(); }
+	auto rco(SAddr addr) { return std::views::all(coherence[addr]) | std::views::reverse; }
+	auto rco(SAddr addr) const
+	{
+		return std::views::all(coherence.at(addr)) | std::views::reverse;
+	}
 
 	initrf_iterator init_rf_begin(SAddr addr) { return getInitLabel()->rf_begin(addr); }
 	const_initrf_iterator init_rf_begin(SAddr addr) const
@@ -158,6 +229,17 @@ public:
 	{
 		return const_cast<WriteLabel *>(
 			static_cast<const ExecutionGraph &>(*this).co_imm_pred(lab));
+	}
+
+	const EventLabel *co_max(SAddr addr) const
+	{
+		return co_begin(addr) == co_end(addr) ? (EventLabel *)getInitLabel()
+						      : (EventLabel *)&*co_rbegin(addr);
+	}
+	EventLabel *co_max(SAddr addr)
+	{
+		return const_cast<EventLabel *>(
+			static_cast<const ExecutionGraph &>(*this).co_max(addr));
 	}
 
 	co_iterator fr_succ_begin(ReadLabel *rLab)
@@ -264,11 +346,30 @@ public:
 	 * (Maintains well-formedness for read removals.) */
 	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
 
-	void addStoreToCO(WriteLabel *wLab, co_iterator it)
+	void addStoreToCOBefore(WriteLabel *wLab, WriteLabel *succLab)
 	{
-		coherence[wLab->getAddr()].insert(it, *wLab);
+		coherence[wLab->getAddr()].insert(co_iterator(succLab), *wLab);
 	}
+	void addStoreToCOAfter(WriteLabel *wLab, EventLabel *predLab)
+	{
+		auto *predLabW = llvm::dyn_cast<WriteLabel>(predLab);
+		coherence[wLab->getAddr()].insert(
+			predLabW ? ++co_iterator(*predLabW) : co_begin(wLab->getAddr()), *wLab);
+	}
+
 	void removeStoreFromCO(WriteLabel *wLab) { coherence[wLab->getAddr()].remove(*wLab); }
+
+	void moveStoreCOBefore(WriteLabel *wLab, WriteLabel *succLab)
+	{
+		removeStoreFromCO(wLab);
+		addStoreToCOBefore(wLab, succLab);
+	}
+
+	void moveStoreCOAfter(WriteLabel *wLab, EventLabel *predLab)
+	{
+		removeStoreFromCO(wLab);
+		addStoreToCOAfter(wLab, predLab);
+	}
 
 	/* Removes the last event from THREAD.
 	 * If it is a read, updates the rf-lists.
@@ -308,40 +409,6 @@ public:
 		return const_cast<WriteLabel *>(
 			static_cast<const ExecutionGraph &>(*this).getWriteLabel(e));
 	}
-
-	/* Returns the label in the previous position of E.
-	 * Returns nullptr if E is the first event of a thread */
-	const EventLabel *getPreviousLabel(Event e) const
-	{
-		return e.index == 0 ? nullptr : getEventLabel(e.prev());
-	}
-	EventLabel *getPreviousLabel(Event e)
-	{
-		return const_cast<EventLabel *>(
-			static_cast<const ExecutionGraph &>(*this).getPreviousLabel(e));
-	}
-	const EventLabel *getPreviousLabel(const EventLabel *lab) const
-	{
-		return getPreviousLabel(lab->getPos());
-	}
-	EventLabel *getPreviousLabel(EventLabel *lab) { return getPreviousLabel(lab->getPos()); }
-
-	/* Returns the label in the next position of E.
-	 * Returns nullptr if E is the last event of a thread */
-	const EventLabel *getNextLabel(Event e) const
-	{
-		return e == getLastThreadEvent(e.thread) ? nullptr : getEventLabel(e.next());
-	}
-	EventLabel *getNextLabel(Event e)
-	{
-		return const_cast<EventLabel *>(
-			static_cast<const ExecutionGraph &>(*this).getNextLabel(e));
-	}
-	const EventLabel *getNextLabel(const EventLabel *lab) const
-	{
-		return getNextLabel(lab->getPos());
-	}
-	EventLabel *getNextLabel(EventLabel *lab) { return getNextLabel(lab->getPos()); }
 
 	/* Returns the previous non-empty label of e. Since all threads
 	 * have an initializing event, it returns that as a base case */
@@ -547,6 +614,11 @@ public:
 	friend llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
 protected:
+	static auto indirect(const std::unique_ptr<EventLabel> &ptr) -> EventLabel &
+	{
+		return *ptr;
+	}
+
 	void resizeThread(unsigned int tid, unsigned int size) { events[tid].resize(size); };
 	void resizeThread(Event pos) { resizeThread(pos.thread, pos.index); }
 
@@ -593,6 +665,8 @@ protected:
 	Stamp timestamp = 0;
 
 	LocMap coherence;
+
+	llvm::simple_ilist<EventLabel> insertionOrder;
 
 	/* Pers: The ID of the recovery routine.
 	 * It should be -1 if not in recovery mode, or have the

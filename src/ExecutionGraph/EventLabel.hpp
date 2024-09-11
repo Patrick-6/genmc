@@ -37,6 +37,7 @@
 #include "Support/SExpr.hpp"
 #include "Support/SVal.hpp"
 #include "Support/ThreadInfo.hpp"
+#include <llvm/ADT/ilist_node.h>
 #include <llvm/IR/Instructions.h> /* For AtomicOrdering in older LLVMs */
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>
@@ -47,6 +48,7 @@ class ReadLabel;
 class MallocLabel;
 class FreeLabel;
 class ThreadJoinLabel;
+class ExecutionGraph;
 
 template <typename T, class... Options>
 class CopyableIList : public llvm::simple_ilist<T, Options...> {
@@ -73,7 +75,7 @@ public:
  * getter methods are private. One can obtain information about such relations
  * by querying the execution graph.
  */
-class EventLabel {
+class EventLabel : public llvm::ilist_node<EventLabel> {
 
 public:
 	/* Discriminator for LLVM-style RTTI (dyn_cast<> et al).
@@ -113,6 +115,13 @@ public:
 
 	/* Returns the discriminator of this object */
 	EventLabelKind getKind() const { return kind; }
+
+	/* Returns the parent graph of this label */
+	const ExecutionGraph *getParent() const { return parent; }
+	ExecutionGraph *getParent() { return parent; }
+
+	/* Sets the parent graph for this label */
+	void setParent(ExecutionGraph *graph) { parent = graph; }
 
 	/* Returns the position in the execution graph (thread, index) */
 	Event getPos() const { return position; }
@@ -241,6 +250,7 @@ public:
 	/* Resets all graph-related info on a label to their default values */
 	virtual void reset()
 	{
+		parent = nullptr;
 		stamp = std::nullopt;
 		calculatedRels.clear();
 		calculatedViews.clear();
@@ -262,6 +272,8 @@ private:
 
 	/* Discriminator enum for LLVM-style RTTI */
 	const EventLabelKind kind;
+
+	ExecutionGraph *parent{};
 
 	/* Position of this label within the execution graph (thread, index) */
 	Event position;
@@ -733,14 +745,14 @@ private:
 	void setRf(EventLabel *rfLab) { readsFrom = rfLab; }
 
 	/* Position of the write it is reading from in the graph */
-	EventLabel *readsFrom;
+	EventLabel *readsFrom = nullptr;
 
 	/* Whether the read has been revisited in place */
-	bool ipr;
+	bool ipr = false;
 
 	/* SAVer: Expression for annotatable loads. This needs to have
 	 * heap-value semantics so that it does not create concurrency issues */
-	AnnotVP annotExpr;
+	AnnotVP annotExpr = nullptr;
 };
 
 #define READ_PURE_SUBCLASS(name)                                                                   \
@@ -846,7 +858,7 @@ private:
 	SVal opValue;
 
 	/* Attributes for the write part of the RMW */
-	WriteAttr wattr;
+	WriteAttr wattr = WriteAttr::None;
 };
 
 #define FAIREAD_PURE_SUBCLASS(name)                                                                \
@@ -956,7 +968,7 @@ private:
 	const SVal swapValue;
 
 	/* The attributes of the write part of the RMW */
-	WriteAttr wattr;
+	WriteAttr wattr = WriteAttr::None;
 };
 
 #define CASREAD_PURE_SUBCLASS(name)                                                                \
@@ -1160,7 +1172,7 @@ private:
 	ReaderList readerList;
 
 	/* Attributes of the write */
-	WriteAttr wattr;
+	WriteAttr wattr = WriteAttr::None;
 };
 
 #define WRITE_PURE_SUBCLASS(_class_kind)                                                           \
@@ -1528,10 +1540,10 @@ private:
 	AccessList accessList;
 
 	/* The size of the requested allocation */
-	unsigned int allocSize;
+	unsigned int allocSize{};
 
 	/* Allocation alignment */
-	unsigned int alignment;
+	unsigned int alignment{};
 
 	/* Storage duration */
 	StorageDuration sdur;
@@ -1546,7 +1558,7 @@ private:
 	std::string name;
 
 	/* Naming information for this allocation */
-	const NameInfo *nameInfo;
+	const NameInfo *nameInfo{};
 };
 
 /*******************************************************************************
@@ -1618,10 +1630,10 @@ private:
 	SAddr freeAddr;
 
 	/* The size of the memory freed */
-	unsigned int freedSize;
+	unsigned int freedSize{};
 
 	/* The corresponding allocation */
-	MallocLabel *aLab = nullptr;
+	MallocLabel *aLab{};
 };
 
 /*******************************************************************************
@@ -1700,7 +1712,7 @@ public:
 
 private:
 	/* The identifier of the child */
-	const unsigned int childId;
+	const unsigned int childId{};
 };
 
 /*******************************************************************************
@@ -1849,7 +1861,7 @@ inline bool EventLabel::isStable() const
 
 inline bool EventLabel::isDependable(EventLabelKind k)
 {
-	return ReadLabel::classofKind(k) || k == Malloc;
+	return ReadLabel::classofKind(k) || k == Malloc || k == Optional;
 }
 
 inline bool EventLabel::hasValue(EventLabelKind k)

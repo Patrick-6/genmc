@@ -72,6 +72,9 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 
 	/* Inform all calculators about the events cutted */
 	removeAfter(*preds);
+	for (auto labIt = insertionOrder.begin(); labIt != insertionOrder.end();) {
+		labIt = preds->contains(labIt->getPos()) ? ++labIt : insertionOrder.erase(labIt);
+	}
 
 	/* Then, restrict the graph */
 	for (auto i = 0u; i < preds->size(); i++) {
@@ -127,6 +130,8 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 				continue;
 			setEventLabel(Event(i, j), createHoleLabel(Event(i, j)));
 			getEventLabel(Event(i, j))->setStamp(nextStamp());
+			getEventLabel(Event(i, j))->setParent(this);
+			insertionOrder.push_back(*getEventLabel(Event(i, j)));
 		}
 	}
 }

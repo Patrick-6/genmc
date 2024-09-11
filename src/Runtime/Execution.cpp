@@ -91,9 +91,9 @@ using namespace llvm;
 	({                                                                                         \
 		SVal __result;                                                                     \
 		if (auto *iTyp = llvm::dyn_cast<IntegerType>(typ))                                 \
-			__result = (val).IntVal.getLimitedValue();                                 \
+			__result = SVal((val).IntVal.getLimitedValue());                           \
 		else                                                                               \
-			__result = (uintptr_t)(val).PointerVal;                                    \
+			__result = SVal((uintptr_t)(val).PointerVal);                              \
 		__result;                                                                          \
 	})
 
@@ -2979,9 +2979,10 @@ void Interpreter::handleSystemError(SystemError code, const std::string &msg)
 		driver->reportError({currPos(), VerificationError::VE_SystemError, msg});
 	} else {
 		WARN_ONCE(errorList.at(code), msg + "\n");
-		CALL_DRIVER(handleStore, WriteLabel::create(currPos(), AtomicOrdering::Monotonic,
-							    errnoAddr, getTypeSize(errnoTyp),
-							    AType::Signed, static_cast<int>(code)));
+		CALL_DRIVER(handleStore,
+			    WriteLabel::create(currPos(), AtomicOrdering::Monotonic, errnoAddr,
+					       getTypeSize(errnoTyp), AType::Signed,
+					       SVal(static_cast<uint64_t>(code))));
 	}
 }
 
@@ -3001,7 +3002,7 @@ void Interpreter::handleLock(SAddr addr, ASize size, const EventDeps *deps)
 	auto annot = ReadLabel::AnnotVP(
 		NeExpr<AnnotID>::create(
 			RegisterExpr<AnnotID>::create(size.getBits(), MI->idInfo.VID.at(I)),
-			ConcreteExpr<AnnotID>::create(size.getBits(), 1))
+			ConcreteExpr<AnnotID>::create(size.getBits(), SVal(1)))
 			.release());
 	auto ret = CALL_DRIVER_RESET_IF_NONE(
 		handleLoad,
@@ -3052,6 +3053,7 @@ void Interpreter::callOptBegin(Function *F, const std::vector<GenericValue> &Arg
 			       const std::unique_ptr<EventDeps> &specialDeps)
 {
 	auto expand = CALL_DRIVER(handleOptional, OptionalLabel::create(currPos()));
+	updateCtrlDeps(getCurThr().id, currPos()); // add a ctrl dep on optionals
 
 	GenericValue result;
 	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), expand, true); // signed
@@ -3238,7 +3240,7 @@ void Interpreter::callThreadCreate(Function *F, const std::vector<GenericValue> 
 				  getAddrPoDeps(getCurThr().id), nullptr);
 	int symm = ArgVals.size() > 3 ? ArgVals[3].IntVal.getLimitedValue() : -1;
 	auto info = ThreadInfo(-1, currPos().thread, MI->idInfo.VID.at(calledFun),
-			       (uintptr_t)ArgVals[2].PointerVal, symm);
+			       SVal((uintptr_t)ArgVals[2].PointerVal), symm);
 	auto tid = CALL_DRIVER(handleThreadCreate,
 			       ThreadCreateLabel::create(currPos(), info, GET_DEPS(deps)));
 
@@ -3275,7 +3277,7 @@ void Interpreter::callThreadExit(Function *F, const std::vector<GenericValue> &A
 		freeAllocas(ECStack().back().Allocas);
 		ECStack().pop_back();
 	}
-	popStackAndReturnValueToCaller(Type::getInt8PtrTy(F->getContext()), ArgVals[0]);
+	popStackAndReturnValueToCaller(F->getReturnType(), ArgVals[0]);
 }
 
 void Interpreter::callAtExit(Function *F, const std::vector<GenericValue> &ArgVals,
@@ -3353,7 +3355,7 @@ void Interpreter::callMutexTrylock(Function *F, const std::vector<GenericValue> 
 	auto annot = ReadLabel::AnnotVP(
 		NeExpr<AnnotID>::create(
 			RegisterExpr<AnnotID>::create(ASize(size).getBits(), MI->idInfo.VID.at(I)),
-			ConcreteExpr<AnnotID>::create(ASize(size).getBits(), 1))
+			ConcreteExpr<AnnotID>::create(ASize(size).getBits(), SVal(1)))
 			.release());
 	auto ret = CALL_DRIVER(handleLoad,
 			       TrylockCasReadLabel::create(currPos(), ptr, size, std::move(annot),
@@ -3496,7 +3498,7 @@ void Interpreter::callCondVarWait(Function *F, const std::vector<GenericValue> &
 	auto annot = ReadLabel::AnnotVP(
 		SgtExpr<AnnotID>::create(
 			RegisterExpr<AnnotID>::create(ASize(size).getBits(), MI->idInfo.VID.at(I)),
-			ConcreteExpr<AnnotID>::create(ASize(size).getBits(), 0))
+			ConcreteExpr<AnnotID>::create(ASize(size).getBits(), SVal(0)))
 			.release());
 	auto val = CALL_DRIVER(handleLoad, CondVarWaitReadLabel::create(
 						   currPos(), AtomicOrdering::Monotonic, cvar, size,
@@ -3778,6 +3780,29 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 				getCurThr().prefixLOC[i] = std::make_pair(line, file);
 		}
 	}
+}
+
+void Interpreter::runAtExitHandlers()
+{
+	auto oldState = getProgramState();
+	setProgramState(ProgramState::Dtors);
+	while (!dynState.AtExitHandlers.empty()) {
+		scheduleThread(0);
+		callFunction(dynState.AtExitHandlers.back(), std::vector<GenericValue>(), nullptr);
+		dynState.AtExitHandlers.pop_back();
+
+		// Don't call run; just run for one frame...
+		auto size = ECStack().size();
+		while (ECStack().size() == size) {
+			if (driver->tryOptimizeScheduling(currPos()))
+				continue;
+			llvm::ExecutionContext &SF = ECStack().back();
+			llvm::Instruction &I = *SF.CurInst++;
+			visit(I);
+		}
+		// run();
+	}
+	setProgramState(oldState);
 }
 
 void Interpreter::run()

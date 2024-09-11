@@ -42,7 +42,7 @@ public:
 
 	/* Constructors/destructors */
 	SVal() : value(0) {}
-	SVal(uint64_t v) : value(v) {}
+	explicit SVal(uint64_t v) : value(v) {}
 
 	/* Returns a (limited) representation of this Value */
 	[[nodiscard]] auto get() const -> uint64_t { return value; }
@@ -127,7 +127,7 @@ public:
 	IMPL_BINOP(<<);
 	IMPL_BINOP(>>);
 
-	auto operator~() const -> SVal { return {~this->value}; }
+	auto operator~() const -> SVal { return SVal(~this->value); }
 
 	explicit operator bool() const { return !!this->value; }
 

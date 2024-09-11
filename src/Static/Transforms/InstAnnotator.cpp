@@ -61,10 +61,11 @@ InstAnnotator::IRExprUP InstAnnotator::generateOperandExpr(Value *op)
 	if (auto *c = dyn_cast<Constant>(op)) {
 		if (isa<UndefValue>(c)) {
 			return ConcreteExpr<Value *>::create(c->getType()->getIntegerBitWidth(),
-							     42);
+							     SVal(42));
 		} else if (c->getType()->isIntegerTy()) {
 			auto v = c->getUniqueInteger();
-			return ConcreteExpr<Value *>::create(v.getBitWidth(), v.getLimitedValue());
+			return ConcreteExpr<Value *>::create(v.getBitWidth(),
+							     SVal(v.getLimitedValue()));
 		} else if (isa<ConstantPointerNull>(c)) {
 			BUG_ON(!op->getType()->isPointerTy());
 			auto iIt =
@@ -76,7 +77,7 @@ InstAnnotator::IRExprUP InstAnnotator::generateOperandExpr(Value *op)
 				dyn_cast<Instruction>(*iIt)->getParent()->getParent()->getParent();
 			auto &DL = mod->getDataLayout();
 			return ConcreteExpr<Value *>::create(
-				DL.getTypeAllocSizeInBits(op->getType()), 0);
+				DL.getTypeAllocSizeInBits(op->getType()), SVal(0));
 		}
 		ERROR("Only integer and null constants currently allowed in assume() "
 		      "expressions.\n");

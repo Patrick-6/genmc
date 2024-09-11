@@ -20,7 +20,7 @@
 
 # Get binary's full path
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-KATER="${KATER:-$DIR/../kater-tool/Release/kater}"
+KATER="${KATER:-$DIR/../kater-tool/RelWithDebInfo/kater}"
 
 # Ensure kater exists
 if ! command -v "${KATER}" -h &> /dev/null
@@ -30,8 +30,8 @@ then
 fi
 
 # used variables
-IN_DIR="${IN_DIR:-$DIR/../kater-tool/kat}"
-OUT_DIR="${OUT_DIR:-$DIR/../src}"
+IN_DIR="${IN_DIR:-${KATER%/*}/../kat}"
+OUT_DIR="${OUT_DIR:-$DIR/../src/Verification/Consistency}"
 DRIVERS="${DRIVERS:-rc11 imm sc tso ra}"
 
 for driver in ${DRIVERS} # break lines

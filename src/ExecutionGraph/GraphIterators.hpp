@@ -32,261 +32,25 @@
  * Helper iterators for ExecutionGraphs
  */
 
-/*******************************************************************************
- **                         LabelIterator Class
- ******************************************************************************/
-
-/*
- * This class implements some helper iterators for ExecutionGraph.
- * A bit ugly, but easily tunable, and deals with UP containers
- */
-template <typename ThreadT, typename ThreadItT, typename LabelT, typename LabelItT>
-class LabelIterator {
-
-protected:
-	ThreadT *threads;
-	ThreadItT thread;
-	LabelItT label;
-
-public:
-	using iterator_category = std::bidirectional_iterator_tag;
-	using value_type = LabelT;
-	using difference_type = signed;
-	using pointer = LabelT *;
-	using reference = LabelT &; /* ugly hack to avoid having UP refs */
-
-	using BaseT = LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT>;
-
-	/*** Constructor ***/
-	LabelIterator() = default;
-
-	/* begin()/end() constructor */
-	template <
-		typename G, typename U = ThreadItT,
-		std::enable_if_t<!std::is_base_of_v<BaseT, std::decay_t<G>>, bool> = true,
-		std::enable_if_t<std::is_same<U, decltype(std::declval<ThreadT>().begin())>::value>
-			* = nullptr>
-	LabelIterator(G &g) : threads(&g.getThreadList()), thread(g.begin())
-	{
-		if (thread != threads->end()) {
-			label = thread->begin();
-			advanceThread();
-		}
-	}
-	template <typename G, typename U = ThreadItT,
-		  typename std::enable_if_t<std::is_same<
-			  U, decltype(std::declval<ThreadT>().begin())>::value> * = nullptr>
-	LabelIterator(G &g, bool) : threads(&g.getThreadList()), thread(g.end())
-	{}
-
-	/* rbegin()/rend() constructor */
-	template <typename G, typename U = ThreadItT,
-		  std::enable_if_t<!std::is_base_of_v<BaseT, std::decay_t<G>>, bool> = true,
-		  typename std::enable_if_t<std::is_same<
-			  U, decltype(std::declval<ThreadT>().rbegin())>::value> * = nullptr>
-	LabelIterator(G &g) : threads(&g.getThreadList()), thread(g.rbegin())
-	{
-		if (thread != threads->rend()) {
-			label = thread->rbegin();
-			advanceThread();
-		}
-	}
-	template <typename G, typename U = ThreadItT,
-		  typename std::enable_if_t<std::is_same<
-			  U, decltype(std::declval<ThreadT>().rbegin())>::value> * = nullptr>
-	LabelIterator(G &g, bool) : threads(&g.getThreadList()), thread(g.rend())
-	{}
-
-	/* iterator-from-label constructor (normal iterator) */
-	template <typename G, typename U = ThreadItT,
-		  typename std::enable_if_t<std::is_same<
-			  U, decltype(std::declval<ThreadT>().begin())>::value> * = nullptr>
-	LabelIterator(G &g, pointer p)
-		: threads(&g.getThreadList()), thread(g.begin() + p->getThread()),
-		  label(thread->begin() + p->getIndex())
-	{}
-
-	template <typename G, typename U = ThreadItT,
-		  typename std::enable_if_t<std::is_same<
-			  U, decltype(std::declval<ThreadT>().begin())>::value> * = nullptr>
-	LabelIterator(G &g, Event e)
-		: threads(&g.getThreadList()), thread(g.begin() + e.thread),
-		  label(thread->begin() + e.index)
-	{
-		advanceThread();
-	}
-
-	/* iterator-from-label constructor (reverse iterator) */
-	template <typename G, typename U = ThreadItT,
-		  typename std::enable_if_t<std::is_same<
-			  U, decltype(std::declval<ThreadT>().rbegin())>::value> * = nullptr>
-	LabelIterator(G &g, pointer p)
-		: threads(&g.getThreadList()),
-		  thread(g.rbegin() + threads->size() - p->getThread() - 1),
-		  label(thread->rbegin() + g.getThreadSize(p->getThread()) - p->getIndex() - 1)
-	{}
-
-	template <typename G, typename U = ThreadItT,
-		  typename std::enable_if_t<std::is_same<
-			  U, decltype(std::declval<ThreadT>().rbegin())>::value> * = nullptr>
-	LabelIterator(G &g, Event e)
-		: threads(&g.getThreadList()),
-		  thread(g.rbegin() + g.getThreadList().size() - e.thread - 1),
-		  label(thread->rbegin() + g.getThreadSize(e.thread) - e.index - 1)
-	{
-		advanceThread();
-	}
-
-	/*** Operators ***/
-	inline reference operator*() const { return **label; }
-	inline pointer operator->() const { return &operator*(); }
-
-	template <typename U = ThreadItT,
-		  typename std::enable_if_t<std::is_same<
-			  U, decltype(std::declval<ThreadT>().begin())>::value> * = nullptr>
-	inline bool operator==(const LabelIterator &other) const
-	{
-		return thread == other.thread && (thread == threads->end() || label == other.label);
-	}
-
-	template <typename U = ThreadItT,
-		  typename std::enable_if_t<std::is_same<
-			  U, decltype(std::declval<ThreadT>().rbegin())>::value> * = nullptr>
-	inline bool operator==(const LabelIterator &other) const
-	{
-		return thread == other.thread &&
-		       (thread == threads->rend() || label == other.label);
-	}
-
-	inline bool operator!=(const LabelIterator &other) const { return !operator==(other); }
-
-	LabelIterator &operator++()
-	{
-		++label;
-		advanceThread();
-		return *this;
-	}
-	inline LabelIterator operator++(int)
-	{
-		auto tmp = *this;
-		++*this;
-		return tmp;
-	}
-
-	LabelIterator &operator--()
-	{
-		while (thread == threads->end() || label == thread->begin()) {
-			--thread;
-			label = thread->end();
-		}
-		--label;
-		return *this;
-	}
-	inline LabelIterator operator--(int)
-	{
-		auto tmp = *this;
-		--*this;
-		return tmp;
-	}
-
-protected:
-	/* Checks whether we have reached the end of a thread, and appropriately
-	 * advances the thread and label iterators. Does nothing if that is not the case. */
-	template <typename U = ThreadItT,
-		  typename std::enable_if_t<std::is_same<
-			  U, decltype(std::declval<ThreadT>().begin())>::value> * = nullptr>
-	inline void advanceThread()
-	{
-		while (label == thread->end()) {
-			++thread;
-			if (thread == threads->end())
-				break;
-			label = thread->begin();
-		}
-	}
-
-	template <typename U = ThreadItT,
-		  typename std::enable_if_t<std::is_same<
-			  U, decltype(std::declval<ThreadT>().rbegin())>::value> * = nullptr>
-	inline void advanceThread()
-	{
-		while (label == thread->rend()) {
-			++thread;
-			if (thread == threads->rend())
-				break;
-			label = thread->rbegin();
-		}
-	}
-};
-
-using label_iterator = LabelIterator<ExecutionGraph::ThreadList, ExecutionGraph::iterator,
-				     EventLabel, ExecutionGraph::Thread::iterator>;
-using const_label_iterator =
-	LabelIterator<const ExecutionGraph::ThreadList, ExecutionGraph::const_iterator, EventLabel,
-		      ExecutionGraph::Thread::const_iterator>;
-
-using reverse_label_iterator =
-	LabelIterator<ExecutionGraph::ThreadList, ExecutionGraph::reverse_iterator, EventLabel,
-		      ExecutionGraph::Thread::reverse_iterator>;
-using const_reverse_label_iterator =
-	LabelIterator<const ExecutionGraph::ThreadList, ExecutionGraph::const_reverse_iterator,
-		      EventLabel, ExecutionGraph::Thread::const_reverse_iterator>;
+using label_iterator = ExecutionGraph::label_iterator;
+using const_label_iterator = ExecutionGraph::const_label_iterator;
 
 /*******************************************************************************
  **                         label-iteration utilities
  ******************************************************************************/
 
-using label_range = llvm::iterator_range<label_iterator>;
-using const_label_range = llvm::iterator_range<const_label_iterator>;
+using label_range = llvm::iterator_range<ExecutionGraph::label_iterator>;
+using const_label_range = llvm::iterator_range<ExecutionGraph::const_label_iterator>;
 
-inline label_iterator label_begin(ExecutionGraph &G) { return label_iterator(G); }
-inline const_label_iterator label_begin(const ExecutionGraph &G) { return const_label_iterator(G); }
-
-inline label_iterator label_end(ExecutionGraph &G) { return label_iterator(G, true); }
-inline const_label_iterator label_end(const ExecutionGraph &G)
+inline auto other_labels(ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_label_iterator(G, true);
+	return G.labels() |
+	       std::views::filter([lab](auto &olab) { return olab.getPos() != lab->getPos(); });
 }
-
-inline label_range labels(ExecutionGraph &G) { return label_range(label_begin(G), label_end(G)); }
-inline const_label_range labels(const ExecutionGraph &G)
+inline auto other_labels(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_label_range(label_begin(G), label_end(G));
-}
-
-/*******************************************************************************
- **                         store-iteration utilities
- ******************************************************************************/
-
-using const_store_iterator = ExecutionGraph::const_co_iterator;
-using const_store_range = llvm::iterator_range<const_store_iterator>;
-using const_reverse_store_iterator = ExecutionGraph::const_reverse_co_iterator;
-using const_reverse_store_range = llvm::iterator_range<const_reverse_store_iterator>;
-
-inline const_store_iterator store_begin(const ExecutionGraph &G, SAddr addr)
-{
-	return G.co_begin(addr);
-}
-inline const_store_iterator store_end(const ExecutionGraph &G, SAddr addr)
-{
-	return G.co_end(addr);
-}
-inline const_store_range stores(const ExecutionGraph &G, SAddr addr)
-{
-	return const_store_range(store_begin(G, addr), store_end(G, addr));
-}
-
-inline const_reverse_store_iterator store_rbegin(const ExecutionGraph &G, SAddr addr)
-{
-	return G.co_rbegin(addr);
-}
-inline const_reverse_store_iterator store_rend(const ExecutionGraph &G, SAddr addr)
-{
-	return G.co_rend(addr);
-}
-inline const_reverse_store_range rstores(const ExecutionGraph &G, SAddr addr)
-{
-	return const_reverse_store_range(store_rbegin(G, addr), store_rend(G, addr));
+	return G.labels() |
+	       std::views::filter([lab](auto &olab) { return olab.getPos() != lab->getPos(); });
 }
 
 /*******************************************************************************
@@ -299,23 +63,23 @@ using const_co_range = llvm::iterator_range<const_co_iterator>;
 using const_reverse_co_range = llvm::iterator_range<const_reverse_co_iterator>;
 
 namespace detail {
-inline const_store_iterator coSentinel;
+inline const_co_iterator coSentinel;
 inline const_reverse_co_iterator coRevSentinel;
 }; // namespace detail
 
-inline const_store_iterator co_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
+inline auto co_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
 {
 	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 	return wLab ? G.co_succ_begin(wLab) : ::detail::coSentinel;
 }
-inline const_store_iterator co_succ_end(const ExecutionGraph &G, const EventLabel *lab)
+inline auto co_succ_end(const ExecutionGraph &G, const EventLabel *lab)
 {
 	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 	return wLab ? G.co_succ_end(wLab) : ::detail::coSentinel;
 }
-inline const_store_range co_succs(const ExecutionGraph &G, const EventLabel *lab)
+inline auto co_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_store_range(co_succ_begin(G, lab), co_succ_end(G, lab));
+	return const_co_range(co_succ_begin(G, lab), co_succ_end(G, lab));
 }
 inline const WriteLabel *co_imm_succ(const ExecutionGraph &G, const EventLabel *lab)
 {
@@ -347,60 +111,22 @@ inline const WriteLabel *co_imm_pred(const ExecutionGraph &G, const EventLabel *
  **                         po-iteration utilities
  ******************************************************************************/
 
-using const_po_iterator = const_label_iterator;
-using const_reverse_po_iterator = const_reverse_label_iterator;
+using const_po_iterator = decltype(std::declval<const ExecutionGraph>()
+					   .po_succs(std::declval<const EventLabel *>())
+					   .begin());
+using const_reverse_po_iterator = decltype(std::declval<const ExecutionGraph>()
+						   .po_preds(std::declval<const EventLabel *>())
+						   .begin());
 
-using const_po_range = llvm::iterator_range<const_po_iterator>;
-using const_reverse_po_range = llvm::iterator_range<const_reverse_po_iterator>;
-
-inline const_po_iterator po_succ_begin(const ExecutionGraph &G, Event e)
-{
-	return const_po_iterator(G, e.next());
-}
-
-inline const_po_iterator po_succ_end(const ExecutionGraph &G, Event e)
-{
-	return e == G.getLastThreadEvent(e.thread)
-		       ? po_succ_begin(G, e)
-		       : const_po_iterator(G, G.getLastThreadEvent(e.thread).next());
-}
-
-inline const_po_range po_succs(const ExecutionGraph &G, Event e)
-{
-	return const_po_range(po_succ_begin(G, e), po_succ_end(G, e));
-}
-
-inline const_po_range po_succs(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return po_succs(G, lab->getPos());
-}
+inline auto po_succs(const ExecutionGraph &G, const EventLabel *lab) { return G.po_succs(lab); }
 
 inline const EventLabel *po_imm_succ(const ExecutionGraph &G, const EventLabel *lab)
 {
 	return G.getNextLabel(lab);
 }
 
-inline const_reverse_po_iterator po_pred_begin(const ExecutionGraph &G, Event e)
-{
-	return const_reverse_po_iterator(G, e.prev());
-}
+inline auto po_preds(const ExecutionGraph &G, const EventLabel *lab) { return G.po_preds(lab); }
 
-inline const_reverse_po_iterator po_pred_end(const ExecutionGraph &G, Event e)
-{
-	return e == G.getFirstThreadEvent(e.thread)
-		       ? po_pred_begin(G, e)
-		       : const_reverse_po_iterator(G, G.getFirstThreadEvent(e.thread).prev());
-}
-
-inline const_reverse_po_range po_preds(const ExecutionGraph &G, Event e)
-{
-	return const_reverse_po_range(po_pred_begin(G, e), po_pred_end(G, e));
-}
-
-inline const_reverse_po_range po_preds(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return po_preds(G, lab->getPos());
-}
 inline const EventLabel *po_imm_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
 	return G.getPreviousLabel(lab);
@@ -487,108 +213,39 @@ static inline SAddr getLocation(const EventLabel *lab)
 }
 } /* namespace detail */
 
-using const_poloc_iterator = ::detail::poloc_filter_iterator<const_label_iterator>;
-using const_reverse_poloc_iterator = ::detail::poloc_filter_iterator<const_reverse_label_iterator>;
-
-using const_poloc_range = llvm::iterator_range<const_poloc_iterator>;
-using const_reverse_poloc_range = llvm::iterator_range<const_reverse_poloc_iterator>;
-
-inline const_poloc_iterator poloc_succ_begin(const ExecutionGraph &G, Event e)
+inline auto poloc_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
-	using namespace ::detail;
-	auto *lab = G.getEventLabel(e);
-	return hasLocation(lab) ? const_poloc_iterator(po_succ_begin(G, e), po_succ_end(G, e),
-						       LocationFilter(G, getLocation(lab)))
-				: const_poloc_iterator(po_succ_end(G, e), po_succ_end(G, e),
-						       LocationFilter(G, SAddr()));
+	/* Capture LAB explicitly as by reference it leads to weird segfaults */
+	auto locFilter = [lab](auto &oLab) {
+		return ::detail::hasLocation(&oLab) &&
+		       ::detail::getLocation(&oLab) == ::detail::getLocation(lab);
+	};
+	if (::detail::hasLocation(lab))
+		return po_succs(G, lab) | std::views::filter(locFilter);
+	return po_succs(G, G.getLastThreadLabel(lab->getThread())) | std::views::filter(locFilter);
 }
 
-inline const_poloc_iterator poloc_succ_end(const ExecutionGraph &G, Event e)
+inline const EventLabel *poloc_imm_succ(const ExecutionGraph &G, const EventLabel *lab)
 {
-	using namespace ::detail;
-	auto *lab = G.getEventLabel(e);
-	auto addr = hasLocation(lab) ? getLocation(lab) : SAddr();
-	return const_poloc_iterator(po_succ_end(G, e), po_succ_end(G, e), LocationFilter(G, addr));
+	auto succs = poloc_succs(G, lab);
+	return succs.begin() == succs.end() ? nullptr : &*succs.begin();
 }
 
-inline const_poloc_range poloc_succs(const ExecutionGraph &G, Event e)
+inline auto poloc_preds(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_poloc_range(poloc_succ_begin(G, e), poloc_succ_end(G, e));
+	auto locFilter = [lab](auto &oLab) {
+		return ::detail::hasLocation(&oLab) &&
+		       ::detail::getLocation(&oLab) == ::detail::getLocation(lab);
+	};
+	return ::detail::hasLocation(lab) ? po_preds(G, lab) | std::views::filter(locFilter)
+					  : po_preds(G, G.getFirstThreadLabel(lab->getThread())) |
+						    std::views::filter(locFilter);
 }
 
-inline const_poloc_range poloc_succs(const ExecutionGraph &G, const EventLabel *lab)
+inline const EventLabel *poloc_imm_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return poloc_succs(G, lab->getPos());
-}
-
-inline const_poloc_iterator poloc_imm_succ_begin(const ExecutionGraph &G, Event e)
-{
-	return poloc_succ_begin(G, e);
-}
-
-inline const_poloc_iterator poloc_imm_succ_end(const ExecutionGraph &G, Event e)
-{
-	return poloc_succ_begin(G, e) == poloc_succ_end(G, e) ? poloc_imm_succ_begin(G, e)
-							      : ++poloc_imm_succ_begin(G, e);
-}
-
-inline const_poloc_range poloc_imm_succs(const ExecutionGraph &G, Event e)
-{
-	return const_poloc_range(poloc_imm_succ_begin(G, e), poloc_imm_succ_end(G, e));
-}
-inline const_poloc_range poloc_imm_succs(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return poloc_imm_succs(G, lab->getPos());
-}
-
-inline const_reverse_poloc_iterator poloc_pred_begin(const ExecutionGraph &G, Event e)
-{
-	using namespace ::detail;
-	auto *lab = G.getEventLabel(e);
-	return hasLocation(lab)
-		       ? const_reverse_poloc_iterator(po_pred_begin(G, e), po_pred_end(G, e),
-						      LocationFilter(G, getLocation(lab)))
-		       : const_reverse_poloc_iterator(po_pred_end(G, e), po_pred_end(G, e),
-						      LocationFilter(G, SAddr()));
-}
-
-inline const_reverse_poloc_iterator poloc_pred_end(const ExecutionGraph &G, Event e)
-{
-	using namespace ::detail;
-	auto *lab = G.getEventLabel(e);
-	auto addr = hasLocation(lab) ? getLocation(lab) : SAddr();
-	return const_reverse_poloc_iterator(po_pred_end(G, e), po_pred_end(G, e),
-					    LocationFilter(G, addr));
-}
-
-inline const_reverse_poloc_range poloc_preds(const ExecutionGraph &G, Event e)
-{
-	return const_reverse_poloc_range(poloc_pred_begin(G, e), poloc_pred_end(G, e));
-}
-
-inline const_reverse_poloc_range poloc_preds(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return poloc_preds(G, lab->getPos());
-}
-
-inline const_reverse_poloc_iterator poloc_imm_pred_begin(const ExecutionGraph &G, Event e)
-{
-	return poloc_pred_begin(G, e);
-}
-
-inline const_reverse_poloc_iterator poloc_imm_pred_end(const ExecutionGraph &G, Event e)
-{
-	return poloc_pred_begin(G, e) == poloc_pred_end(G, e) ? poloc_imm_pred_begin(G, e)
-							      : ++poloc_imm_pred_begin(G, e);
-}
-
-inline const_reverse_poloc_range poloc_imm_preds(const ExecutionGraph &G, Event e)
-{
-	return const_reverse_poloc_range(poloc_imm_pred_begin(G, e), poloc_imm_pred_end(G, e));
-}
-inline const_reverse_poloc_range poloc_imm_preds(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return poloc_imm_preds(G, lab->getPos());
+	auto preds = poloc_preds(G, lab);
+	return preds.begin() == preds.end() ? nullptr : &*preds.begin();
 }
 
 /*******************************************************************************
@@ -626,88 +283,25 @@ private:
 	const ExecutionGraph &graph;
 	const Event write;
 };
-
-template <typename IterT, typename FilterT>
-struct detour_filter_iterator : public llvm::filter_iterator<IterT, FilterT> {
-public:
-	using BaseT = llvm::filter_iterator<IterT, FilterT>;
-
-	detour_filter_iterator(IterT it, IterT end, FilterT filter) : BaseT(it, end, filter) {}
-
-	detour_filter_iterator &operator++()
-	{
-		return static_cast<detour_filter_iterator &>(BaseT::operator++());
-	}
-	detour_filter_iterator operator++(int)
-	{
-		auto tmp = *this;
-		BaseT::operator++();
-		return tmp;
-	}
-};
 } /* namespace detail */
 
-using const_detour_iterator =
-	::detail::detour_filter_iterator<const_poloc_iterator, ::detail::RfIntFilter>;
-using const_detour_range = llvm::iterator_range<const_detour_iterator>;
-
-using const_reverse_detour_iterator =
-	::detail::detour_filter_iterator<const_reverse_poloc_iterator, ::detail::RfInvIntFilter>;
-using const_reverse_detour_range = llvm::iterator_range<const_reverse_detour_iterator>;
-
-inline const_detour_iterator detour_succ_begin(const ExecutionGraph &G, Event e)
+inline auto detour_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *lab = G.getWriteLabel(e);
-	return lab ? const_detour_iterator(poloc_succ_begin(G, e), poloc_succ_end(G, e),
-					   ::detail::RfIntFilter(G, e))
-		   : const_detour_iterator(poloc_succ_end(G, e), poloc_succ_end(G, e),
-					   ::detail::RfIntFilter(G, e));
+	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
+	return wLab ? poloc_succs(G, lab) |
+			       std::views::filter(::detail::RfIntFilter(G, lab->getPos()))
+		    : poloc_succs(G, G.getLastThreadLabel(lab->getThread())) |
+			       std::views::filter(::detail::RfIntFilter(G, lab->getPos()));
 }
 
-inline const_detour_iterator detour_succ_end(const ExecutionGraph &G, Event e)
+inline auto detour_preds(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *lab = G.getWriteLabel(e);
-	return const_detour_iterator(poloc_succ_end(G, e), poloc_succ_end(G, e),
-				     ::detail::RfIntFilter(G, e));
-}
-
-inline const_detour_range detour_succs(const ExecutionGraph &G, Event e)
-{
-	return const_detour_range(detour_succ_begin(G, e), detour_succ_end(G, e));
-}
-
-inline const_detour_range detour_succs(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return detour_succs(G, lab->getPos());
-}
-
-inline const_reverse_detour_iterator detour_pred_begin(const ExecutionGraph &G, Event e)
-{
-	auto *lab = G.getReadLabel(e);
-	return lab && lab->getRf() ? const_reverse_detour_iterator(
-					     poloc_pred_begin(G, e), poloc_pred_end(G, e),
-					     ::detail::RfInvIntFilter(G, lab->getRf()->getPos()))
-				   : const_reverse_detour_iterator(
-					     poloc_pred_end(G, e), poloc_pred_end(G, e),
-					     ::detail::RfInvIntFilter(G, Event::getInit()));
-}
-
-inline const_reverse_detour_iterator detour_pred_end(const ExecutionGraph &G, Event e)
-{
-	auto *lab = G.getReadLabel(e);
-	auto pos = lab && lab->getRf() ? lab->getRf()->getPos() : Event::getInit();
-	return const_reverse_detour_iterator(poloc_pred_end(G, e), poloc_pred_end(G, e),
-					     ::detail::RfInvIntFilter(G, pos));
-}
-
-inline const_reverse_detour_range detour_preds(const ExecutionGraph &G, Event e)
-{
-	return const_reverse_detour_range(detour_pred_begin(G, e), detour_pred_end(G, e));
-}
-
-inline const_reverse_detour_range detour_preds(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return detour_preds(G, lab->getPos());
+	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+	return rLab && rLab->getRf()
+		       ? poloc_preds(G, lab) | std::views::filter(::detail::RfInvIntFilter(
+						       G, rLab->getRf()->getPos()))
+		       : poloc_preds(G, G.getFirstThreadLabel(lab->getThread())) |
+				 std::views::filter(::detail::RfInvIntFilter(G, Event::getInit()));
 }
 
 /*******************************************************************************
@@ -737,9 +331,6 @@ inline const_rf_range rf_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
 	return const_rf_range(rf_succ_begin(G, lab), rf_succ_end(G, lab));
 }
-
-using const_rf_inv_iterator = const_label_iterator;
-using const_rf_inv_range = llvm::iterator_range<const_label_iterator>;
 
 inline const EventLabel *rf_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
@@ -802,9 +393,6 @@ inline const_rfe_range rfe_succs(const ExecutionGraph &G, const EventLabel *lab)
 	return const_rfe_range(rfe_succ_begin(G, lab), rfe_succ_end(G, lab));
 }
 
-using const_rfe_inv_iterator = const_rf_inv_iterator;
-using const_rfe_inv_range = llvm::iterator_range<const_rfe_inv_iterator>;
-
 inline const EventLabel *rfe_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
 	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
@@ -865,9 +453,6 @@ inline const_rfi_range rfi_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
 	return const_rfi_range(rfi_succ_begin(G, lab), rfi_succ_end(G, lab));
 }
-
-using const_rfi_inv_iterator = const_rf_inv_iterator;
-using const_rfi_inv_range = llvm::iterator_range<const_rfi_inv_iterator>;
 
 inline const EventLabel *rfi_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
@@ -1013,9 +598,9 @@ inline const_sameloc_iterator sameloc_begin(const ExecutionGraph &G, const Event
 {
 	using namespace ::detail;
 	return hasLocation(lab)
-		       ? const_sameloc_iterator(label_begin(G), label_end(G),
+		       ? const_sameloc_iterator(G.label_begin(), G.label_end(),
 						IDAndLocFilter(G, getLocation(lab), lab->getPos()))
-		       : const_sameloc_iterator(label_end(G), label_end(G),
+		       : const_sameloc_iterator(G.label_end(), G.label_end(),
 						IDAndLocFilter(G, SAddr(), lab->getPos()));
 }
 
@@ -1023,7 +608,7 @@ inline const_sameloc_iterator sameloc_end(const ExecutionGraph &G, const EventLa
 {
 	using namespace ::detail;
 	auto addr = hasLocation(lab) ? getLocation(lab) : SAddr();
-	return const_sameloc_iterator(label_end(G), label_end(G),
+	return const_sameloc_iterator(G.label_end(), G.label_end(),
 				      IDAndLocFilter(G, addr, lab->getPos()));
 }
 
