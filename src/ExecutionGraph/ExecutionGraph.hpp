@@ -514,7 +514,7 @@ public:
 	std::vector<Event> getInitRfsAtLoc(SAddr addr) const;
 
 	/* Returns true if e is maximal in addr */
-	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false);
+	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false) const;
 
 	/* Boolean helper functions */
 

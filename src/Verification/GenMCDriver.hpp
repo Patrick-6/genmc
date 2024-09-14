@@ -48,6 +48,7 @@ class Interpreter;
 class ModuleInfo;
 class ThreadPool;
 class BoundDecider;
+class ConsistencyChecker;
 enum class BoundCalculationStrategy;
 
 class GenMCDriver {
@@ -158,6 +159,19 @@ private:
 	};
 
 public:
+	template <typename... Ts> static std::unique_ptr<GenMCDriver> create(Ts &&...params)
+	{
+		return std::unique_ptr<GenMCDriver>(new GenMCDriver(std::forward<Ts>(params)...));
+	}
+
+	/* Creates driver instance(s) and starts verification for the given module. */
+	static Result verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+			     std::unique_ptr<ModuleInfo> modInfo);
+
+	static Result estimate(std::shared_ptr<const Config> conf,
+			       const std::unique_ptr<llvm::Module> &mod,
+			       const std::unique_ptr<ModuleInfo> &modInfo);
+
 	/**** Generic actions ***/
 
 	/* Sets up the next thread to run in the interpreter */
@@ -183,14 +197,6 @@ public:
 	/* Returns the result of the verification procedure */
 	const Result &getResult() const { return result; }
 	Result &getResult() { return result; }
-
-	/* Creates driver instance(s) and starts verification for the given module. */
-	static Result verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-			     std::unique_ptr<ModuleInfo> modInfo);
-
-	static Result estimate(std::shared_ptr<const Config> conf,
-			       const std::unique_ptr<llvm::Module> &mod,
-			       const std::unique_ptr<ModuleInfo> &modInfo);
 
 	/* Gets/sets the thread pool this driver should account to */
 	ThreadPool *getThreadPool() { return pool; }
@@ -268,7 +274,8 @@ public:
 
 protected:
 	GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		    std::unique_ptr<ModuleInfo> MI, Mode = VerificationMode{});
+		    std::unique_ptr<ModuleInfo> MI, ThreadPool *pool = nullptr,
+		    Mode = VerificationMode{});
 
 	/* No copying or copy-assignment of this class is allowed */
 	GenMCDriver(GenMCDriver const &) = delete;
@@ -293,6 +300,9 @@ protected:
 
 	ChoiceMap &getChoiceMap() { return getExecution().getChoiceMap(); }
 	const ChoiceMap &getChoiceMap() const { return getExecution().getChoiceMap(); }
+
+	ConsistencyChecker &getConsChecker() { return *consChecker; }
+	const ConsistencyChecker &getConsChecker() const { return *consChecker; }
 
 	/* Pushes E to the execution stack. */
 	void pushExecution(Execution &&e);
@@ -390,9 +400,6 @@ protected:
 
 	/* Returns true if E is maximal in ADDR at P*/
 	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false);
-
-	/* Returns true if MLAB is protected by a hazptr */
-	bool isHazptrProtected(const MemAccessLabel *mLab) const;
 
 private:
 	/* Represents the execution at a given point */
@@ -668,10 +675,7 @@ private:
 	 * and determines the order in which these options should be explored */
 	void filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores);
 
-	bool isExecutionValid(const EventLabel *lab)
-	{
-		return isSymmetryOK(lab) && isConsistent(lab) && !partialExecutionExceedsBound();
-	}
+	bool isExecutionValid(const EventLabel *lab);
 
 	/* Removes rfs from RFS until a consistent option for RLAB is found */
 	std::optional<Event> findConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs);
@@ -685,10 +689,6 @@ private:
 
 	/* Helper: Annotates a store as RevBlocker, if possible */
 	void annotateStoreHELPER(WriteLabel *wLab);
-
-	/* Pers: removes _all_ options from "rfs" that make the recovery invalid.
-	 * Sets the rf of rLab to the first valid option in rfs */
-	void filterInvalidRecRfs(const ReadLabel *rLab, std::vector<Event> &rfs);
 
 	/* SAVer: Checks whether a write has any actual memory effects */
 	bool isWriteEffectful(const WriteLabel *wLab);
@@ -815,12 +815,6 @@ private:
 	void dotPrintToFile(const std::string &filename, const EventLabel *errLab,
 			    const EventLabel *racyLab);
 
-	/*** To be overrided by instances of the Driver ***/
-
-	/* Updates lab with model-specific information.
-	 * Needs to be called every time a new label is added to the graph */
-	virtual void updateMMViews(EventLabel *lab) = 0;
-
 	void updateLabelViews(EventLabel *lab);
 	VerificationError checkForRaces(const EventLabel *lab);
 
@@ -832,38 +826,10 @@ private:
 	 * The reads are ordered in reverse-addition order */
 	virtual std::vector<Event> getRevisitableApproximation(const WriteLabel *sLab);
 
-	/* Returns true if the current graph is consistent when E is added */
-	virtual bool isConsistent(const EventLabel *lab) const = 0;
-	virtual bool isRecoveryValid(const EventLabel *lab) const { return true; }
-	virtual VerificationError checkErrors(const EventLabel *lab,
-					      const EventLabel *&race) const = 0;
-	virtual std::vector<VerificationError>
-	checkWarnings(const EventLabel *lab, const VSet<VerificationError> &reported,
-		      std::vector<const EventLabel *> &races) const = 0;
-	virtual std::vector<Event> getCoherentRevisits(const WriteLabel *sLab,
-						       const VectorClock &pporf) = 0;
-	virtual std::vector<Event> getCoherentStores(SAddr addr, Event read) = 0;
-	virtual std::vector<Event> getCoherentPlacings(SAddr addr, Event read, bool isRMW) = 0;
-
-	virtual bool isDepTracking() const = 0;
-
 	/* Returns a vector clock representing the prefix of e.
 	 * Depending on whether dependencies are tracked, the prefix can be
 	 * either (po U rf) or (AR U rf) */
-	const VectorClock &getPrefixView(const EventLabel *lab) const
-	{
-		if (!lab->hasPrefixView())
-			lab->setPrefixView(calculatePrefixView(lab));
-		return lab->getPrefixView();
-	}
-
-	virtual std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const = 0;
-
-	virtual const View &getHbView(const EventLabel *lab) const = 0;
-
-#ifdef ENABLE_GENMC_DEBUG
-	void checkForDuplicateRevisit(const ReadLabel *rLab, const WriteLabel *sLab);
-#endif
+	const VectorClock &getPrefixView(const EventLabel *lab) const;
 
 	friend llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const VerificationError &r);
 
@@ -887,6 +853,9 @@ private:
 
 	/* Execution stack */
 	std::vector<Execution> execStack;
+
+	/* Consistency checker (mm-specific) */
+	std::unique_ptr<ConsistencyChecker> consChecker;
 
 	/* An allocator for fresh addresses */
 	SAddrAllocator alloctor;

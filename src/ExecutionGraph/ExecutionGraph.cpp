@@ -301,7 +301,7 @@ EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
  ** Calculation of [(po U rf)*] predecessors and successors
  ***********************************************************/
 
-bool ExecutionGraph::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */)
+bool ExecutionGraph::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */) const
 {
 	if (e.isInitializer())
 		return co_begin(addr) == co_end(addr);

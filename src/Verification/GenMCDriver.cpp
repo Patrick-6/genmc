@@ -32,6 +32,7 @@
 #include "Support/SExprVisitor.hpp"
 #include "Support/ThreadPool.hpp"
 #include "Verification/Consistency/BoundDecider.hpp"
+#include "Verification/Consistency/ConsistencyChecker.hpp"
 #include "Verification/DriverHandlerDispatcher.hpp"
 #include "config.h"
 #include <llvm/IR/Verifier.h>
@@ -47,8 +48,9 @@
  ***********************************************************/
 
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-			 std::unique_ptr<ModuleInfo> modInfo, Mode mode /* = VerificationMode{} */)
-	: userConf(std::move(conf)), mode(mode)
+			 std::unique_ptr<ModuleInfo> modInfo, ThreadPool *pool /* = nullptr */,
+			 Mode mode /* = VerificationMode{} */)
+	: userConf(std::move(conf)), pool(pool), mode(mode)
 {
 	/* Set up the execution context */
 	auto execGraph = userConf->isDepTrackingModel ? std::make_unique<DepExecutionGraph>()
@@ -56,6 +58,7 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 	execStack.emplace_back(std::move(execGraph), std::move(LocalQueueT()),
 			       std::move(ChoiceMap()));
 
+	consChecker = ConsistencyChecker::create(getConf()->model);
 	auto hasBounder = userConf->bound.has_value();
 	GENMC_DEBUG(hasBounder |= userConf->boundsHistogram;);
 	if (hasBounder)
@@ -733,7 +736,7 @@ GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf,
 {
 	/* Spawn a single or multiple drivers depending on the configuration */
 	if (conf->threads == 1) {
-		auto driver = DriverFactory::create(conf, std::move(mod), std::move(modInfo));
+		auto driver = GenMCDriver::create(conf, std::move(mod), std::move(modInfo));
 		driver->run();
 		return driver->getResult();
 	}
@@ -759,8 +762,8 @@ GenMCDriver::Result GenMCDriver::estimate(std::shared_ptr<const Config> conf,
 	auto estCtx = std::make_unique<llvm::LLVMContext>();
 	auto newmod = LLVMModule::cloneModule(mod, estCtx);
 	auto newMI = modInfo->clone(*newmod);
-	auto driver = DriverFactory::create(conf, std::move(newmod), std::move(newMI),
-					    GenMCDriver::EstimationMode{conf->estimationMax});
+	auto driver = GenMCDriver::create(conf, std::move(newmod), std::move(newMI), nullptr,
+					  GenMCDriver::EstimationMode{conf->estimationMax});
 	driver->run();
 	return driver->getResult();
 }
@@ -947,6 +950,13 @@ bool isUninitializedAccess(const SAddr &addr, const Event &pos)
 	return addr.isDynamic() && pos.isInitializer();
 }
 
+bool GenMCDriver::isExecutionValid(const EventLabel *lab)
+{
+
+	return isSymmetryOK(lab) && getConsChecker().isConsistent(lab) &&
+	       !partialExecutionExceedsBound();
+}
+
 bool GenMCDriver::isRevisitValid(const Revisit &revisit)
 {
 	auto &g = getGraph();
@@ -1046,7 +1056,7 @@ EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 
 void GenMCDriver::updateLabelViews(EventLabel *lab)
 {
-	updateMMViews(lab);
+	getConsChecker().updateMMViews(lab);
 	if (!getConf()->symmetryReduction)
 		return;
 
@@ -1067,7 +1077,7 @@ VerificationError GenMCDriver::checkForRaces(const EventLabel *lab)
 
 	/* Check for hard errors */
 	const EventLabel *racyLab = nullptr;
-	auto err = checkErrors(lab, racyLab);
+	auto err = getConsChecker().checkErrors(lab, racyLab);
 	if (err != VerificationError::VE_OK) {
 		reportError({lab->getPos(), err, "", racyLab});
 		return err;
@@ -1075,7 +1085,7 @@ VerificationError GenMCDriver::checkForRaces(const EventLabel *lab)
 
 	/* Check whether there are any unreported warnings... */
 	std::vector<const EventLabel *> races;
-	auto newWarnings = checkWarnings(lab, getResult().warnings, races);
+	auto newWarnings = getConsChecker().checkWarnings(lab, getResult().warnings, races);
 
 	/* ... and report them */
 	auto i = 0U;
@@ -1234,30 +1244,6 @@ bool GenMCDriver::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */
 	return getGraph().isCoMaximal(addr, e, checkCache);
 }
 
-bool GenMCDriver::isHazptrProtected(const MemAccessLabel *mLab) const
-{
-	auto &g = getGraph();
-	BUG_ON(!mLab->getAddr().isDynamic());
-
-	auto *aLab = mLab->getAlloc();
-	BUG_ON(!aLab);
-	auto *pLab = llvm::dyn_cast_or_null<HpProtectLabel>(
-		g.getPreviousLabelST(mLab, [&](const EventLabel *lab) {
-			auto *pLab = llvm::dyn_cast<HpProtectLabel>(lab);
-			return pLab && aLab->contains(pLab->getProtectedAddr());
-		}));
-	if (!pLab)
-		return false;
-
-	for (auto j = pLab->getIndex() + 1; j < mLab->getIndex(); j++) {
-		auto *lab = g.getEventLabel(Event(mLab->getThread(), j));
-		if (auto *oLab = llvm::dyn_cast<HpProtectLabel>(lab))
-			if (oLab->getHpAddr() == pLab->getHpAddr())
-				return false;
-	}
-	return true;
-}
-
 VerificationError GenMCDriver::checkAccessValidity(const MemAccessLabel *lab)
 {
 	/* Static variable validity is handled by the interpreter. *
@@ -1346,7 +1332,9 @@ VerificationError GenMCDriver::checkFinalAnnotations(const WriteLabel *wLab)
 		return VerificationError::VE_OK;
 	if ((wLab->isFinal() &&
 	     std::any_of(g.co_begin(wLab->getAddr()), g.co_end(wLab->getAddr()),
-			 [&](auto &sLab) { return !getHbView(wLab).contains(sLab.getPos()); })) ||
+			 [&](auto &sLab) {
+				 return !getConsChecker().getHbView(wLab).contains(sLab.getPos());
+			 })) ||
 	    (!wLab->isFinal() && std::any_of(g.co_begin(wLab->getAddr()), g.co_end(wLab->getAddr()),
 					     [&](auto &sLab) { return sLab.isFinal(); }))) {
 		reportError({wLab->getPos(), VerificationError::VE_Annotation,
@@ -1713,7 +1701,7 @@ void GenMCDriver::unblockWaitingHelping(const WriteLabel *lab)
 bool GenMCDriver::writesBeforeHelpedContainedInView(const HelpedCasReadLabel *lab, const View &view)
 {
 	auto &g = getGraph();
-	auto &hb = getHbView(lab);
+	auto &hb = getConsChecker().getHbView(lab);
 
 	for (auto i = 0u; i < hb.size(); i++) {
 		auto j = hb.getMax(i);
@@ -1743,7 +1731,7 @@ bool GenMCDriver::checkHelpingCasCondition(const HelpingCasLabel *hLab)
 
 	if (std::any_of(hs.begin(), hs.end(), [&g, this](const Event &h) {
 		    auto *hLab = llvm::dyn_cast<HelpedCasReadLabel>(g.getEventLabel(h));
-		    auto &view = getHbView(hLab);
+		    auto &view = getConsChecker().getHbView(hLab);
 		    return !writesBeforeHelpedContainedInView(hLab, view);
 	    }))
 		ERROR("Helped/Helping CAS annotation error! "
@@ -1803,20 +1791,6 @@ std::optional<Event> GenMCDriver::findConsistentCo(WriteLabel *wLab, std::vector
 	}
 	moot();
 	return std::nullopt;
-}
-
-void GenMCDriver::filterInvalidRecRfs(const ReadLabel *rLab, std::vector<Event> &rfs)
-{
-	auto &g = getGraph();
-	rfs.erase(std::remove_if(rfs.begin(), rfs.end(),
-				 [&](Event &r) {
-					 g.changeRf(rLab->getPos(), r);
-					 return !isRecoveryValid(rLab);
-				 }),
-		  rfs.end());
-	BUG_ON(rfs.empty());
-	g.changeRf(rLab->getPos(), rfs[0]);
-	return;
 }
 
 void GenMCDriver::handleThreadKill(std::unique_ptr<ThreadKillLabel> kLab)
@@ -2008,7 +1982,7 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 			continue;
 
 		/* If it does, and also breaks the assumptions, unblock thread */
-		if (!getHbView(faiLab).contains(lab->getPos())) {
+		if (!getConsChecker().getHbView(faiLab).contains(lab->getPos())) {
 			auto pos = eLab->getPos();
 			unblockThread(pos);
 			addLabelToGraph(FaiZNESpinEndLabel::create(pos));
@@ -2016,14 +1990,24 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 	}
 }
 
+const VectorClock &GenMCDriver::getPrefixView(const EventLabel *lab) const
+{
+	// FIXME
+	if (!lab->hasPrefixView())
+		lab->setPrefixView(const_cast<ConsistencyChecker &>(getConsChecker())
+					   .calculatePrefixView(lab));
+	return lab->getPrefixView();
+}
+
 std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
 {
-	auto rfs = getCoherentStores(lab->getAddr(), lab->getPos());
+	auto &g = getGraph();
+	auto &cc = getConsChecker();
+	auto rfs = cc.getCoherentStores(g, lab->getAddr(), lab->getPos());
 	if (!llvm::isa<CasReadLabel>(lab) && !llvm::isa<FaiReadLabel>(lab))
 		return rfs;
 
 	/* Remove atomicity violations */
-	auto &g = getGraph();
 	auto &before = getPrefixView(lab);
 	rfs.erase(std::remove_if(
 			  rfs.begin(), rfs.end(),
@@ -2209,7 +2193,7 @@ std::vector<Event> GenMCDriver::getRevisitableApproximation(const WriteLabel *sL
 {
 	auto &g = getGraph();
 	auto &prefix = getPrefixView(sLab);
-	auto loads = getCoherentRevisits(sLab, prefix);
+	auto loads = getConsChecker().getCoherentRevisits(g, sLab, prefix);
 	std::sort(loads.begin(), loads.end(), [&g](const Event &l1, const Event &l2) {
 		return g.getEventLabel(l1)->getStamp() > g.getEventLabel(l2)->getStamp();
 	});
@@ -2285,7 +2269,8 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	/* Find all possible placings in coherence for this store, and
 	 * print a WW-race warning if appropriate (if this moots,
 	 * exploration will anyway be cut) */
-	auto cos = getCoherentPlacings(lab->getAddr(), lab->getPos(), g.isRMWStore(lab));
+	auto cos = getConsChecker().getCoherentPlacings(g, lab->getAddr(), lab->getPos(),
+							g.isRMWStore(lab));
 	if (cos.size() > 1) {
 		reportWarningOnce(lab->getPos(), VerificationError::VE_WWRace,
 				  g.getEventLabel(cos[0]));
@@ -3442,7 +3427,7 @@ bool GenMCDriver::areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab)
 		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(&lab)) {
 			if (mLab->getAddr() == wLab->getAddr() && !llvm::isa<FaiReadLabel>(mLab) &&
 			    !llvm::isa<FaiWriteLabel>(mLab) &&
-			    !getHbView(wLab).contains(mLab->getPos()))
+			    !getConsChecker().getHbView(wLab).contains(mLab->getPos()))
 				return false;
 		}
 	}

@@ -22,20 +22,14 @@
  * CAUTION: This file is generated automatically by Kater -- DO NOT EDIT.
  *******************************************************************************/
 
-#ifndef GENMC_TSO_DRIVER_HPP
-#define GENMC_TSO_DRIVER_HPP
+#ifndef GENMC_SC_CHECKER_HPP
+#define GENMC_SC_CHECKER_HPP
 
-#include "config.h"
-#include "ADT/VSet.hpp"
-#include "ExecutionGraph/ExecutionGraph.hpp"
-#include "ExecutionGraph/GraphIterators.hpp"
-#include "ExecutionGraph/MaximalIterator.hpp"
-#include "Verification/GenMCDriver.hpp"
-#include "Verification/VerificationError.hpp"
+#include "Verification/Consistency/ConsistencyChecker.hpp"
 #include <cstdint>
 #include <vector>
 
-class TSODriver : public GenMCDriver {
+class SCChecker : public ConsistencyChecker {
 
 private:
 	enum class NodeStatus : unsigned char { unseen, entered, left };
@@ -48,31 +42,37 @@ private:
 	};
 
 public:
-	TSODriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		std::unique_ptr<ModuleInfo> MI, GenMCDriver::Mode mode = GenMCDriver::VerificationMode{});
-
-	void calculateSaved(EventLabel *lab);
-	void calculateViews(EventLabel *lab);
-	void updateMMViews(EventLabel *lab) override;
-	bool isDepTracking() const override;
-	bool isConsistent(const EventLabel *lab) const override;
-	VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const override;
-	std::vector<VerificationError> checkWarnings(const EventLabel *lab, const VSet<VerificationError> &seenWarnings, std::vector<const EventLabel *> &racyLabs) const;
-	std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const override;
-	const View &getHbView(const EventLabel *lab) const override;
-	std::vector<Event> getCoherentStores(SAddr addr, Event read) override;
-	std::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf) override;
-	std::vector<Event> getCoherentPlacings(SAddr addr, Event store, bool isRMW) override;
+	SCChecker(){};
 
 private:
-	bool isWriteRfBefore(Event a, Event b);
-	std::vector<Event> getInitRfsAtLoc(SAddr addr);
-	bool isHbOptRfBefore(const Event e, const Event write);
-	ExecutionGraph::co_iterator splitLocMOBefore(SAddr addr, Event e);
-	ExecutionGraph::co_iterator splitLocMOAfterHb(SAddr addr, const Event read);
-	ExecutionGraph::co_iterator splitLocMOAfter(SAddr addr, const Event e);
-	std::vector<Event> getMOOptRfAfter(const WriteLabel *sLab);
-	std::vector<Event> getMOInvOptRfAfter(const WriteLabel *sLab);
+	bool isConsistent(const EventLabel *lab) const override;
+	VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const;
+	std::vector<VerificationError> checkWarnings(const EventLabel *lab,
+						     const VSet<VerificationError> &reported,
+						     std::vector<const EventLabel *> &races) const;
+	std::vector<Event> getCoherentStores(const ExecutionGraph &g, SAddr addr,
+					     Event read) override;
+	std::vector<Event> getCoherentRevisits(const ExecutionGraph &g, const WriteLabel *sLab,
+					       const VectorClock &pporf) override;
+	std::vector<Event> getCoherentPlacings(const ExecutionGraph &g, SAddr addr, Event store,
+					       bool isRMW) override;
+	void updateMMViews(EventLabel *lab) override;
+	std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const override;
+	const View &getHbView(const EventLabel *lab) const override;
+	bool isDepTracking() const;
+	void calculateSaved(EventLabel *lab);
+	void calculateViews(EventLabel *lab);
+	bool isWriteRfBefore(const ExecutionGraph &g, Event a, Event b);
+	std::vector<Event> getInitRfsAtLoc(const ExecutionGraph &g, SAddr addr);
+	bool isHbOptRfBefore(const ExecutionGraph &g, const Event e, const Event write);
+	ExecutionGraph::const_co_iterator splitLocMOBefore(const ExecutionGraph &g, SAddr addr,
+							   Event e);
+	ExecutionGraph::const_co_iterator splitLocMOAfterHb(const ExecutionGraph &g, SAddr addr,
+							    const Event read);
+	ExecutionGraph::const_co_iterator splitLocMOAfter(const ExecutionGraph &g, SAddr addr,
+							  const Event e);
+	std::vector<Event> getMOOptRfAfter(const ExecutionGraph &g, const WriteLabel *sLab);
+	std::vector<Event> getMOInvOptRfAfter(const ExecutionGraph &g, const WriteLabel *sLab);
 	mutable const EventLabel *cexLab{};
 
 	mutable std::vector<NodeStatus> visitedCalc57_0;
@@ -86,7 +86,7 @@ private:
 	bool visitCalc57_3(const EventLabel *lab, View &calcRes) const;
 
 	View visitCalc57(const EventLabel *lab) const;
-	const View&getHbStableView(const EventLabel *lab) const { return lab->view(0); }
+	const View &getHbStableView(const EventLabel *lab) const { return lab->view(0); }
 
 	auto checkCalc57(const EventLabel *lab) const;
 	mutable std::vector<NodeStatus> visitedCalc62_0;
@@ -100,7 +100,7 @@ private:
 	bool visitCalc62_3(const EventLabel *lab, View &calcRes) const;
 
 	View visitCalc62(const EventLabel *lab) const;
-	const View&getPorfStableView(const EventLabel *lab) const { return lab->view(1); }
+	const View &getPorfStableView(const EventLabel *lab) const { return lab->view(1); }
 
 	auto checkCalc62(const EventLabel *lab) const;
 	mutable std::vector<NodeVisitStatus> visitedCoherence_0;
@@ -112,22 +112,16 @@ private:
 	bool visitCoherence_1(const EventLabel *lab) const;
 	bool visitCoherence_2(const EventLabel *lab) const;
 
-	bool visitCoherenceFull() const;
+	bool visitCoherenceFull(const ExecutionGraph &g) const;
 
 	mutable std::vector<NodeVisitStatus> visitedConsAcyclic1_0;
-	mutable std::vector<NodeVisitStatus> visitedConsAcyclic1_1;
-	mutable std::vector<NodeVisitStatus> visitedConsAcyclic1_2;
-	mutable std::vector<NodeVisitStatus> visitedConsAcyclic1_3;
 	mutable uint32_t visitedConsAcyclic1Accepting;
 
 	bool visitConsAcyclic1_0(const EventLabel *lab) const;
-	bool visitConsAcyclic1_1(const EventLabel *lab) const;
-	bool visitConsAcyclic1_2(const EventLabel *lab) const;
-	bool visitConsAcyclic1_3(const EventLabel *lab) const;
 
 	bool visitConsAcyclic1(const EventLabel *lab) const;
 
-	bool visitConsAcyclic1Full() const;
+	bool visitConsAcyclic1Full(const ExecutionGraph &g) const;
 
 	bool checkUnlessConsAcyclic1(const EventLabel *lab) { return false; }
 	bool checkConsAcyclic1(const EventLabel *lab) const;
@@ -147,8 +141,6 @@ private:
 
 	bool visitLHSUnlessError3_0(const EventLabel *lab) const;
 	bool visitLHSUnlessError3_1(const EventLabel *lab) const;
-
-
 
 	mutable std::vector<bool> visitedLHSUnlessError3Accepting;
 	mutable std::vector<bool> visitedRHSUnlessError3Accepting;
@@ -175,8 +167,6 @@ private:
 	bool visitLHSUnlessError5_1(const EventLabel *lab) const;
 	bool visitLHSUnlessError5_2(const EventLabel *lab) const;
 
-
-
 	mutable std::vector<bool> visitedLHSUnlessError5Accepting;
 	mutable std::vector<bool> visitedRHSUnlessError5Accepting;
 	bool visitUnlessError5(const EventLabel *lab) const;
@@ -201,8 +191,6 @@ private:
 	bool visitLHSUnlessError7_0(const EventLabel *lab) const;
 	bool visitLHSUnlessError7_1(const EventLabel *lab) const;
 	bool visitLHSUnlessError7_2(const EventLabel *lab) const;
-
-
 
 	mutable std::vector<bool> visitedLHSUnlessError7Accepting;
 	mutable std::vector<bool> visitedRHSUnlessError7Accepting;
@@ -236,8 +224,6 @@ private:
 
 	mutable std::vector<NodeStatus> visitedPPoRf0;
 	mutable std::vector<NodeStatus> visitedPPoRf1;
-
-
 };
 
-#endif /* GENMC_TSO_DRIVER_HPP */
+#endif /* GENMC_SC_CHECKER_HPP */
