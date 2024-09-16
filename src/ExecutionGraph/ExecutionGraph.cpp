@@ -253,20 +253,6 @@ std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab,
 	return loads;
 }
 
-/* Returns a vector with all reads of a particular location reading from INIT */
-std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
-{
-	std::vector<Event> result;
-
-	for (const auto &lab : labels()) {
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab))
-			if (rLab->getRf() && rLab->getRf()->getPos().isInitializer() &&
-			    rLab->getAddr() == addr)
-				result.push_back(rLab->getPos());
-	}
-	return result;
-}
-
 /*******************************************************************************
  **                       Label addition methods
  ******************************************************************************/

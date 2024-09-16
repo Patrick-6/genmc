@@ -487,8 +487,6 @@ public:
 
 	/* Calculation of relations in the graph */
 
-	std::vector<Event> getInitRfsAtLoc(SAddr addr) const;
-
 	/* Returns true if e is maximal in addr */
 	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false) const;
 
