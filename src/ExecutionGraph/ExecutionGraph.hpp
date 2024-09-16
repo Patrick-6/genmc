@@ -485,30 +485,6 @@ public:
 	virtual std::vector<Event> getRevisitable(const WriteLabel *sLab,
 						  const VectorClock &pporf) const;
 
-	/* Returns the first po-predecessor satisfying F */
-	template <typename F>
-	const EventLabel *getPreviousLabelST(const EventLabel *lab, F &&cond) const
-	{
-		for (auto j = lab->getIndex() - 1; j >= 0; j--) {
-			auto *eLab = getEventLabel(Event(lab->getThread(), j));
-			if (cond(eLab))
-				return eLab;
-		}
-		return nullptr;
-	}
-
-	/* Returns a list of all events satisfying property F */
-	template <typename F> std::vector<Event> collectAllEvents(F cond) const
-	{
-		std::vector<Event> result;
-
-		for (auto i = 0u; i < getNumThreads(); i++)
-			for (auto j = 0u; j < getThreadSize(i); j++)
-				if (cond(getEventLabel(Event(i, j))))
-					result.push_back(Event(i, j));
-		return result;
-	}
-
 	/* Calculation of relations in the graph */
 
 	std::vector<Event> getInitRfsAtLoc(SAddr addr) const;

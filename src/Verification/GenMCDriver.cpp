@@ -538,14 +538,10 @@ void GenMCDriver::checkHelpingCasAnnotation()
 
 	/* Next, we need to check whether there are any extraneous
 	 * stores, not visible to the helped/helping CAS */
-	auto hs = g.collectAllEvents(
-		[&](const EventLabel *lab) { return llvm::isa<HelpingCasLabel>(lab); });
-	if (hs.empty())
-		return;
-
-	for (auto &h : hs) {
-		auto *hLab = llvm::dyn_cast<HelpingCasLabel>(g.getEventLabel(h));
-		BUG_ON(!hLab);
+	for (auto &lab : g.labels() | std::views::filter([](auto &lab) {
+				 return llvm::isa<HelpingCasLabel>(&lab);
+			 })) {
+		auto *hLab = llvm::dyn_cast<HelpingCasLabel>(&lab);
 
 		/* Check that all stores that would make this helping
 		 * CAS succeed are read by a helped CAS.
@@ -566,12 +562,12 @@ void GenMCDriver::checkHelpingCasAnnotation()
 		/* Special case for the initializer (as above) */
 		if (hLab->getAddr().isStatic() &&
 		    hLab->getExpected() == getEE()->getLocInitVal(hLab->getAccess())) {
-			auto rs = g.collectAllEvents([&](const EventLabel *lab) {
-				auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
-				return rLab && rLab->getAddr() == hLab->getAddr();
-			});
-			if (std::none_of(rs.begin(), rs.end(), [&](const Event &r) {
-				    return llvm::isa<HelpedCasReadLabel>(g.getEventLabel(r));
+			auto rsView = g.labels() | std::views::filter([hLab](auto &lab) {
+					      auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
+					      return rLab && rLab->getAddr() == hLab->getAddr();
+				      });
+			if (std::ranges::none_of(rsView, [&](auto &lab) {
+				    return llvm::isa<HelpedCasReadLabel>(&lab);
 			    }))
 				ERROR("Helped/Helping CAS annotation error! "
 				      "Unordered store to helping CAS location!\n");
@@ -1717,26 +1713,25 @@ bool GenMCDriver::checkHelpingCasCondition(const HelpingCasLabel *hLab)
 {
 	auto &g = getGraph();
 
-	auto hs = g.collectAllEvents([&](const EventLabel *lab) {
-		auto *rLab = llvm::dyn_cast<HelpedCasReadLabel>(lab);
-		return rLab && g.isRMWLoad(rLab) && rLab->getAddr() == hLab->getAddr() &&
-		       rLab->getType() == hLab->getType() && rLab->getSize() == hLab->getSize() &&
-		       rLab->getOrdering() == hLab->getOrdering() &&
-		       rLab->getExpected() == hLab->getExpected() &&
-		       rLab->getSwapVal() == hLab->getSwapVal();
-	});
+	auto hsView = g.labels() | std::views::filter([&g, hLab](auto &lab) {
+			      auto *rLab = llvm::dyn_cast<HelpedCasReadLabel>(&lab);
+			      return rLab && g.isRMWLoad(rLab) &&
+				     rLab->getAddr() == hLab->getAddr() &&
+				     rLab->getType() == hLab->getType() &&
+				     rLab->getSize() == hLab->getSize() &&
+				     rLab->getOrdering() == hLab->getOrdering() &&
+				     rLab->getExpected() == hLab->getExpected() &&
+				     rLab->getSwapVal() == hLab->getSwapVal();
+		      });
 
-	if (hs.empty())
-		return false;
-
-	if (std::any_of(hs.begin(), hs.end(), [&g, this](const Event &h) {
-		    auto *hLab = llvm::dyn_cast<HelpedCasReadLabel>(g.getEventLabel(h));
+	if (std::ranges::any_of(hsView, [&g, this](auto &lab) {
+		    auto *hLab = llvm::dyn_cast<HelpedCasReadLabel>(&lab);
 		    auto &view = getConsChecker().getHbView(hLab);
 		    return !writesBeforeHelpedContainedInView(hLab, view);
 	    }))
 		ERROR("Helped/Helping CAS annotation error! "
 		      "Not all stores before helped-CAS are visible to helping-CAS!\n");
-	return true;
+	return std::ranges::begin(hsView) != std::ranges::end(hsView);
 }
 
 bool GenMCDriver::checkAtomicity(const WriteLabel *wLab)
@@ -1973,10 +1968,15 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 			continue;
 
 		/* Check whether this access affects the spinloop variable */
-		auto *faiLab = llvm::dyn_cast<FaiWriteLabel>(g.getPreviousLabelST(
-			eLab, [](const EventLabel *lab) { return llvm::isa<FaiWriteLabel>(lab); }));
+		auto epreds = po_preds(g, eLab);
+		auto faiLabIt = std::ranges::find_if(
+			epreds, [](auto &lab) { return llvm::isa<FaiWriteLabel>(&lab); });
+		BUG_ON(faiLabIt == std::ranges::end(epreds));
+
+		auto *faiLab = llvm::dyn_cast<FaiWriteLabel>(&*faiLabIt);
 		if (faiLab->getAddr() != lab->getAddr())
 			continue;
+
 		/* FAIs on the same variable are OK... */
 		if (llvm::isa<FaiReadLabel>(lab) || llvm::isa<FaiWriteLabel>(lab))
 			continue;
@@ -2534,13 +2534,15 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab,
 
 	/* Otherwise, revisit in place */
 	auto &g = getGraph();
-	auto bs = g.collectAllEvents([&](const EventLabel *lab) {
-		if (!llvm::isa<BarrierBlockLabel>(lab))
-			return false;
-		auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(
-			g.getPreviousLabel(g.getPreviousLabel(lab)));
-		return pLab->getAddr() == sLab->getAddr();
-	});
+	auto bsView = g.labels() | std::views::filter([&g, sLab](auto &lab) {
+			      if (!llvm::isa<BarrierBlockLabel>(&lab))
+				      return false;
+			      auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(
+				      g.getPreviousLabel(g.getPreviousLabel(&lab)));
+			      return pLab->getAddr() == sLab->getAddr();
+		      }) |
+		      std::views::transform([](auto &lab) { return lab.getPos(); });
+	std::vector<Event> bs(std::ranges::begin(bsView), std::ranges::end(bsView));
 	auto unblockedLoads = std::count_if(loads.begin(), loads.end(), [&](auto &l) {
 		auto *nLab = llvm::dyn_cast_or_null<BlockLabel>(g.getNextLabel(g.getEventLabel(l)));
 		return !nLab;
@@ -2548,7 +2550,7 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab,
 	if (bs.size() > iVal.get() || unblockedLoads > 0)
 		WARN_ONCE("bam-well-formed", "Execution not barrier-well-formed!\n");
 
-	std::for_each(bs.begin(), bs.end(), [&](const Event &b) {
+	for (auto &b : bs) {
 		auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(
 			g.getPreviousLabel(g.getPreviousLabel(g.getEventLabel(b))));
 		BUG_ON(!pLab);
@@ -2559,7 +2561,7 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab,
 					       pLab->getSize(), pLab->getType(), pLab->getDeps())));
 		g.changeRf(rLab->getPos(), sLab->getPos());
 		rLab->setAddedMax(isCoMaximal(rLab->getAddr(), rLab->getRf()->getPos()));
-	});
+	}
 	return true;
 }
 
@@ -3225,11 +3227,10 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 		if (!getConf()->bound.has_value())
 			threadPrios = {rLab->getRf()->getPos()};
 	}
-	auto *oLab = g.getPreviousLabelST(rLab, [&](const EventLabel *oLab) {
-		return llvm::isa<SpeculativeReadLabel>(oLab);
-	});
-
-	if (getConf()->helper && (llvm::isa<SpeculativeReadLabel>(rLab) || oLab))
+	auto rpreds = po_preds(g, rLab);
+	auto oLabIt = std::ranges::find_if(
+		rpreds, [&](auto &oLab) { return llvm::isa<SpeculativeReadLabel>(&oLab); });
+	if (getConf()->helper && (llvm::isa<SpeculativeReadLabel>(rLab) || oLabIt != rpreds.end()))
 		threadPrios = {rLab->getPos()};
 	return true;
 }
@@ -3346,16 +3347,18 @@ bool GenMCDriver::isWriteObservable(const WriteLabel *wLab)
 		return true;
 
 	auto &g = getGraph();
-	auto *mLab = g.getPreviousLabelST(wLab, [wLab](const EventLabel *lab) {
-		if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab)) {
+	auto wpreds = po_preds(g, wLab);
+	auto mLabIt = std::ranges::find_if(wpreds, [wLab](auto &lab) {
+		if (auto *aLab = llvm::dyn_cast<MallocLabel>(&lab)) {
 			if (aLab->contains(wLab->getAddr()))
 				return true;
 		}
 		return false;
 	});
-	if (mLab == nullptr)
+	if (mLabIt == std::ranges::end(wpreds))
 		return true;
 
+	auto *mLab = &*mLabIt;
 	for (auto j = mLab->getIndex() + 1; j < wLab->getIndex(); j++) {
 		auto *lab = g.getEventLabel(Event(wLab->getThread(), j));
 		if (lab->isAtLeastRelease())
@@ -3379,18 +3382,22 @@ void GenMCDriver::handleSpinStart(std::unique_ptr<SpinStartLabel> lab)
 	auto *stLab = addLabelToGraph(std::move(lab));
 
 	/* Check whether we can detect some spinloop dynamically */
-	auto *lbLab = g.getPreviousLabelST(
-		stLab, [](const EventLabel *lab) { return llvm::isa<LoopBeginLabel>(lab); });
+	auto stpreds = po_preds(g, stLab);
+	auto lbLabIt = std::ranges::find_if(
+		stpreds, [](auto &lab) { return llvm::isa<LoopBeginLabel>(lab); });
+
 	/* If we did not find a loop-begin, this a manual instrumentation(?); report to user
 	 */
-	ERROR_ON(!lbLab, "No loop-beginning found!\n");
+	ERROR_ON(lbLabIt == stpreds.end(), "No loop-beginning found!\n");
 
-	auto *pLab = g.getPreviousLabelST(stLab, [lbLab](const EventLabel *lab) {
-		return llvm::isa<SpinStartLabel>(lab) && lab->getIndex() > lbLab->getIndex();
+	auto *lbLab = &*lbLabIt;
+	auto pLabIt = std::ranges::find_if(stpreds, [lbLab](auto &lab) {
+		return llvm::isa<SpinStartLabel>(&lab) && lab.getIndex() > lbLab->getIndex();
 	});
-	if (!pLab)
+	if (pLabIt == stpreds.end())
 		return;
 
+	auto *pLab = &*pLabIt;
 	for (auto i = pLab->getIndex() + 1; i < stLab->getIndex(); i++) {
 		auto *wLab =
 			llvm::dyn_cast<WriteLabel>(g.getEventLabel(Event(stLab->getThread(), i)));
@@ -3408,21 +3415,24 @@ bool GenMCDriver::areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab)
 	/* Check that there are no other side-effects since the previous iteration.
 	 * We don't have to look for a BEGIN label since ZNE labels are always
 	 * preceded by a spin-start */
-	auto *ssLab = g.getPreviousLabelST(
-		lab, [](const EventLabel *lab) { return llvm::isa<SpinStartLabel>(lab); });
-	BUG_ON(!ssLab);
+	auto preds = po_preds(g, lab);
+	auto ssLabIt = std::ranges::find_if(
+		preds, [](auto &lab) { return llvm::isa<SpinStartLabel>(&lab); });
+	BUG_ON(ssLabIt == preds.end());
+	auto *ssLab = &*ssLabIt;
 	for (auto i = ssLab->getIndex() + 1; i < lab->getIndex(); ++i) {
 		auto *oLab = g.getEventLabel(Event(ssLab->getThread(), i));
 		if (llvm::isa<WriteLabel>(oLab) && !llvm::isa<FaiWriteLabel>(oLab))
 			return false;
 	}
 
-	auto *wLab = llvm::dyn_cast<FaiWriteLabel>(g.getPreviousLabelST(
-		lab, [](const EventLabel *lab) { return llvm::isa<FaiWriteLabel>(lab); }));
-	BUG_ON(!wLab);
+	auto wLabIt = std::ranges::find_if(
+		preds, [](auto &lab) { return llvm::isa<FaiWriteLabel>(&lab); });
+	BUG_ON(wLabIt == preds.end());
 
 	/* All stores in the RMW chain need to be read from at most 1 read,
 	 * and there need to be no other stores that are not hb-before lab */
+	auto *wLab = llvm::dyn_cast<FaiWriteLabel>(&*wLabIt);
 	for (auto &lab : g.labels()) {
 		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(&lab)) {
 			if (mLab->getAddr() == wLab->getAddr() && !llvm::isa<FaiReadLabel>(mLab) &&
