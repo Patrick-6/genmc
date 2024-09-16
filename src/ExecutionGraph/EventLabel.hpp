@@ -42,6 +42,7 @@
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>
 #include <optional>
+#include <ranges>
 
 class DskAccessLabel;
 class ReadLabel;
@@ -396,6 +397,8 @@ public:
 	const_rf_iterator rf_begin(SAddr addr) const { return initRfs.at(addr).begin(); };
 	rf_iterator rf_end(SAddr addr) { return initRfs[addr].end(); }
 	const_rf_iterator rf_end(SAddr addr) const { return initRfs.at(addr).end(); }
+	auto rfs(SAddr addr) const { return std::views::all(initRfs.at(addr)); }
+	auto rfs(SAddr addr) { return std::views::all(initRfs.at(addr)); }
 
 	DEFINE_STANDARD_MEMBERS(Init)
 
