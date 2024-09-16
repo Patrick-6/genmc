@@ -18,13 +18,39 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __GRAPH_UTILS_HPP__
-#define __GRAPH_UTILS_HPP__
+#ifndef GENMC_GRAPH_UTILS_HPP
+#define GENMC_GRAPH_UTILS_HPP
 
+class SAddr;
 class MemAccessLabel;
+class UnlockWriteLabel;
+class WriteLabel;
+class CasWriteLabel;
+class ReadLabel;
+class SpeculativeReadLabel;
+class MallocLabel;
+class EventLabel;
 class ExecutionGraph;
 
-/* Returns true if MLAB is protected by a hazptr */
-bool isHazptrProtected(const MemAccessLabel *mLab);
+/** Returns true if MLAB is protected by a hazptr */
+auto isHazptrProtected(const MemAccessLabel *mLab) -> bool;
 
-#endif /* __GRAPH_UTILS_HPP__ */
+/** Returns the lock that matches ULAB.
+ * If no such event exists, returns nullptr */
+auto findMatchingLock(const UnlockWriteLabel *uLab) -> const CasWriteLabel *;
+
+/** Returns the unlock that matches lLAB.
+ *If no such event exists, returns nullptr */
+auto findMatchingUnlock(const CasWriteLabel *lLab) -> const UnlockWriteLabel *;
+
+/** Helper: Returns the last speculative read in CLAB's location that
+ * is not matched. If no such event exists, returns nullptr. */
+auto findMatchingSpeculativeRead(const ReadLabel *cLab, const EventLabel *&scLab)
+	-> const SpeculativeReadLabel *;
+
+/** Returns the allocating event for ADDR.
+ * Assumes that only one such event may exist */
+auto findAllocatingLabel(ExecutionGraph &g, const SAddr &addr) -> MallocLabel *;
+auto findAllocatingLabel(const ExecutionGraph &g, const SAddr &addr) -> const MallocLabel *;
+
+#endif /* GENMC_GRAPH_UTILS_HPP */

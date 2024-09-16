@@ -410,14 +410,6 @@ public:
 			static_cast<const ExecutionGraph &>(*this).getWriteLabel(e));
 	}
 
-	/* Returns the previous non-empty label of e. Since all threads
-	 * have an initializing event, it returns that as a base case */
-	const EventLabel *getPreviousNonEmptyLabel(Event e) const;
-	const EventLabel *getPreviousNonEmptyLabel(const EventLabel *lab) const
-	{
-		return getPreviousNonEmptyLabel(lab->getPos());
-	}
-
 	/* Returns the first event in the thread tid */
 	Event getFirstThreadEvent(int tid) const { return Event(tid, 0); }
 
@@ -441,39 +433,6 @@ public:
 		return const_cast<EventLabel *>(
 			static_cast<const ExecutionGraph &>(*this).getLastThreadLabel(thread));
 	}
-
-	/* Returns the last store at ADDR that is before UPPERLIMIT in
-	 * UPPERLIMIT's thread. If such a store does not exist, it
-	 * returns INIT */
-	Event getLastThreadStoreAtLoc(Event upperLimit, SAddr addr) const;
-
-	/* Returns the last release before upperLimit in the latter's thread.
-	 * If it's not a fence, then it has to be at location addr */
-	Event getLastThreadReleaseAtLoc(Event upperLimit, SAddr addr) const;
-
-	/* Returns the lock that matches UNLOCK.
-	 * If no such event exists, returns INIT */
-	Event getMatchingLock(const Event unlock) const;
-
-	/* Returns the unlock that matches LOCK. LOCK needs to be the
-	 * read part of a lock operation. If no such event exists,
-	 * returns INIT */
-	Event getMatchingUnlock(const Event lock) const;
-
-	/* Helper: Returns the last speculative read in CONF's location that
-	 * is not matched. If no such event exists, returns INIT.
-	 * (If SC is non-null and an SC event is in-between the confirmation,
-	 * SC is set to that event) */
-	Event getMatchingSpeculativeRead(Event conf, Event *sc = nullptr) const;
-
-	/* Returns the allocating event for ADDR.
-	 * Assumes that only one such event may exist */
-	Event getMalloc(const SAddr &addr) const;
-
-	/* Given a deallocating event FLAB, returns its allocating
-	 * counterpart (their addresses need to match exactly).
-	 * Assumes that only one such event may exist */
-	Event getMallocCounterpart(const FreeLabel *fLab) const;
 
 	/* Given a write label sLab that is part of an RMW, returns
 	 * another RMW that reads from the same write. If no such event
@@ -543,10 +502,6 @@ public:
 
 	void validate(void);
 
-	/* Modification order methods */
-
-	void trackCoherenceAtLoc(SAddr addr);
-
 	/* Graph modification methods */
 
 	void changeRf(Event read, Event store);
@@ -610,6 +565,8 @@ protected:
 	/* Returns the event with the minimum stamp in ES.
 	 * If ES is empty, returns INIT */
 	Event getMinimumStampEvent(const std::vector<Event> &es) const;
+
+	void trackCoherenceAtLoc(SAddr addr);
 
 	void copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) const;
 

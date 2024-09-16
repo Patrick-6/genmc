@@ -606,9 +606,6 @@ private:
 	 * will be deleted by the revisit R */
 	bool hasBeenRevisitedByDeleted(const BackwardRevisit &r, const EventLabel *eLab);
 
-	/* Returns whether the prefix of SLAB contains LAB's matching lock */
-	bool prefixContainsMatchingLock(const BackwardRevisit &r, const EventLabel *lab);
-
 	bool isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLabel *lab);
 
 	bool coherenceSuccRemainInGraph(const BackwardRevisit &r);
