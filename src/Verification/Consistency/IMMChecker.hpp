@@ -49,7 +49,7 @@ private:
 	VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const;
 	std::vector<VerificationError> checkWarnings(const EventLabel *lab, const VSet<VerificationError> &reported, std::vector<const EventLabel *> &races) const;
 	std::vector<Event> getCoherentStores(const ExecutionGraph &g, SAddr addr, Event read) override;
-	std::vector<Event> getCoherentRevisits(const ExecutionGraph &g, const WriteLabel *sLab, const VectorClock &pporf);
+	std::vector<Event> getCoherentRevisits(const ExecutionGraph &g, const WriteLabel *sLab, const VectorClock &pporf) override;
 	std::vector<Event> getCoherentPlacings(const ExecutionGraph &g, SAddr addr, Event store, bool isRMW) override;
 	void updateMMViews(EventLabel *lab) override;
 	std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const override;

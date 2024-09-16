@@ -56,7 +56,7 @@ Event ExecutionGraph::getMinimumStampEvent(const std::vector<Event> &es) const
 Event ExecutionGraph::getPendingRMW(const WriteLabel *sLab) const
 {
 	/* If this is _not_ an RMW event, return an empty vector */
-	if (!isRMWStore(sLab))
+	if (!sLab->isRMW())
 		return Event::getInit();
 
 	/* Otherwise, scan for other RMWs that successfully read the same val */
@@ -67,18 +67,18 @@ Event ExecutionGraph::getPendingRMW(const WriteLabel *sLab) const
 	/* Fastpath: non-init rf */
 	if (auto *wLab = llvm::dyn_cast<WriteLabel>(pLab->getRf())) {
 		std::for_each(wLab->readers_begin(), wLab->readers_end(), [&](auto &rLab) {
-			if (isRMWLoad(&rLab) && &rLab != pLab)
+			if (rLab.isRMW() && &rLab != pLab)
 				pending.push_back(rLab.getPos());
 		});
 		return getMinimumStampEvent(pending);
 	}
 
 	/* Slowpath: scan init rfs */
-	std::for_each(
-		init_rf_begin(pLab->getAddr()), init_rf_end(pLab->getAddr()), [&](auto &rLab) {
-			if (rLab.getRf() == pLab->getRf() && &rLab != pLab && isRMWLoad(&rLab))
-				pending.push_back(rLab.getPos());
-		});
+	std::for_each(init_rf_begin(pLab->getAddr()), init_rf_end(pLab->getAddr()),
+		      [&](auto &rLab) {
+			      if (rLab.getRf() == pLab->getRf() && &rLab != pLab && rLab.isRMW())
+				      pending.push_back(rLab.getPos());
+		      });
 	return getMinimumStampEvent(pending);
 }
 
@@ -192,10 +192,10 @@ void ExecutionGraph::removeLast(unsigned int thread)
 bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, SAddr ptr) const
 {
 	for (const auto &lab : labels()) {
-		if (!isRMWLoad(&lab))
+		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
+		if (!rLab || !rLab->isRMW())
 			continue;
 
-		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
 		if (rLab->getRf()->getPos() == store && rLab->getAddr() == ptr)
 			return true;
 	}
@@ -206,10 +206,10 @@ bool ExecutionGraph::isStoreReadBySettledRMW(Event store, SAddr ptr,
 					     const VectorClock &prefix) const
 {
 	for (const auto &lab : labels()) {
-		if (!isRMWLoad(&lab))
+		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
+		if (!rLab || !rLab->isRMW())
 			continue;
 
-		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
 		if (rLab->getRf()->getPos() != store || rLab->getAddr() != ptr)
 			continue;
 
@@ -529,27 +529,6 @@ std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v
 }
 
 /************************************************************
- ** PSC calculation
- ***********************************************************/
-
-bool ExecutionGraph::isRMWLoad(const EventLabel *lab) const
-{
-	if (!llvm::isa<CasReadLabel>(lab) && !llvm::isa<FaiReadLabel>(lab))
-		return false;
-	const ReadLabel *rLab = static_cast<const ReadLabel *>(lab);
-
-	if (lab->getIndex() == (int)getThreadSize(lab->getThread()) - 1)
-		return false;
-	const EventLabel *nLab = getEventLabel(Event(rLab->getThread(), rLab->getIndex() + 1));
-
-	if (!llvm::isa<MemAccessLabel>(nLab))
-		return false;
-	auto *mLab = static_cast<const MemAccessLabel *>(nLab);
-
-	return isRMWStore(mLab) && mLab->getAddr() == rLab->getAddr();
-}
-
-/************************************************************
  ** Debugging methods
  ***********************************************************/
 
@@ -578,9 +557,9 @@ void ExecutionGraph::validate(void)
 			}
 		}
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(&lab)) {
-			if (isRMWStore(wLab) &&
+			if (wLab->isRMW() &&
 			    std::count_if(wLab->readers_begin(), wLab->readers_end(),
-					  [&](auto &rLab) { return isRMWLoad(&rLab); }) > 1) {
+					  [&](auto &rLab) { return rLab.isRMW(); }) > 1) {
 				llvm::errs() << "Atomicity violation: " << wLab->getPos() << "\n";
 				llvm::errs() << *this << "\n";
 				BUG();

@@ -973,7 +973,7 @@ bool GenMCDriver::isRevisitValid(const Revisit &revisit)
 
 	/* If an extra event is added, re-check consistency */
 	auto *nLab = g.getNextLabel(mLab);
-	return !g.isRMWLoad(pos) ||
+	return !rLab || !rLab->isRMW() ||
 	       (isExecutionValid(nLab) && checkForRaces(nLab) == VerificationError::VE_OK);
 }
 
@@ -1635,7 +1635,7 @@ void GenMCDriver::filterSymmetricStoresSR(const ReadLabel *rLab, std::vector<Eve
 	if (!lab || lab->getAddr() != rLab->getAddr() || lab->getSize() != lab->getSize())
 		return;
 
-	if (!g.isRMWLoad(lab))
+	if (!lab->isRMW())
 		return;
 
 	/* Remove stores that will be explored symmetrically */
@@ -1707,8 +1707,7 @@ bool GenMCDriver::checkHelpingCasCondition(const HelpingCasLabel *hLab)
 
 	auto hsView = g.labels() | std::views::filter([&g, hLab](auto &lab) {
 			      auto *rLab = llvm::dyn_cast<HelpedCasReadLabel>(&lab);
-			      return rLab && g.isRMWLoad(rLab) &&
-				     rLab->getAddr() == hLab->getAddr() &&
+			      return rLab && rLab->isRMW() && rLab->getAddr() == hLab->getAddr() &&
 				     rLab->getType() == hLab->getType() &&
 				     rLab->getSize() == hLab->getSize() &&
 				     rLab->getOrdering() == hLab->getOrdering() &&
@@ -2052,13 +2051,13 @@ void GenMCDriver::filterAtomicityViolations(const ReadLabel *rLab, std::vector<E
 						     iLab->rf_begin(rLab->getAddr()),
 						     iLab->rf_end(rLab->getAddr()),
 						     [&](auto &rLab) {
-							     return g.isRMWLoad(&rLab) &&
+							     return rLab.isRMW() &&
 								    valueMakesSuccessfulRMW(
 									    getReadValue(&rLab));
 						     });
 				     return std::any_of(rf_succ_begin(g, sLab),
 							rf_succ_end(g, sLab), [&](auto &rLab) {
-								return g.isRMWLoad(&rLab) &&
+								return rLab.isRMW() &&
 								       valueMakesSuccessfulRMW(
 									       getReadValue(&rLab));
 							});
@@ -2161,7 +2160,7 @@ void GenMCDriver::annotateStoreHELPER(WriteLabel *wLab)
 	auto &g = getGraph();
 
 	/* Don't bother with lock ops */
-	if (!getConf()->helper || !g.isRMWStore(wLab) || llvm::isa<LockCasWriteLabel>(wLab) ||
+	if (!getConf()->helper || !wLab->isRMW() || llvm::isa<LockCasWriteLabel>(wLab) ||
 	    llvm::isa<TrylockCasWriteLabel>(wLab))
 		return;
 
@@ -2241,7 +2240,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 
 	auto &g = getGraph();
 
-	if (getConf()->helper && g.isRMWStore(&*wLab))
+	if (getConf()->helper && wLab->isRMW())
 		annotateStoreHELPER(&*wLab);
 	if (llvm::isa<BIncFaiWriteLabel>(&*wLab) && wLab->getVal() == SVal(0))
 		wLab->setVal(getBarrierInitValue(wLab->getAccess()));
@@ -2262,7 +2261,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	 * print a WW-race warning if appropriate (if this moots,
 	 * exploration will anyway be cut) */
 	auto cos = getConsChecker().getCoherentPlacings(g, lab->getAddr(), lab->getPos(),
-							g.isRMWStore(lab));
+							lab->isRMW());
 	if (cos.size() > 1) {
 		reportWarningOnce(lab->getPos(), VerificationError::VE_WWRace,
 				  g.getEventLabel(cos[0]));
@@ -2666,7 +2665,7 @@ bool GenMCDriver::isConflictingNonRevBlocker(const EventLabel *pLab, const Write
 {
 	auto &g = getGraph();
 	auto *sLab2 = llvm::dyn_cast<WriteLabel>(g.getEventLabel(s));
-	if (sLab2->getPos() == sLab->getPos() || !g.isRMWStore(sLab2))
+	if (sLab2->getPos() == sLab->getPos() || !sLab2->isRMW())
 		return false;
 	auto &prefix = getPrefixView(sLab);
 	if (prefix.contains(sLab2->getPos()) && !(pLab && pLab->getStamp() < sLab2->getStamp()))
@@ -2777,7 +2776,8 @@ void updatePredsWithPrefixView(const ExecutionGraph &g, VectorClock &preds,
 						predsD.removeHole(rLab->getRf()->getPos());
 				}
 			}
-			if (g.isRMWStore(lab) && pporf.contains(lab->getPos().prev()))
+			auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
+			if (wLab && wLab->isRMW() && pporf.contains(lab->getPos().prev()))
 				predsD.removeHole(lab->getPos());
 		}
 	}
@@ -2845,7 +2845,7 @@ bool isFixedHoleInView(const ExecutionGraph &g, const EventLabel *lab, const Dep
 		}
 	}
 
-	if (g.isRMWLoad(rLabB)) {
+	if (rLabB->isRMW()) {
 		auto *wLabB = g.getWriteLabel(rLabB->getPos().next());
 		return std::any_of(wLabB->readers_begin(), wLabB->readers_end(),
 				   [&v](auto &oLab) { return v.contains(oLab.getPos()); });
@@ -2912,7 +2912,7 @@ bool GenMCDriver::coherenceSuccRemainInGraph(const BackwardRevisit &r)
 {
 	auto &g = getGraph();
 	auto *wLab = g.getWriteLabel(r.getRev());
-	if (g.isRMWStore(wLab))
+	if (wLab->isRMW())
 		return true;
 
 	auto succIt = g.co_succ_begin(wLab);

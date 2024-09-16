@@ -42,20 +42,15 @@ private:
 	};
 
 public:
-	SCChecker(){};
+	SCChecker() {};
 
 private:
 	bool isConsistent(const EventLabel *lab) const override;
 	VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const;
-	std::vector<VerificationError> checkWarnings(const EventLabel *lab,
-						     const VSet<VerificationError> &reported,
-						     std::vector<const EventLabel *> &races) const;
-	std::vector<Event> getCoherentStores(const ExecutionGraph &g, SAddr addr,
-					     Event read) override;
-	std::vector<Event> getCoherentRevisits(const ExecutionGraph &g, const WriteLabel *sLab,
-					       const VectorClock &pporf) override;
-	std::vector<Event> getCoherentPlacings(const ExecutionGraph &g, SAddr addr, Event store,
-					       bool isRMW) override;
+	std::vector<VerificationError> checkWarnings(const EventLabel *lab, const VSet<VerificationError> &reported, std::vector<const EventLabel *> &races) const;
+	std::vector<Event> getCoherentStores(const ExecutionGraph &g, SAddr addr, Event read) override;
+	std::vector<Event> getCoherentRevisits(const ExecutionGraph &g, const WriteLabel *sLab, const VectorClock &pporf) override;
+	std::vector<Event> getCoherentPlacings(const ExecutionGraph &g, SAddr addr, Event store, bool isRMW) override;
 	void updateMMViews(EventLabel *lab) override;
 	std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const override;
 	const View &getHbView(const EventLabel *lab) const override;
@@ -65,12 +60,9 @@ private:
 	bool isWriteRfBefore(const ExecutionGraph &g, Event a, Event b);
 	std::vector<Event> getInitRfsAtLoc(const ExecutionGraph &g, SAddr addr);
 	bool isHbOptRfBefore(const ExecutionGraph &g, const Event e, const Event write);
-	ExecutionGraph::const_co_iterator splitLocMOBefore(const ExecutionGraph &g, SAddr addr,
-							   Event e);
-	ExecutionGraph::const_co_iterator splitLocMOAfterHb(const ExecutionGraph &g, SAddr addr,
-							    const Event read);
-	ExecutionGraph::const_co_iterator splitLocMOAfter(const ExecutionGraph &g, SAddr addr,
-							  const Event e);
+	ExecutionGraph::const_co_iterator splitLocMOBefore(const ExecutionGraph &g, SAddr addr, Event e);
+	ExecutionGraph::const_co_iterator splitLocMOAfterHb(const ExecutionGraph &g, SAddr addr, const Event read);
+	ExecutionGraph::const_co_iterator splitLocMOAfter(const ExecutionGraph &g, SAddr addr, const Event e);
 	std::vector<Event> getMOOptRfAfter(const ExecutionGraph &g, const WriteLabel *sLab);
 	std::vector<Event> getMOInvOptRfAfter(const ExecutionGraph &g, const WriteLabel *sLab);
 	mutable const EventLabel *cexLab{};
@@ -86,7 +78,7 @@ private:
 	bool visitCalc57_3(const EventLabel *lab, View &calcRes) const;
 
 	View visitCalc57(const EventLabel *lab) const;
-	const View &getHbStableView(const EventLabel *lab) const { return lab->view(0); }
+	const View&getHbStableView(const EventLabel *lab) const { return lab->view(0); }
 
 	auto checkCalc57(const EventLabel *lab) const;
 	mutable std::vector<NodeStatus> visitedCalc62_0;
@@ -100,7 +92,7 @@ private:
 	bool visitCalc62_3(const EventLabel *lab, View &calcRes) const;
 
 	View visitCalc62(const EventLabel *lab) const;
-	const View &getPorfStableView(const EventLabel *lab) const { return lab->view(1); }
+	const View&getPorfStableView(const EventLabel *lab) const { return lab->view(1); }
 
 	auto checkCalc62(const EventLabel *lab) const;
 	mutable std::vector<NodeVisitStatus> visitedCoherence_0;
@@ -142,6 +134,8 @@ private:
 	bool visitLHSUnlessError3_0(const EventLabel *lab) const;
 	bool visitLHSUnlessError3_1(const EventLabel *lab) const;
 
+
+
 	mutable std::vector<bool> visitedLHSUnlessError3Accepting;
 	mutable std::vector<bool> visitedRHSUnlessError3Accepting;
 	bool visitUnlessError3(const EventLabel *lab) const;
@@ -167,6 +161,8 @@ private:
 	bool visitLHSUnlessError5_1(const EventLabel *lab) const;
 	bool visitLHSUnlessError5_2(const EventLabel *lab) const;
 
+
+
 	mutable std::vector<bool> visitedLHSUnlessError5Accepting;
 	mutable std::vector<bool> visitedRHSUnlessError5Accepting;
 	bool visitUnlessError5(const EventLabel *lab) const;
@@ -191,6 +187,8 @@ private:
 	bool visitLHSUnlessError7_0(const EventLabel *lab) const;
 	bool visitLHSUnlessError7_1(const EventLabel *lab) const;
 	bool visitLHSUnlessError7_2(const EventLabel *lab) const;
+
+
 
 	mutable std::vector<bool> visitedLHSUnlessError7Accepting;
 	mutable std::vector<bool> visitedRHSUnlessError7Accepting;
@@ -224,6 +222,8 @@ private:
 
 	mutable std::vector<NodeStatus> visitedPPoRf0;
 	mutable std::vector<NodeStatus> visitedPPoRf1;
+
+
 };
 
 #endif /* GENMC_SC_CHECKER_HPP */

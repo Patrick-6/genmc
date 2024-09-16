@@ -705,6 +705,9 @@ public:
 		       (getRf()->getPos().isInitializer() || getRf()->getThread() == getThread());
 	}
 
+	/* Whether the read is part of an RMW operation (needs to be part of a graph) */
+	bool isRMW() const;
+
 	/* Returns true if the read was revisited in-place */
 	bool isIPR() const { return ipr; }
 
@@ -1111,6 +1114,9 @@ public:
 	/* Helpers for various write attributes */
 	bool isFinal() const { return hasAttr(WriteAttr::Final); }
 	bool isLocal() const { return hasAttr(WriteAttr::Local); }
+
+	/* Whether this is part of an RMW operation */
+	bool isRMW() const;
 
 	/* Iterators for readers */
 	using ReaderList = CopyableIList<ReadLabel>;

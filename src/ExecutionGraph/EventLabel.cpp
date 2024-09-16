@@ -19,7 +19,23 @@
  */
 
 #include "EventLabel.hpp"
+#include "ExecutionGraph.hpp"
 #include "LabelVisitor.hpp"
+
+bool WriteLabel::isRMW() const
+{
+	return CasWriteLabel::classofKind(getKind()) || FaiWriteLabel::classofKind(getKind());
+}
+
+bool ReadLabel::isRMW() const
+{
+	if (!CasReadLabel::classofKind(getKind()) && !FaiReadLabel::classofKind(getKind()))
+		return false;
+
+	auto &g = *getParent();
+	auto *nLab = llvm::dyn_cast_or_null<WriteLabel>(g.getNextLabel(this));
+	return nLab && nLab->isRMW() && nLab->getAddr() == getAddr();
+}
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabelKind k)
 {

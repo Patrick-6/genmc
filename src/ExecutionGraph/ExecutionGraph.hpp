@@ -477,19 +477,10 @@ public:
 		return containsPos(e) && !llvm::isa<EmptyLabel>(getEventLabel(e));
 	}
 
-	/* Return true if its argument is the load/store part of a successful RMW */
-	bool isRMWLoad(const EventLabel *lab) const;
-	bool isRMWLoad(const Event e) const { return isRMWLoad(getEventLabel(e)); }
-	bool isRMWStore(const EventLabel *lab) const
-	{
-		return llvm::isa<FaiWriteLabel>(lab) || llvm::isa<CasWriteLabel>(lab);
-	}
-	bool isRMWStore(const Event e) const { return isRMWStore(getEventLabel(e)); }
-
 	/* Returns true if the addition of SLAB violates atomicity in the graph */
 	bool violatesAtomicity(const WriteLabel *sLab)
 	{
-		return isRMWStore(sLab) && !getPendingRMW(sLab).isInitializer();
+		return sLab->isRMW() && !getPendingRMW(sLab).isInitializer();
 	}
 
 	/* Returns true if store is read a successful RMW in the location ptr */
