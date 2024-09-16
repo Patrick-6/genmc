@@ -28,6 +28,7 @@
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/Stamp.hpp"
 #include "Support/Error.hpp"
+#include "Support/Hash.hpp"
 #include "Verification/Revisit.hpp"
 #include "config.h"
 #include <llvm/ADT/StringMap.h>
@@ -604,5 +605,33 @@ protected:
 	 * value of the recovery routine otherwise. */
 	int recoveryTID = -1;
 };
+
+namespace std {
+template <> struct hash<ExecutionGraph> {
+	auto operator()(const ExecutionGraph &g) const -> size_t
+	{
+		std::size_t hash = 0;
+
+		/* Use a fixed (non-insertion-order-dependent) iteration order */
+		hash_combine(hash, g.getNumThreads());
+		for (auto i = 0U; i < g.getNumThreads(); i++) {
+			hash_combine(hash, g.getThreadSize(i));
+			for (auto j = 0U; j < g.getThreadSize(i); j++) {
+				auto *lab = g.getEventLabel(Event(i, j));
+				if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+					hash_combine(hash, rLab->getRf() ? rLab->getRf()->getPos()
+									 : Event::getBottom());
+				}
+				if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+					auto *pLab = g.co_imm_pred(wLab);
+					hash_combine(hash,
+						     pLab ? pLab->getPos() : Event::getInit());
+				}
+			}
+		}
+		return hash;
+	}
+};
+} // namespace std
 
 #endif /* GENMC_EXECUTION_GRAPH_HPP */
