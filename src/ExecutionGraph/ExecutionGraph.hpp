@@ -483,9 +483,6 @@ public:
 		return sLab->isRMW() && !getPendingRMW(sLab).isInitializer();
 	}
 
-	/* Returns true if store is read a successful RMW in the location ptr */
-	bool isStoreReadByExclusiveRead(Event store, SAddr addr) const;
-
 	/* Returns true if store is read by a successful RMW that is either non
 	 * revisitable, or in the view porfBefore */
 	bool isStoreReadBySettledRMW(Event store, SAddr addr, const VectorClock &porfBefore) const;

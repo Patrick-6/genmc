@@ -1435,11 +1435,19 @@ void GenMCDriver::filterConflictingBarriers(const ReadLabel *lab, std::vector<Ev
 
 	/* barrier_wait()'s FAI loads should not read from conflicting stores */
 	auto &g = getGraph();
-	stores.erase(std::remove_if(stores.begin(), stores.end(),
-				    [&](auto &s) {
-					    return g.isStoreReadByExclusiveRead(s, lab->getAddr());
-				    }),
-		     stores.end());
+	auto isReadByExclusiveRead = [&](auto *oLab) {
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(oLab))
+			return std::ranges::any_of(wLab->readers(),
+						   [&](auto &rLab) { return rLab.isRMW(); });
+		if (auto *iLab = llvm::dyn_cast<InitLabel>(oLab))
+			return std::ranges::any_of(iLab->rfs(lab->getAddr()),
+						   [&](auto &rLab) { return rLab.isRMW(); });
+		BUG();
+	};
+	stores.erase(
+		std::remove_if(stores.begin(), stores.end(),
+			       [&](auto &s) { return isReadByExclusiveRead(g.getEventLabel(s)); }),
+		stores.end());
 	return;
 }
 

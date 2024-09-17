@@ -189,19 +189,6 @@ void ExecutionGraph::removeLast(unsigned int thread)
 	resizeThread(lab->getPos());
 }
 
-bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, SAddr ptr) const
-{
-	for (const auto &lab : labels()) {
-		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
-		if (!rLab || !rLab->isRMW())
-			continue;
-
-		if (rLab->getRf()->getPos() == store && rLab->getAddr() == ptr)
-			return true;
-	}
-	return false;
-}
-
 bool ExecutionGraph::isStoreReadBySettledRMW(Event store, SAddr ptr,
 					     const VectorClock &prefix) const
 {
