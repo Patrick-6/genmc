@@ -2008,20 +2008,35 @@ std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
 
 	/* Remove atomicity violations */
 	auto &before = getPrefixView(lab);
-	rfs.erase(std::remove_if(
-			  rfs.begin(), rfs.end(),
-			  [&](const Event &s) {
-				  auto oldVal = getWriteValue(g.getEventLabel(s), lab->getAccess());
-				  if (llvm::isa<FaiReadLabel>(lab) &&
-				      g.isStoreReadBySettledRMW(s, lab->getAddr(), before))
-					  return true;
-				  if (auto *rLab = llvm::dyn_cast<CasReadLabel>(lab)) {
-					  if (oldVal == rLab->getExpected() &&
-					      g.isStoreReadBySettledRMW(s, rLab->getAddr(), before))
-						  return true;
-				  }
-				  return false;
-			  }),
+	auto isSettledRMWInView = [](auto &rLab, auto &before) {
+		auto &g = *rLab.getParent();
+		return rLab.isRMW() &&
+		       ((!rLab.isRevisitable() && !llvm::dyn_cast<WriteLabel>(g.getNextLabel(&rLab))
+							   ->hasAttr(WriteAttr::RevBlocker)) ||
+			before.contains(rLab.getPos()));
+	};
+	auto storeReadBySettledRMWInView = [&isSettledRMWInView](auto *sLab, auto &before,
+								 SAddr addr) {
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(sLab)) {
+			return std::ranges::any_of(wLab->readers(), [&](auto &rLab) {
+				return isSettledRMWInView(rLab, before);
+			});
+		};
+
+		auto *iLab = llvm::dyn_cast<InitLabel>(sLab);
+		BUG_ON(!iLab);
+		return std::ranges::any_of(iLab->rfs(addr), [&](auto &rLab) {
+			return isSettledRMWInView(rLab, before);
+		});
+	};
+	rfs.erase(std::remove_if(rfs.begin(), rfs.end(),
+				 [&](const Event &s) {
+					 auto *sLab = g.getEventLabel(s);
+					 auto oldVal = getWriteValue(sLab, lab->getAccess());
+					 return lab->valueMakesRMWSucceed(oldVal) &&
+						storeReadBySettledRMWInView(sLab, before,
+									    lab->getAddr());
+				 }),
 		  rfs.end());
 	return rfs;
 }

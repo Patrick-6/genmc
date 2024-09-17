@@ -189,26 +189,6 @@ void ExecutionGraph::removeLast(unsigned int thread)
 	resizeThread(lab->getPos());
 }
 
-bool ExecutionGraph::isStoreReadBySettledRMW(Event store, SAddr ptr,
-					     const VectorClock &prefix) const
-{
-	for (const auto &lab : labels()) {
-		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
-		if (!rLab || !rLab->isRMW())
-			continue;
-
-		if (rLab->getRf()->getPos() != store || rLab->getAddr() != ptr)
-			continue;
-
-		auto *wLab = llvm::dyn_cast<WriteLabel>(getNextLabel(rLab));
-		if (!rLab->isRevisitable() && !wLab->hasAttr(WriteAttr::RevBlocker))
-			return true;
-		if (prefix.contains(rLab->getPos()))
-			return true;
-	}
-	return false;
-}
-
 /************************************************************
  ** Graph modification methods
  ***********************************************************/
