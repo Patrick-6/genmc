@@ -92,7 +92,7 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 			}
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->getRf() && !preds->contains(rLab->getRf()->getPos()))
-					rLab->setRf(nullptr);
+					rLab->setRfNoCascade(nullptr);
 			}
 			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
 				if (mLab->getAlloc() && !preds->contains(mLab->getAlloc()))

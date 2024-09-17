@@ -403,6 +403,8 @@ public:
 	DEFINE_STANDARD_MEMBERS(Init)
 
 private:
+	friend class ReadLabel; // FIXME: Robustify; no friendship necessary
+
 	void addReader(ReadLabel *rLab);
 
 	/* Removes all readers that satisfy predicate F */
@@ -687,9 +689,13 @@ public:
 		: ReadLabel(pos, ord, loc, size, type, nullptr, nullptr, deps)
 	{}
 
-	/* Returns the position of the write this read is readinf-from */
+	/* Returns the position of the write this read is reading-from */
 	EventLabel *getRf() const { return readsFrom; }
 	EventLabel *getRf() { return readsFrom; }
+
+	/* Changes the reads-from edge for this label.
+	 * Also updates reader information in the writer */
+	void setRf(EventLabel *rfLab);
 
 	/* Whether this read has a set RF and reads externally */
 	bool readsExt() const
@@ -724,7 +730,7 @@ public:
 	virtual void reset() override
 	{
 		MemAccessLabel::reset();
-		setRf(nullptr);
+		setRfNoCascade(nullptr);
 		ipr = false;
 	}
 
@@ -745,10 +751,7 @@ private:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
-	/* Changes the reads-from edge for this label. This should only
-	 * be called from the execution graph to update other relevant
-	 * information as well */
-	void setRf(EventLabel *rfLab) { readsFrom = rfLab; }
+	void setRfNoCascade(EventLabel *rfLab) { readsFrom = rfLab; }
 
 	/* Position of the write it is reading from in the graph */
 	EventLabel *readsFrom = nullptr;
@@ -1153,6 +1156,7 @@ public:
 private:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
+	friend class ReadLabel; // FIXME: Robustify; no friendship necessary
 
 	/* Adds a read to the list of reads reading from the write */
 	void addReader(ReadLabel *rLab)

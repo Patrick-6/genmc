@@ -37,6 +37,40 @@ bool ReadLabel::isRMW() const
 	return nLab && nLab->isRMW() && nLab->getAddr() == getAddr();
 }
 
+void ReadLabel::setRf(EventLabel *rfLab)
+{
+	/* Remember old rf before setting */
+	auto *oldRfLab = getRf();
+	setRfNoCascade(rfLab);
+
+	/*
+	 * Delete the read from the readers list of oldRf.
+	 * We need to ensure that the old label we were reading from still exists
+	 * (not just the position; it might have been replaced). */
+	if (oldRfLab && getParent()->containsPos(oldRfLab->getPos())) {
+		BUG_ON(!getParent()->containsLab(oldRfLab));
+		if (auto *oldLab = llvm::dyn_cast<WriteLabel>(oldRfLab))
+			oldLab->removeReader([&](ReadLabel &oLab) { return &oLab == this; });
+		else if (auto *oldLab = llvm::dyn_cast<InitLabel>(oldRfLab))
+			oldLab->removeReader(getAddr(),
+					     [&](ReadLabel &oLab) { return &oLab == this; });
+		else
+			BUG();
+	}
+
+	/* If this read is now reading from bottom, nothing else to do */
+	if (!rfLab)
+		return;
+
+	/* Otherwise, add it to the write's reader list */
+	if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab)) {
+		wLab->addReader(this);
+	} else if (auto *iLab = llvm::dyn_cast<InitLabel>(rfLab)) {
+		iLab->addReader(this);
+	} else
+		BUG();
+}
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabelKind k)
 {
 	switch (k) {

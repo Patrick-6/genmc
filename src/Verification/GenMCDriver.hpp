@@ -565,7 +565,7 @@ private:
 	void pickRandomCo(WriteLabel *sLab, std::vector<Event> &cos);
 
 	/* BAM: Tries to optimize barrier-related revisits */
-	bool tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std::vector<Event> &loads);
+	bool tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab, std::vector<Event> &loads);
 
 	/* IPR: Tries to revisit blocked reads in-place */
 	void tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &loads);
@@ -583,7 +583,7 @@ private:
 
 	/* Opt: Tries to optimize revisiting from LAB. It may modify
 	 * LOADS, and returns whether we can skip revisiting altogether */
-	bool tryOptimizeRevisits(const WriteLabel *lab, std::vector<Event> &loads);
+	bool tryOptimizeRevisits(WriteLabel *lab, std::vector<Event> &loads);
 
 	/* Constructs a BackwardRevisit representing RLAB <- SLAB */
 	std::unique_ptr<BackwardRevisit> constructBackwardRevisit(const ReadLabel *rLab,
@@ -633,7 +633,7 @@ private:
 
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
-	bool calcRevisits(const WriteLabel *lab);
+	bool calcRevisits(WriteLabel *lab);
 
 	/* Modifies the graph accordingly when revisiting a write (MO).
 	 * May trigger backward-revisit explorations.
@@ -675,7 +675,7 @@ private:
 	bool isExecutionValid(const EventLabel *lab);
 
 	/* Removes rfs from RFS until a consistent option for RLAB is found */
-	std::optional<Event> findConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs);
+	std::optional<Event> findConsistentRf(ReadLabel *rLab, std::vector<Event> &rfs);
 
 	/* Remove cos from COS until a consistent option for WLAB is found */
 	std::optional<Event> findConsistentCo(WriteLabel *wLab, std::vector<Event> &cos);

@@ -496,7 +496,6 @@ public:
 
 	/* Graph modification methods */
 
-	void changeRf(Event read, Event store);
 	void addAlloc(MallocLabel *aLab, MemAccessLabel *mLab);
 
 	/* Prefix saving and restoring */

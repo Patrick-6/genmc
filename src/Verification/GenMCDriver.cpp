@@ -102,12 +102,10 @@ GenMCDriver::Execution::~Execution() = default;
 
 void repairRead(ExecutionGraph &g, ReadLabel *lab)
 {
-	auto last = (g.co_rbegin(lab->getAddr()) == g.co_rend(lab->getAddr()))
-			    ? Event::getInit()
-			    : g.co_rbegin(lab->getAddr())->getPos();
-	g.changeRf(lab->getPos(), last);
+	auto *maxLab = g.co_max(lab->getAddr());
+	lab->setRf(maxLab);
 	lab->setAddedMax(true);
-	lab->setIPRStatus(g.getEventLabel(last)->getStamp() > lab->getStamp());
+	lab->setIPRStatus(maxLab->getStamp() > lab->getStamp());
 }
 
 void repairDanglingReads(ExecutionGraph &g)
@@ -1734,19 +1732,19 @@ bool GenMCDriver::checkAtomicity(const WriteLabel *wLab)
 	return true;
 }
 
-std::optional<Event> GenMCDriver::findConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
+std::optional<Event> GenMCDriver::findConsistentRf(ReadLabel *rLab, std::vector<Event> &rfs)
 {
 	auto &g = getGraph();
 
 	/* For the non-bounding case, maximal extensibility guarantees consistency */
 	if (!getConf()->bound.has_value()) {
-		g.changeRf(rLab->getPos(), rfs.back());
+		rLab->setRf(g.getEventLabel(rfs.back()));
 		return {rfs.back()};
 	}
 
 	/* Otherwise, search for a consistent rf */
 	while (!rfs.empty()) {
-		g.changeRf(rLab->getPos(), rfs.back());
+		rLab->setRf(g.getEventLabel(rfs.back()));
 		if (isExecutionValid(rLab))
 			return {rfs.back()};
 		rfs.erase(rfs.end() - 1);
@@ -2077,14 +2075,14 @@ Event GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<Event> &stores)
 
 	stores.erase(std::remove_if(stores.begin(), stores.end(),
 				    [&](auto &s) {
-					    g.changeRf(rLab->getPos(), s);
+					    rLab->setRf(g.getEventLabel(s));
 					    return !isExecutionValid(rLab);
 				    }),
 		     stores.end());
 
 	MyDist dist(0, stores.size() - 1);
 	auto random = dist(estRng);
-	g.changeRf(rLab->getPos(), stores[random]);
+	rLab->setRf(g.getEventLabel(stores[random]));
 	return stores[random];
 }
 
@@ -2421,7 +2419,7 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 	 * Don't bother updating the views */
 	auto *errLab = g.getEventLabel(details.pos);
 	if (isInvalidAccessError(details.type) && llvm::isa<ReadLabel>(errLab))
-		g.changeRf(errLab->getPos(), Event::getBottom());
+		llvm::dyn_cast<ReadLabel>(errLab)->setRf(nullptr);
 
 	/* Print a basic error message and the graph.
 	 * We have to save the interpreter state as replaying will
@@ -2512,8 +2510,7 @@ bool GenMCDriver::reportWarningOnce(Event pos, VerificationError wcode,
 	return upgradeWarning;
 }
 
-bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab,
-					     std::vector<Event> &loads)
+bool GenMCDriver::tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab, std::vector<Event> &loads)
 {
 	if (getConf()->disableBAM)
 		return false;
@@ -2550,7 +2547,7 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab,
 		auto *rLab = llvm::dyn_cast<ReadLabel>(addLabelToGraph(
 			BWaitReadLabel::create(b.prev(), pLab->getOrdering(), pLab->getAddr(),
 					       pLab->getSize(), pLab->getType(), pLab->getDeps())));
-		g.changeRf(rLab->getPos(), sLab->getPos());
+		rLab->setRf(sLab);
 		rLab->setAddedMax(isCoMaximal(rLab->getAddr(), rLab->getRf()->getPos()));
 	}
 	return true;
@@ -2695,7 +2692,7 @@ bool GenMCDriver::tryOptimizeRevBlockerAddition(const WriteLabel *sLab, std::vec
 	return false;
 }
 
-bool GenMCDriver::tryOptimizeRevisits(const WriteLabel *sLab, std::vector<Event> &loads)
+bool GenMCDriver::tryOptimizeRevisits(WriteLabel *sLab, std::vector<Event> &loads)
 {
 	auto &g = getGraph();
 
@@ -2737,12 +2734,12 @@ void GenMCDriver::revisitInPlace(const BackwardRevisit &br)
 
 	auto &g = getGraph();
 	auto *rLab = g.getReadLabel(br.getPos());
-	const auto *sLab = g.getWriteLabel(br.getRev());
+	auto *sLab = g.getWriteLabel(br.getRev());
 
 	BUG_ON(!llvm::isa<ReadLabel>(rLab));
 	if (g.getNextLabel(rLab))
 		g.removeLast(rLab->getThread());
-	g.changeRf(rLab->getPos(), sLab->getPos());
+	rLab->setRf(sLab);
 	rLab->setAddedMax(true); // always true for atomicity violations
 	rLab->setIPRStatus(true);
 
@@ -3052,7 +3049,7 @@ void GenMCDriver::updateStSpaceChoices(const std::vector<Event> &loads, const Wr
 	}
 }
 
-bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
+bool GenMCDriver::calcRevisits(WriteLabel *sLab)
 {
 	auto &g = getGraph();
 	auto loads = getRevisitableApproximation(sLab);
@@ -3174,7 +3171,7 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 	auto rev = llvm::dyn_cast<ReadRevisit>(&ri)->getRev();
 	BUG_ON(!rLab);
 
-	g.changeRf(rLab->getPos(), rev);
+	rLab->setRf(g.getEventLabel(rev));
 	auto *fri = llvm::dyn_cast<ReadForwardRevisit>(&ri);
 	rLab->setAddedMax(fri ? fri->isMaximal() : isCoMaximal(rLab->getAddr(), rev));
 	rLab->setIPRStatus(false);

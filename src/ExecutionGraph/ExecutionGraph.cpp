@@ -170,7 +170,7 @@ void ExecutionGraph::removeLast(unsigned int thread)
 	}
 	if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 		for (auto &rLab : wLab->readers()) {
-			rLab.setRf(nullptr);
+			rLab.setRfNoCascade(nullptr);
 		}
 	}
 	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
@@ -225,44 +225,6 @@ bool ExecutionGraph::isStoreReadBySettledRMW(Event store, SAddr ptr,
 /************************************************************
  ** Graph modification methods
  ***********************************************************/
-
-void ExecutionGraph::changeRf(Event read, Event store)
-{
-	/* First, we set the new reads-from edge */
-	auto *rLab = llvm::dyn_cast<ReadLabel>(getEventLabel(read));
-	BUG_ON(!rLab);
-	auto oldRfLab = rLab->getRf();
-	rLab->setRf(store.isBottom() ? nullptr : getEventLabel(store));
-
-	/*
-	 * Now, we need to delete the read from the readers list of oldRf.
-	 * For that we need to check:
-	 *     1) That the old write it was reading from still exists
-	 *     2) That oldRf has not been deleted (and a different event is
-	 *        now in its place, perhaps after the restoration of some prefix
-	 *        during a revisit)
-	 *     3) That oldRf is not the initializer */
-	if (oldRfLab && containsPos(oldRfLab->getPos())) {
-		BUG_ON(!containsLab(oldRfLab));
-		if (auto *oldLab = llvm::dyn_cast<WriteLabel>(oldRfLab))
-			oldLab->removeReader([&](ReadLabel &oLab) { return &oLab == rLab; });
-		else if (oldRfLab->getPos().isInitializer())
-			removeInitRfToLoc(rLab);
-	}
-
-	/* If this read is now reading from bottom, nothing else to do */
-	if (store.isBottom())
-		return;
-
-	/* Otherwise, add it to the write's reader list */
-	auto *rfLab = getEventLabel(store);
-	if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab)) {
-		wLab->addReader(rLab);
-	} else {
-		BUG_ON(!store.isInitializer());
-		addInitRfToLoc(rLab);
-	}
-}
 
 void ExecutionGraph::addAlloc(MallocLabel *aLab, MemAccessLabel *mLab)
 {
@@ -350,7 +312,7 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 			}
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->getRf() && !preds->contains(rLab->getRf()->getPos()))
-					rLab->setRf(nullptr);
+					rLab->setRfNoCascade(nullptr);
 			}
 			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
 				if (mLab->getAlloc() && !preds->contains(mLab->getAlloc()))
@@ -441,9 +403,9 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
 		if (rLab && rLab->getRf()) {
 			if (!other.containsPos(rLab->getRf()->getPos()))
-				rLab->setRf(nullptr);
+				rLab->setRfNoCascade(nullptr);
 			else
-				rLab->setRf(other.getEventLabel(rLab->getRf()->getPos()));
+				rLab->setRfNoCascade(other.getEventLabel(rLab->getRf()->getPos()));
 		}
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(&lab)) {
 			wLab->removeReader([](auto &rLab) { return true; });
