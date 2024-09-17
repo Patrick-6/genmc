@@ -412,11 +412,7 @@ public:
 		return llvm::dyn_cast<ThreadStartLabel>(getEventLabel(getFirstThreadEvent(tid)));
 	}
 
-	/* Returns the last event/label in the thread tid */
-	Event getLastThreadEvent(int thread) const
-	{
-		return Event(thread, getThreadSize(thread) - 1);
-	}
+	/* Returns the last label in the thread tid */
 	const EventLabel *getLastThreadLabel(int thread) const
 	{
 		return getEventLabel(Event(thread, getThreadSize(thread) - 1));

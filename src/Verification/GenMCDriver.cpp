@@ -499,7 +499,8 @@ Event findNextLabelToAdd(const ExecutionGraph &g, Event pos)
 	auto succs = po_succs(g, firstLab);
 	auto it =
 		std::ranges::find_if(succs, [&](auto &lab) { return llvm::isa<EmptyLabel>(&lab); });
-	return it == succs.end() ? g.getLastThreadEvent(pos.thread).next() : (*it).getPos();
+	return it == succs.end() ? g.getLastThreadLabel(pos.thread)->getPos().next()
+				 : (*it).getPos();
 }
 
 bool GenMCDriver::tryOptimizeScheduling(Event pos)
@@ -793,7 +794,7 @@ void GenMCDriver::blockThread(std::unique_ptr<BlockLabel> bLab)
 	 *      don't want to do that here. blockThread() should be safe to call from
 	 *      anywhere in the code, with no unexpected side-effects */
 	auto &g = getGraph();
-	if (bLab->getPos() == g.getLastThreadEvent(bLab->getThread()))
+	if (bLab->getPos() == g.getLastThreadLabel(bLab->getThread())->getPos())
 		g.removeLast(bLab->getThread());
 	g.addLabelToGraph(std::move(bLab));
 }
@@ -1399,7 +1400,8 @@ void GenMCDriver::checkLiveness()
 		    return threadReadsMaximal(tid);
 	    })) {
 		/* Print some TID blocked by a spinloop */
-		reportError({g.getLastThreadEvent(nonTermTID), VerificationError::VE_Liveness,
+		reportError({g.getLastThreadLabel(nonTermTID)->getPos(),
+			     VerificationError::VE_Liveness,
 			     "Non-terminating spinloop: thread " + std::to_string(nonTermTID)});
 	}
 	return;
@@ -3649,8 +3651,9 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const EventLabel *
 				   << bLab->getPos().next() << "\"[color=blue, constraint=false]\n";
 			}
 			if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab))
-				ss << "\"" << g.getLastThreadEvent(jLab->getChildId()) << "\" -> \""
-				   << jLab->getPos() << "\"[color=blue, constraint=false]\n";
+				ss << "\"" << g.getLastThreadLabel(jLab->getChildId())->getPos()
+				   << "\" -> \"" << jLab->getPos()
+				   << "\"[color=blue, constraint=false]\n";
 		}
 	}
 
@@ -3674,7 +3677,8 @@ void GenMCDriver::recPrintTraceBefore(const Event &e, View &a,
 			if (rLab->getRf())
 				recPrintTraceBefore(rLab->getRf()->getPos(), a, ss);
 		if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab))
-			recPrintTraceBefore(g.getLastThreadEvent(jLab->getChildId()), a, ss);
+			recPrintTraceBefore(g.getLastThreadLabel(jLab->getChildId())->getPos(), a,
+					    ss);
 		if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab))
 			if (!bLab->getParentCreate().isInitializer())
 				recPrintTraceBefore(bLab->getParentCreate(), a, ss);
