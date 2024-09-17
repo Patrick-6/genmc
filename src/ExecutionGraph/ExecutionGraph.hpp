@@ -291,14 +291,6 @@ public:
 
 	/* Thread-related methods */
 
-	/* Returns a list of the threads in the graph */
-	inline const ThreadList &getThreadList() const { return events; }
-	inline ThreadList &getThreadList()
-	{
-		return const_cast<ThreadList &>(
-			static_cast<const ExecutionGraph &>(*this).getThreadList());
-	}
-
 	/* Creates a new thread in the execution graph */
 	inline void addNewThread() { events.push_back({}); };
 

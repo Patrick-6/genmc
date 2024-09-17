@@ -2480,12 +2480,11 @@ bool GenMCDriver::reportWarningOnce(Event pos, VerificationError wcode,
 		auto *lab = g.getEventLabel(pos);
 		auto upgrade =
 			(getConf()->symmetryReduction &&
-			 std::any_of(g.getThreadList().begin(), g.getThreadList().end(),
-				     [&](auto &thr) {
-					     return llvm::dyn_cast<ThreadStartLabel>(
-							    thr.begin()->get())
-							    ->getSymmetricTid() != -1;
-				     })) ||
+			 std::ranges::any_of(
+				 g.thr_ids(),
+				 [&](auto tid) {
+					 return g.getFirstThreadLabel(tid)->getSymmetricTid() != -1;
+				 })) ||
 			(getConf()->ipr &&
 			 std::any_of(sameloc_begin(g, lab), sameloc_end(g, lab), [&](auto &oLab) {
 				 auto *rLab = llvm::dyn_cast<ReadLabel>(&oLab);
