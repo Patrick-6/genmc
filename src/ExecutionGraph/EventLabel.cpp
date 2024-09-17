@@ -18,9 +18,11 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "EventLabel.hpp"
-#include "ExecutionGraph.hpp"
-#include "LabelVisitor.hpp"
+#include "ExecutionGraph/EventLabel.hpp"
+#include "ExecutionGraph/ExecutionGraph.hpp"
+#include "ExecutionGraph/LabelVisitor.hpp"
+#include "Static/ModuleID.hpp"
+#include "Support/SExprVisitor.hpp"
 
 bool WriteLabel::isRMW() const
 {
@@ -35,6 +37,22 @@ bool ReadLabel::isRMW() const
 	auto &g = *getParent();
 	auto *nLab = llvm::dyn_cast_or_null<WriteLabel>(g.getNextLabel(this));
 	return nLab && nLab->isRMW() && nLab->getAddr() == getAddr();
+}
+
+bool ReadLabel::valueMakesRMWSucceed(const SVal &val) const
+{
+	if (FaiReadLabel::classofKind(getKind()))
+		return true;
+	if (!CasReadLabel::classofKind(getKind()))
+		return false;
+	auto *casLab = static_cast<const CasReadLabel *>(this);
+	return val == casLab->getExpected();
+}
+
+bool ReadLabel::valueMakesAssumeSucceed(const SVal &val) const
+{
+	using Evaluator = SExprEvaluator<ModuleID::ID>;
+	return getAnnot() && Evaluator().evaluate(getAnnot(), val);
 }
 
 void ReadLabel::setRf(EventLabel *rfLab)

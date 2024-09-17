@@ -717,6 +717,12 @@ public:
 	/* Returns true if the read was revisited in-place */
 	bool isIPR() const { return ipr; }
 
+	/* Convenience function that returns whether reading a value will create an RMW */
+	bool valueMakesRMWSucceed(const SVal &val) const;
+
+	/* Convenience function that returns whether reading a value makes the assume succeed */
+	bool valueMakesAssumeSucceed(const SVal &val) const;
+
 	/* Sets the IPR status for this read */
 	void setIPRStatus(bool status) { ipr = status; }
 
