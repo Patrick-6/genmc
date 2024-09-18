@@ -710,9 +710,6 @@ private:
 	/* Estimation: Filters outs stores read by RMW loads */
 	void filterAtomicityViolations(const ReadLabel *lab, std::vector<Event> &stores);
 
-	/* IPR: Returns true if RLAB would block when reading val */
-	bool willBeAssumeBlocked(const ReadLabel *rLab, SVal val);
-
 	/* IPR: Performs BR in-place */
 	void revisitInPlace(const BackwardRevisit &br);
 

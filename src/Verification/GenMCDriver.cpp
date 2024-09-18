@@ -2589,9 +2589,10 @@ void GenMCDriver::tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &lo
 				   [&](auto &l) {
 					   auto *rLab = g.getReadLabel(l);
 					   /* Treatment of blocked CASes is different */
-					   auto blocked =
-						   !llvm::isa<CasReadLabel>(rLab) &&
-						   willBeAssumeBlocked(rLab, getReadValue(rLab));
+					   auto blocked = !llvm::isa<CasReadLabel>(rLab) &&
+							  rLab->getAnnot() &&
+							  !rLab->valueMakesAssumeSucceed(
+								  getReadValue(rLab));
 					   if (blocked)
 						   toIPR.push_back(l);
 					   return blocked;
@@ -2621,12 +2622,17 @@ void GenMCDriver::tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &lo
 
 bool GenMCDriver::removeCASReadIfBlocks(const ReadLabel *rLab, const EventLabel *sLab)
 {
-	if (isUninitializedAccess(rLab->getAddr(), sLab->getPos()) ||
-	    getConf()->bound.has_value() || !llvm::isa<CasReadLabel>(rLab))
+	/* This only affects annotated CASes */
+	if (!rLab->getAnnot() || !llvm::isa<CasReadLabel>(rLab) ||
+	    (!getConf()->ipr && !llvm::isa<LockCasReadLabel>(rLab)))
+		return false;
+	/* Skip if bounding is enabled or the access is uninitialized */
+	if (isUninitializedAccess(rLab->getAddr(), sLab->getPos()) || getConf()->bound.has_value())
 		return false;
 
+	/* If the CAS blocks, block thread altogether */
 	auto val = getWriteValue(sLab, rLab->getAccess());
-	if (!willBeAssumeBlocked(rLab, val))
+	if (rLab->valueMakesAssumeSucceed(val))
 		return false;
 
 	blockThread(ReadOptBlockLabel::create(rLab->getPos(), rLab->getAddr()));
@@ -2740,16 +2746,6 @@ bool GenMCDriver::tryOptimizeRevisits(WriteLabel *sLab, std::vector<Event> &load
 			return true;
 	}
 	return false;
-}
-
-bool GenMCDriver::willBeAssumeBlocked(const ReadLabel *rLab, SVal val)
-{
-	auto &g = getGraph();
-	using Evaluator = SExprEvaluator<ModuleID::ID>;
-
-	/* CAS annotations are only respected when ipr is enabled  */
-	return (getConf()->ipr || llvm::isa<LockCasReadLabel>(rLab)) && rLab->getAnnot() &&
-	       !Evaluator().evaluate(rLab->getAnnot(), val);
 }
 
 void GenMCDriver::revisitInPlace(const BackwardRevisit &br)
