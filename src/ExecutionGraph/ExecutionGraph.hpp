@@ -403,13 +403,15 @@ public:
 			static_cast<const ExecutionGraph &>(*this).getWriteLabel(e));
 	}
 
-	/* Returns the first event in the thread tid */
-	Event getFirstThreadEvent(int tid) const { return Event(tid, 0); }
-
 	/* Returns the first label in the thread tid */
 	const ThreadStartLabel *getFirstThreadLabel(int tid) const
 	{
-		return llvm::dyn_cast<ThreadStartLabel>(getEventLabel(getFirstThreadEvent(tid)));
+		return llvm::dyn_cast<ThreadStartLabel>(getEventLabel(Event(tid, 0)));
+	}
+	ThreadStartLabel *getFirstThreadLabel(int tid)
+	{
+		return const_cast<ThreadStartLabel *>(
+			static_cast<const ExecutionGraph &>(*this).getFirstThreadLabel(tid));
 	}
 
 	/* Returns the last label in the thread tid */
