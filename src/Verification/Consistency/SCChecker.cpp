@@ -477,7 +477,7 @@ SCChecker::getCoherentRevisits(const ExecutionGraph &g, const WriteLabel *sLab, 
 	}
 
 	/* If this store is po- and mo-maximal then we are done */
-	if (!isDepTracking() && g.isCoMaximal(sLab->getAddr(), sLab->getPos()))
+	if (!isDepTracking() && sLab == g.co_max(sLab->getAddr()))
 		return ls;
 
 	/* First, we have to exclude (mo;rf?;hb?;sb)-after reads */

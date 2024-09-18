@@ -398,9 +398,6 @@ protected:
 	/* Reports an error if there is unfreed memory */
 	void checkUnfreedMemory();
 
-	/* Returns true if E is maximal in ADDR at P*/
-	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false);
-
 private:
 	/* Represents the execution at a given point */
 	struct Execution {

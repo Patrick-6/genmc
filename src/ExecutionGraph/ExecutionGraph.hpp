@@ -433,11 +433,6 @@ public:
 	virtual std::vector<Event> getRevisitable(const WriteLabel *sLab,
 						  const VectorClock &pporf) const;
 
-	/* Calculation of relations in the graph */
-
-	/* Returns true if e is maximal in addr */
-	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false) const;
-
 	/* Boolean helper functions */
 
 	bool isLocEmpty(SAddr addr) const { return co_begin(addr) == co_end(addr); }

@@ -139,17 +139,6 @@ EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 	return getEventLabel(pos);
 }
 
-/************************************************************
- ** Calculation of [(po U rf)*] predecessors and successors
- ***********************************************************/
-
-bool ExecutionGraph::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */) const
-{
-	if (e.isInitializer())
-		return co_begin(addr) == co_end(addr);
-	return co_begin(addr) != co_end(addr) && e == co_rbegin(addr)->getPos();
-}
-
 void ExecutionGraph::trackCoherenceAtLoc(SAddr addr)
 {
 	coherence[addr];

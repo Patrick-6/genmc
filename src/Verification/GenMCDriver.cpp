@@ -1226,11 +1226,6 @@ SVal GenMCDriver::getRecReadRetValue(const ReadLabel *rLab)
 	return getWriteValue(&*wLabIt, rLab->getAccess());
 }
 
-bool GenMCDriver::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */)
-{
-	return getGraph().isCoMaximal(addr, e, checkCache);
-}
-
 VerificationError GenMCDriver::checkAccessValidity(const MemAccessLabel *lab)
 {
 	/* Static variable validity is handled by the interpreter. *
@@ -1369,7 +1364,7 @@ bool GenMCDriver::threadReadsMaximal(int tid)
 		if (llvm::isa<SpinStartLabel>(lab))
 			return true;
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			if (!isCoMaximal(rLab->getAddr(), rLab->getRf()->getPos()))
+			if (rLab->getRf() != g.co_max(rLab->getAddr()))
 				return false;
 		}
 	}
@@ -1667,16 +1662,15 @@ void GenMCDriver::filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<
 	/* Ensure we keep the maximal store around even if Helper messed with it */
 	BUG_ON(validStores.empty());
 	auto maximal = validStores.back();
-	validStores.erase(std::remove_if(validStores.begin(), validStores.end(),
-					 [&](Event w) {
-						 auto val = getWriteValue(g.getEventLabel(w),
-									  rLab->getAccess());
-						 return w != maximal &&
-							!isCoMaximal(rLab->getAddr(), w, true) &&
-							!Evaluator().evaluate(rLab->getAnnot(),
-									      val);
-					 }),
-			  validStores.end());
+	validStores.erase(
+		std::remove_if(validStores.begin(), validStores.end(),
+			       [&](Event w) {
+				       auto *wLab = g.getEventLabel(w);
+				       auto val = getWriteValue(wLab, rLab->getAccess());
+				       return w != maximal && wLab != g.co_max(rLab->getAddr()) &&
+					      !Evaluator().evaluate(rLab->getAnnot(), val);
+			       }),
+		validStores.end());
 	BUG_ON(validStores.empty());
 }
 
@@ -2572,7 +2566,7 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab, std::vecto
 			BWaitReadLabel::create(b.prev(), pLab->getOrdering(), pLab->getAddr(),
 					       pLab->getSize(), pLab->getType(), pLab->getDeps())));
 		rLab->setRf(sLab);
-		rLab->setAddedMax(isCoMaximal(rLab->getAddr(), rLab->getRf()->getPos()));
+		rLab->setAddedMax(rLab->getRf() == g.co_max(rLab->getAddr()));
 	}
 	return true;
 }
@@ -3187,22 +3181,21 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 	/* We are dealing with a read: change its reads-from and also check
 	 * whether a part of an RMW should be added */
 	auto &g = getGraph();
-	auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(ri.getPos()));
-	auto rev = llvm::dyn_cast<ReadRevisit>(&ri)->getRev();
-	BUG_ON(!rLab);
+	auto *rLab = g.getReadLabel(ri.getPos());
+	auto *revLab = g.getEventLabel(llvm::dyn_cast<ReadRevisit>(&ri)->getRev());
 
-	rLab->setRf(g.getEventLabel(rev));
+	rLab->setRf(revLab);
 	auto *fri = llvm::dyn_cast<ReadForwardRevisit>(&ri);
-	rLab->setAddedMax(fri ? fri->isMaximal() : isCoMaximal(rLab->getAddr(), rev));
+	rLab->setAddedMax(fri ? fri->isMaximal() : revLab == g.co_max(rLab->getAddr()));
 	rLab->setIPRStatus(false);
 
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug1)
 			    << "--- " << (llvm::isa<BackwardRevisit>(ri) ? "Backward" : "Forward")
-			    << " revisiting " << ri.getPos() << " <-- " << rev << "\n"
+			    << " revisiting " << ri.getPos() << " <-- " << revLab->getPos() << "\n"
 			    << getGraph(););
 
 	/*  Try to remove the read from the execution */
-	if (removeCASReadIfBlocks(rLab, g.getEventLabel(rev)))
+	if (removeCASReadIfBlocks(rLab, revLab))
 		return true;
 
 	/* If the revisited label became an RMW, add the store part and revisit */
