@@ -176,9 +176,9 @@ bool GenMCDriver::popExecution()
 }
 
 GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, ChoiceMap &&m, SAddrAllocator &&a,
-			  llvm::BitVector &&fds, ValuePrefixT &&c, Event la)
-	: graph(std::move(g)), choices(std::move(m)), alloctor(std::move(a)), fds(std::move(fds)),
-	  cache(std::move(c)), lastAdded(la)
+			  ValuePrefixT &&c, Event la)
+	: graph(std::move(g)), choices(std::move(m)), alloctor(std::move(a)), cache(std::move(c)),
+	  lastAdded(la)
 {}
 GenMCDriver::State::~State() = default;
 
@@ -187,7 +187,6 @@ void GenMCDriver::initFromState(std::unique_ptr<State> s)
 	execStack.clear();
 	execStack.emplace_back(std::move(s->graph), LocalQueueT(), std::move(s->choices));
 	alloctor = std::move(s->alloctor);
-	fds = std::move(s->fds);
 	seenPrefixes = std::move(s->cache);
 	lastAdded = s->lastAdded;
 
@@ -200,8 +199,7 @@ std::unique_ptr<GenMCDriver::State> GenMCDriver::extractState()
 	auto cache = std::move(seenPrefixes);
 	seenPrefixes.clear();
 	return std::make_unique<State>(getGraph().clone(), ChoiceMap(getChoiceMap()),
-				       SAddrAllocator(alloctor), llvm::BitVector(fds),
-				       std::move(cache), lastAdded);
+				       SAddrAllocator(alloctor), std::move(cache), lastAdded);
 }
 
 /* Returns a fresh address to be used from the interpreter */

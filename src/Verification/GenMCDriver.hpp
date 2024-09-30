@@ -117,13 +117,12 @@ public:
 		std::unique_ptr<ExecutionGraph> graph;
 		ChoiceMap choices;
 		SAddrAllocator alloctor;
-		llvm::BitVector fds;
 		ValuePrefixT cache;
 		Event lastAdded;
 
 		State() = delete;
 		State(std::unique_ptr<ExecutionGraph> g, ChoiceMap &&m, SAddrAllocator &&alloctor,
-		      llvm::BitVector &&fds, ValuePrefixT &&cache, Event la);
+		      ValuePrefixT &&cache, Event la);
 
 		State(const State &) = delete;
 		auto operator=(const State &) -> State & = delete;
@@ -816,9 +815,6 @@ private:
 
 	/* An allocator for fresh addresses */
 	SAddrAllocator alloctor;
-
-	/* Pers: A bitvector of available file descriptors */
-	llvm::BitVector fds{defaultFdNum};
 
 	/* Opt: Cached labels for optimized scheduling */
 	ValuePrefixT seenPrefixes;
