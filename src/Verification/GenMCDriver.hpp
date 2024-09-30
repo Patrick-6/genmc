@@ -324,28 +324,6 @@ protected:
 	/* Pers: Marks that the file descriptor fd is in use */
 	void markFdAsUsed(int fd);
 
-	/* Given a write event from the graph, returns the value it writes */
-	SVal getWriteValue(const EventLabel *wLab, const AAccess &a);
-	SVal getWriteValue(const WriteLabel *wLab)
-	{
-		return getWriteValue(wLab, wLab->getAccess());
-	}
-
-	/* Returns the value written by a disk write */
-	SVal getDskWriteValue(const EventLabel *wLab, const AAccess &a);
-
-	/* Returns the value read by a read */
-	SVal getReadValue(const ReadLabel *rLab)
-	{
-		return getWriteValue(rLab->getRf(), rLab->getAccess());
-	}
-
-	/* Returns the value returned by the terminated thread */
-	SVal getJoinValue(const ThreadJoinLabel *jLab) const;
-
-	/* Returns the value passed to the spawned thread */
-	SVal getStartValue(const ThreadStartLabel *bLab) const;
-
 	/* Returns all values read leading up to POS */
 	std::pair<std::vector<SVal>, Event> extractValPrefix(Event pos);
 

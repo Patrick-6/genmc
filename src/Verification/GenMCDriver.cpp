@@ -815,7 +815,7 @@ bool GenMCDriver::scheduleAtomicity()
 		return true;
 	}
 	if (auto *casLab = llvm::dyn_cast<CasReadLabel>(lastLab)) {
-		if (getReadValue(casLab) == casLab->getExpected()) {
+		if (casLab->getAccessValue(casLab->getAccess()) == casLab->getExpected()) {
 			getEE()->scheduleThread(lastAdded.thread);
 			return true;
 		}
@@ -1120,62 +1120,6 @@ void GenMCDriver::cacheEventLabel(const EventLabel *lab)
 	labs.clear();
 }
 
-/* Given an event in the graph, returns the value of it */
-SVal GenMCDriver::getWriteValue(const EventLabel *lab, const AAccess &access)
-{
-	/* If the even represents an invalid access, return some value */
-	if (!lab)
-		return SVal();
-
-	/* If the event is the initializer, ask the interpreter about
-	 * the initial value of that memory location */
-	if (lab->getPos().isInitializer())
-		return getEE()->getLocInitVal(access);
-
-	/* Otherwise, we will get the value from the execution graph */
-	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
-	BUG_ON(!wLab);
-
-	/* It can be the case that the load's type is different than
-	 * the one the write's (see troep.c).  In any case though, the
-	 * sizes should match */
-	if (wLab->getSize() != access.getSize())
-		reportError({wLab->getPos(), VerificationError::VE_MixedSize,
-			     "Mixed-size accesses detected: tried to read event with a " +
-				     std::to_string(access.getSize().get() * 8) + "-bit access!\n" +
-				     "Please check the LLVM-IR.\n"});
-
-	/* If the size of the R and the W are the same, we are done */
-	return wLab->getVal();
-}
-
-/* Same as above, but the data of a file are not explicitly initialized
- * so as not to pollute the graph with events, since a file can be large.
- * Thus, we treat the case where WRITE reads INIT specially. */
-SVal GenMCDriver::getDskWriteValue(const EventLabel *lab, const AAccess &access)
-{
-	if (lab->getPos().isInitializer())
-		return SVal();
-	return getWriteValue(lab, access);
-}
-
-SVal GenMCDriver::getJoinValue(const ThreadJoinLabel *jLab) const
-{
-	auto &g = getGraph();
-	auto *lLab = llvm::dyn_cast<ThreadFinishLabel>(g.getLastThreadLabel(jLab->getChildId()));
-	BUG_ON(!lLab);
-	return lLab->getRetVal();
-}
-
-SVal GenMCDriver::getStartValue(const ThreadStartLabel *bLab) const
-{
-	auto &g = getGraph();
-	if (bLab->getPos().isInitializer() || bLab->getThread() == g.getRecoveryRoutineId())
-		return SVal();
-
-	return bLab->getThreadInfo().arg;
-}
-
 SVal GenMCDriver::getBarrierInitValue(const AAccess &access)
 {
 	const auto &g = getGraph();
@@ -1188,7 +1132,7 @@ SVal GenMCDriver::getBarrierInitValue(const AAccess &access)
 
 	/* All errors pertinent to initialization should be captured elsewhere */
 	BUG_ON(sIt == g.co_end(access.getAddr()));
-	return getWriteValue(&*sIt, access);
+	return sIt->getAccessValue(access);
 }
 
 std::optional<SVal> GenMCDriver::getReadRetValue(const ReadLabel *rLab)
@@ -1200,7 +1144,7 @@ std::optional<SVal> GenMCDriver::getReadRetValue(const ReadLabel *rLab)
 	}
 
 	/* Reading a non-init barrier value means that the thread should block */
-	auto res = getReadValue(rLab);
+	auto res = rLab->getAccessValue(rLab->getAccess());
 	BUG_ON(llvm::isa<BWaitReadLabel>(rLab) && res != getBarrierInitValue(rLab->getAccess()) &&
 	       !llvm::isa<TerminatorLabel>(getGraph().getLastThreadLabel(rLab->getThread())));
 	return {res};
@@ -1217,7 +1161,7 @@ SVal GenMCDriver::getRecReadRetValue(const ReadLabel *rLab)
 		return wLab && wLab->getAddr() == rLab->getAddr();
 	});
 	BUG_ON(wLabIt == std::ranges::end(preds));
-	return getWriteValue(&*wLabIt, rLab->getAccess());
+	return (*wLabIt).getAccessValue(rLab->getAccess());
 }
 
 VerificationError GenMCDriver::checkAccessValidity(const MemAccessLabel *lab)
@@ -1239,7 +1183,7 @@ VerificationError GenMCDriver::checkInitializedMem(const ReadLabel *rLab)
 
 	/* Locks should not read from destroyed mutexes */
 	const auto *lLab = llvm::dyn_cast<LockCasReadLabel>(rLab);
-	if (lLab && getWriteValue(lLab->getRf(), lLab->getAccess()) == SVal(-1)) {
+	if (lLab && lLab->getAccessValue(lLab->getAccess()) == SVal(-1)) {
 		reportError({lLab->getPos(), VerificationError::VE_UninitializedMem,
 			     "Called lock() on destroyed mutex!", lLab->getRf()});
 		return VerificationError::VE_UninitializedMem;
@@ -1252,7 +1196,7 @@ VerificationError GenMCDriver::checkInitializedMem(const ReadLabel *rLab)
 			     "Called barrier_wait() on uninitialized barrier!"});
 		return VerificationError::VE_UninitializedMem;
 	}
-	if (bLab && getWriteValue(bLab->getRf(), bLab->getAccess()) == SVal(0)) {
+	if (bLab && bLab->getAccessValue(bLab->getAccess()) == SVal(0)) {
 		reportError({rLab->getPos(), VerificationError::VE_AccessFreed,
 			     "Called barrier_wait() on destroyed barrier!", bLab->getRf()});
 		return VerificationError::VE_UninitializedMem;
@@ -1263,6 +1207,14 @@ VerificationError GenMCDriver::checkInitializedMem(const ReadLabel *rLab)
 		reportError({rLab->getPos(), VerificationError::VE_UninitializedMem});
 		return VerificationError::VE_UninitializedMem;
 	}
+
+	/* Slightly unrelated check, but ensure there are no mixed-size accesses */
+	if (rLab->getRf() && !rLab->getRf()->getPos().isInitializer() &&
+	    llvm::dyn_cast<WriteLabel>(rLab->getRf())->getSize() != rLab->getSize())
+		reportError({rLab->getPos(), VerificationError::VE_MixedSize,
+			     "Mixed-size accesses detected: tried to read with a " +
+				     std::to_string(rLab->getSize().get() * 8) + "-bit access!\n" +
+				     "Please check the LLVM-IR.\n"});
 	return VerificationError::VE_OK;
 }
 
@@ -1660,7 +1612,7 @@ void GenMCDriver::filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<
 		std::remove_if(validStores.begin(), validStores.end(),
 			       [&](Event w) {
 				       auto *wLab = g.getEventLabel(w);
-				       auto val = getWriteValue(wLab, rLab->getAccess());
+				       auto val = wLab->getAccessValue(rLab->getAccess());
 				       return w != maximal && wLab != g.co_max(rLab->getAddr()) &&
 					      !Evaluator().evaluate(rLab->getAnnot(), val);
 			       }),
@@ -1885,8 +1837,7 @@ std::optional<SVal> GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabe
 	auto &g = getGraph();
 
 	if (isExecutionDrivenByGraph(&*lab))
-		return {getJoinValue(
-			llvm::dyn_cast<ThreadJoinLabel>(g.getEventLabel(lab->getPos())))};
+		return {g.getEventLabel(lab->getPos())->getReturnValue()};
 
 	if (!llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(lab->getChildId()))) {
 		blockThread(JoinBlockLabel::create(lab->getPos(), lab->getChildId()));
@@ -1913,7 +1864,7 @@ std::optional<SVal> GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabe
 		return std::nullopt;
 	}
 
-	return {getJoinValue(jLab)};
+	return jLab->getReturnValue();
 }
 
 void GenMCDriver::handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab)
@@ -2020,7 +1971,7 @@ std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
 	rfs.erase(std::remove_if(rfs.begin(), rfs.end(),
 				 [&](const Event &s) {
 					 auto *sLab = g.getEventLabel(s);
-					 auto oldVal = getWriteValue(sLab, lab->getAccess());
+					 auto oldVal = sLab->getAccessValue(lab->getAccess());
 					 return lab->valueMakesRMWSucceed(oldVal) &&
 						storeReadBySettledRMWInView(sLab, before,
 									    lab->getAddr());
@@ -2053,27 +2004,29 @@ void GenMCDriver::filterAtomicityViolations(const ReadLabel *rLab, std::vector<E
 	auto valueMakesSuccessfulRMW = [&casLab, rLab](auto &&val) {
 		return !casLab || val == casLab->getExpected();
 	};
-	stores.erase(std::remove_if(
-			     stores.begin(), stores.end(),
-			     [&](auto &s) {
-				     auto *sLab = g.getEventLabel(s);
-				     if (auto *iLab = llvm::dyn_cast<InitLabel>(sLab))
-					     return std::any_of(
-						     iLab->rf_begin(rLab->getAddr()),
-						     iLab->rf_end(rLab->getAddr()),
-						     [&](auto &rLab) {
-							     return rLab.isRMW() &&
-								    valueMakesSuccessfulRMW(
-									    getReadValue(&rLab));
-						     });
-				     return std::any_of(rf_succ_begin(g, sLab),
-							rf_succ_end(g, sLab), [&](auto &rLab) {
-								return rLab.isRMW() &&
-								       valueMakesSuccessfulRMW(
-									       getReadValue(&rLab));
-							});
-			     }),
-		     stores.end());
+	stores.erase(
+		std::remove_if(
+			stores.begin(), stores.end(),
+			[&](auto &s) {
+				auto *sLab = g.getEventLabel(s);
+				if (auto *iLab = llvm::dyn_cast<InitLabel>(sLab))
+					return std::any_of(
+						iLab->rf_begin(rLab->getAddr()),
+						iLab->rf_end(rLab->getAddr()), [&](auto &rLab) {
+							return rLab.isRMW() &&
+							       valueMakesSuccessfulRMW(
+								       rLab.getAccessValue(
+									       rLab.getAccess()));
+						});
+				return std::any_of(
+					rf_succ_begin(g, sLab), rf_succ_end(g, sLab),
+					[&](auto &rLab) {
+						return rLab.isRMW() &&
+						       valueMakesSuccessfulRMW(rLab.getAccessValue(
+							       rLab.getAccess()));
+					});
+			}),
+		stores.end());
 }
 
 void GenMCDriver::updateStSpaceChoices(const ReadLabel *rLab, const std::vector<Event> &stores)
@@ -2159,7 +2112,7 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 						<< getGraph(););
 
 	/* If this is the last part of barrier_wait() check whether we should block */
-	auto retVal = getWriteValue(g.getEventLabel(*rf), lab->getAccess());
+	auto retVal = g.getEventLabel(*rf)->getAccessValue(lab->getAccess());
 	if (llvm::isa<BWaitReadLabel>(lab) && retVal != getBarrierInitValue(lab->getAccess())) {
 		blockThread(BarrierBlockLabel::create(lab->getPos().next()));
 	}
@@ -2577,10 +2530,11 @@ void GenMCDriver::tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &lo
 				   [&](auto &l) {
 					   auto *rLab = g.getReadLabel(l);
 					   /* Treatment of blocked CASes is different */
-					   auto blocked = !llvm::isa<CasReadLabel>(rLab) &&
-							  rLab->getAnnot() &&
-							  !rLab->valueMakesAssumeSucceed(
-								  getReadValue(rLab));
+					   auto blocked =
+						   !llvm::isa<CasReadLabel>(rLab) &&
+						   rLab->getAnnot() &&
+						   !rLab->valueMakesAssumeSucceed(
+							   rLab->getAccessValue(rLab->getAccess()));
 					   if (blocked)
 						   toIPR.push_back(l);
 					   return blocked;
@@ -2619,7 +2573,7 @@ bool GenMCDriver::removeCASReadIfBlocks(const ReadLabel *rLab, const EventLabel 
 		return false;
 
 	/* If the CAS blocks, block thread altogether */
-	auto val = getWriteValue(sLab, rLab->getAccess());
+	auto val = sLab->getAccessValue(rLab->getAccess());
 	if (rLab->valueMakesAssumeSucceed(val))
 		return false;
 
@@ -2651,7 +2605,7 @@ void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vecto
 			return wLab.getPos() != sLab->getPos() && wLab.getVal() == sLab->getVal();
 		});
 	if (sLab->getAddr().isStatic() &&
-	    getWriteValue(g.getEventLabel(Event::getInit()), sLab->getAccess()) == sLab->getVal())
+	    g.getInitLabel()->getAccessValue(sLab->getAccess()) == sLab->getVal())
 		++valid;
 	WARN_ON_ONCE(valid > 0, "helper-aba-found",
 		     "Possible ABA pattern! Consider running without -helper.\n");
@@ -3094,7 +3048,7 @@ WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	if (!llvm::isa<CasReadLabel>(rLab) && !llvm::isa<FaiReadLabel>(rLab))
 		return nullptr;
 	if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
-		if (getReadValue(rLab) != casLab->getExpected())
+		if (rLab->getAccessValue(rLab->getAccess()) != casLab->getExpected())
 			return nullptr;
 	}
 
@@ -3104,7 +3058,7 @@ WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 		/* Need to get the rf value within the if, as rLab might be a disk op,
 		 * and we cannot get the value in that case (but it will also not be an RMW)
 		 */
-		auto rfVal = getReadValue(rLab);
+		auto rfVal = rLab->getAccessValue(rLab->getAccess());
 		result = getEE()->executeAtomicRMWOperation(rfVal, faiLab->getOpVal(),
 							    faiLab->getSize(), faiLab->getOp());
 		if (llvm::isa<BIncFaiReadLabel>(faiLab) && result == SVal(0))
@@ -3198,7 +3152,7 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 
 	/* Blocked barrier: block thread */
 	if (llvm::isa<BWaitReadLabel>(rLab) &&
-	    getReadValue(rLab) != getBarrierInitValue(rLab->getAccess())) {
+	    rLab->getAccessValue(rLab->getAccess()) != getBarrierInitValue(rLab->getAccess())) {
 		blockThread(BarrierBlockLabel::create(rLab->getPos().next()));
 	}
 
@@ -3319,7 +3273,7 @@ bool GenMCDriver::isWriteEffectful(const WriteLabel *wLab)
 	if (!xLab || rLab->getOp() != llvm::AtomicRMWInst::BinOp::Xchg)
 		return true;
 
-	return getReadValue(rLab) != xLab->getVal();
+	return rLab->getAccessValue(rLab->getAccess()) != xLab->getVal();
 }
 
 bool GenMCDriver::isWriteObservable(const WriteLabel *wLab)
@@ -3522,7 +3476,10 @@ void GenMCDriver::printGraph(bool printMetadata /* false */,
 {
 	auto &g = getGraph();
 	LabelPrinter printer([this](const SAddr &saddr) { return getVarName(saddr); },
-			     [this](const ReadLabel &lab) { return getReadValue(&lab); });
+			     [this](const ReadLabel &lab) {
+				     return lab.getRf() ? lab.getAccessValue(lab.getAccess())
+							: SVal();
+			     });
 
 	/* Print the graph */
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
@@ -3578,7 +3535,10 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const EventLabel *
 	std::ofstream fout(filename);
 	llvm::raw_os_ostream ss(fout);
 	DotPrinter printer([this](const SAddr &saddr) { return getVarName(saddr); },
-			   [this](const ReadLabel &lab) { return getReadValue(&lab); });
+			   [this](const ReadLabel &lab) {
+				   return lab.getRf() ? lab.getAccessValue(lab.getAccess())
+						      : SVal();
+			   });
 
 	auto before = getPrefixView(errLab).clone();
 	if (confLab)
