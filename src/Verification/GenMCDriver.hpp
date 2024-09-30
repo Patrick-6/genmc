@@ -684,9 +684,6 @@ private:
 	 * and if so moots the current execution */
 	void mootExecutionIfFullyBlocked(Event pos);
 
-	/* LKMM: Helper for visiting LKMM fences */
-	void handleFenceLKMM(std::unique_ptr<FenceLabel> fLab);
-
 	/* Helper: Wake up any threads blocked on a helping CAS */
 	void unblockWaitingHelping(const WriteLabel *lab);
 
