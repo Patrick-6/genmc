@@ -230,13 +230,6 @@ SAddr GenMCDriver::getFreshAddr(const MallocLabel *aLab)
 	return SAddr();
 }
 
-void GenMCDriver::markFdAsUsed(int fd)
-{
-	if (fd > fds.size())
-		fds.resize(fd);
-	fds.set(fd);
-}
-
 void GenMCDriver::resetThreadPrioritization() { threadPrios.clear(); }
 
 bool GenMCDriver::isSchedulable(int thread) const

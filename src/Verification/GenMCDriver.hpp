@@ -318,9 +318,6 @@ protected:
 	/* Returns a fresh address for a new allocation */
 	SAddr getFreshAddr(const MallocLabel *aLab);
 
-	/* Pers: Marks that the file descriptor fd is in use */
-	void markFdAsUsed(int fd);
-
 	/* Returns all values read leading up to POS */
 	std::pair<std::vector<SVal>, Event> extractValPrefix(Event pos);
 
