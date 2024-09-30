@@ -33,6 +33,7 @@
 #include "config.h"
 #include <llvm/ADT/StringMap.h>
 
+#include <functional>
 #include <memory>
 #include <ranges>
 #include <unordered_map>
@@ -57,16 +58,25 @@ public:
 	using ThreadList = std::vector<Thread>;
 	using StoreList = llvm::simple_ilist<WriteLabel>;
 	using LocMap = std::unordered_map<SAddr, StoreList>;
+	using InitValGetter = std::function<SVal(const AAccess &)>;
 
-	ExecutionGraph();
+	ExecutionGraph(InitValGetter f) : initValGetter_(std::move(f))
+	{
+		/* Create an entry for main() and push the "initializer" label */
+		events.push_back({});
+		auto *iLab = addLabelToGraph(InitLabel::create());
+		iLab->setCalculated({{}});
+		iLab->setViews({{}});
+		iLab->setPrefixView(std::make_unique<View>());
+	}
 
 	ExecutionGraph(const ExecutionGraph &) = delete;
-	ExecutionGraph(ExecutionGraph &&) = default;
+	ExecutionGraph(ExecutionGraph &&) noexcept = default;
 
 	auto operator=(const ExecutionGraph &) -> ExecutionGraph & = delete;
-	auto operator=(ExecutionGraph &&) -> ExecutionGraph & = default;
+	auto operator=(ExecutionGraph &&) noexcept -> ExecutionGraph & = default;
 
-	virtual ~ExecutionGraph();
+	virtual ~ExecutionGraph() = default;
 
 	/* Iterators */
 	using iterator = ThreadList::iterator;
@@ -437,6 +447,10 @@ public:
 
 	/* Boolean helper functions */
 
+	SVal getInitVal(const AAccess &access) const { return initValGetter_(access); }
+
+	void setInitValGetter(InitValGetter f) { initValGetter_ = std::move(f); }
+
 	bool isLocEmpty(SAddr addr) const { return co_begin(addr) == co_end(addr); }
 
 	/* Whether a location has more than one store */
@@ -559,19 +573,21 @@ protected:
 
 protected:
 	/* A collection of threads and the events for each threads */
-	ThreadList events;
+	ThreadList events{};
 
 	/* The next available timestamp */
 	Stamp timestamp = 0;
 
-	LocMap coherence;
+	LocMap coherence{};
 
-	llvm::simple_ilist<EventLabel> insertionOrder;
+	llvm::simple_ilist<EventLabel> insertionOrder{};
 
 	/* Pers: The ID of the recovery routine.
 	 * It should be -1 if not in recovery mode, or have the
 	 * value of the recovery routine otherwise. */
 	int recoveryTID = -1;
+
+	InitValGetter initValGetter_;
 };
 
 namespace std {

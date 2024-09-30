@@ -24,23 +24,6 @@
 #include <llvm/IR/DebugInfo.h>
 
 /************************************************************
- ** Class constructors/destructors
- ***********************************************************/
-
-ExecutionGraph::ExecutionGraph()
-{
-	/* Create an entry for main() and push the "initializer" label */
-	events.push_back({});
-	auto *iLab = addLabelToGraph(InitLabel::create());
-	iLab->setCalculated({{}});
-	iLab->setViews({{}});
-	iLab->setPrefixView(std::make_unique<View>());
-	return;
-}
-
-ExecutionGraph::~ExecutionGraph() = default;
-
-/************************************************************
  ** Basic getter methods
  ***********************************************************/
 
@@ -441,7 +424,7 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 
 std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v) const
 {
-	auto og = std::unique_ptr<ExecutionGraph>(new ExecutionGraph());
+	auto og = std::unique_ptr<ExecutionGraph>(new ExecutionGraph(this->initValGetter_));
 	copyGraphUpTo(*og, v);
 	return og;
 }

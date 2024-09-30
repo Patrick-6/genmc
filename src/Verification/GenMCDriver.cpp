@@ -54,8 +54,10 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 	: userConf(std::move(conf)), pool(pool), mode(mode)
 {
 	/* Set up the execution context */
-	auto execGraph = userConf->isDepTrackingModel ? std::make_unique<DepExecutionGraph>()
-						      : std::make_unique<ExecutionGraph>();
+	auto initValGetter = [this](const auto &access) { return getEE()->getLocInitVal(access); };
+	auto execGraph = userConf->isDepTrackingModel
+				 ? std::make_unique<DepExecutionGraph>(initValGetter)
+				 : std::make_unique<ExecutionGraph>(initValGetter);
 	execStack.emplace_back(std::move(execGraph), std::move(LocalQueueT()),
 			       std::move(ChoiceMap()));
 
@@ -188,6 +190,9 @@ void GenMCDriver::initFromState(std::unique_ptr<State> s)
 	fds = std::move(s->fds);
 	seenPrefixes = std::move(s->cache);
 	lastAdded = s->lastAdded;
+
+	/* We have to also reset the initvalgetter */
+	getGraph().setInitValGetter([&](auto &access) { return getEE()->getLocInitVal(access); });
 }
 
 std::unique_ptr<GenMCDriver::State> GenMCDriver::extractState()
@@ -474,20 +479,9 @@ std::pair<std::vector<SVal>, Event> GenMCDriver::extractValPrefix(Event pos)
 
 	for (auto i = 0u; i < pos.index; i++) {
 		auto *lab = g.getEventLabel(Event(pos.thread, i));
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			vals.push_back(getReadValue(rLab));
+		if (lab->returnsValue()) {
+			vals.push_back(lab->getReturnValue());
 			last = lab->getPos();
-		} else if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab)) {
-			vals.push_back(getJoinValue(jLab));
-			last = lab->getPos();
-		} else if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab)) {
-			vals.push_back(getStartValue(bLab));
-			last = lab->getPos();
-		} else if (auto *oLab = llvm::dyn_cast<OptionalLabel>(lab)) {
-			vals.push_back(SVal(oLab->isExpanded()));
-			last = lab->getPos();
-		} else {
-			BUG_ON(lab->hasValue());
 		}
 	}
 	return {vals, last};

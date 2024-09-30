@@ -224,8 +224,18 @@ public:
 	/* Whether this label can have outgoing dep edges */
 	bool isDependable() const { return isDependable(getKind()); }
 
-	/* Whether this label carries a value */
-	bool hasValue() const { return hasValue(getKind()); }
+	/* Whether this label returns a value */
+	bool returnsValue() const { return returnsValue(getKind()); }
+
+	/* Returns the value returned by the label */
+	SVal getReturnValue() const;
+
+	/* Returns whether this label accesses some value */
+	bool accessesValue() const { return accessesValue(getKind()); }
+
+	/* Returns the value from memory the label accesses.
+	 * (The label needs to be a memory access.) */
+	SVal getAccessValue(const AAccess &access) const;
 
 	/* Whether this label has a location */
 	bool hasLocation() const { return hasLocation(getKind()); }
@@ -266,7 +276,8 @@ private:
 	friend class DepExecutionGraph;
 
 	static inline bool isDependable(EventLabelKind k);
-	static inline bool hasValue(EventLabelKind k);
+	static inline bool returnsValue(EventLabelKind k);
+	static inline bool accessesValue(EventLabelKind k);
 	static inline bool hasLocation(EventLabelKind k);
 
 	void setStamp(Stamp s) { stamp = s; }
@@ -1883,10 +1894,15 @@ inline bool EventLabel::isDependable(EventLabelKind k)
 	return ReadLabel::classofKind(k) || k == Malloc || k == Optional;
 }
 
-inline bool EventLabel::hasValue(EventLabelKind k)
+inline bool EventLabel::returnsValue(EventLabelKind k)
 {
 	return ThreadStartLabel::classofKind(k) || ReadLabel::classofKind(k) || k == ThreadJoin ||
 	       k == Optional;
+}
+
+inline bool EventLabel::accessesValue(EventLabelKind k)
+{
+	return InitLabel::classofKind(k) || MemAccessLabel::classofKind(k);
 }
 
 inline bool EventLabel::hasLocation(EventLabelKind k) { return MemAccessLabel::classofKind(k); }

@@ -138,7 +138,7 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 
 std::unique_ptr<ExecutionGraph> DepExecutionGraph::getCopyUpTo(const VectorClock &v) const
 {
-	auto og = std::unique_ptr<DepExecutionGraph>(new DepExecutionGraph());
+	auto og = std::unique_ptr<DepExecutionGraph>(new DepExecutionGraph(this->initValGetter_));
 	copyGraphUpTo(*og, v);
 	return og;
 }

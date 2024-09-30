@@ -24,6 +24,40 @@
 #include "Static/ModuleID.hpp"
 #include "Support/SExprVisitor.hpp"
 
+SVal EventLabel::getAccessValue(const AAccess &access) const
+{
+	/* Special case for initializer */
+	if (getPos().isInitializer())
+		return getParent()->getInitVal(access);
+
+	/* Assumes rf is already set */
+	if (auto *rLab = llvm::dyn_cast<ReadLabel>(this)) {
+		return rLab->getRf()->getAccessValue(access);
+	}
+	auto *wLab = llvm::dyn_cast<WriteLabel>(this);
+	BUG_ON(!wLab);
+	return wLab->getVal();
+}
+
+SVal EventLabel::getReturnValue() const
+{
+	if (auto *rLab = llvm::dyn_cast<ReadLabel>(this)) {
+		return getAccessValue(rLab->getAccess());
+	}
+	if (auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(this)) {
+		return tsLab->getThreadInfo().arg;
+	}
+	if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(this)) {
+		auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(
+			jLab->getParent()->getLastThreadLabel(jLab->getChildId()));
+		return eLab->getRetVal();
+	}
+	if (auto *oLab = llvm::dyn_cast<OptionalLabel>(this)) {
+		return SVal(oLab->isExpanded());
+	}
+	BUG();
+}
+
 bool WriteLabel::isRMW() const
 {
 	return CasWriteLabel::classofKind(getKind()) || FaiWriteLabel::classofKind(getKind());
