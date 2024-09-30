@@ -662,12 +662,6 @@ private:
 	/* Helper: Annotates a store as RevBlocker, if possible */
 	void annotateStoreHELPER(WriteLabel *wLab);
 
-	/* SAVer: Checks whether a write has any actual memory effects */
-	bool isWriteEffectful(const WriteLabel *wLab);
-
-	/* SAVer: Checks whether the effects of a write are observable */
-	bool isWriteObservable(const WriteLabel *lab);
-
 	/* SAVer: Checks whether the addition of an event changes our
 	 * perspective of a potential spinloop */
 	void checkReconsiderFaiSpinloop(const MemAccessLabel *lab);

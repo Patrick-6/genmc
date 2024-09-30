@@ -73,6 +73,47 @@ bool ReadLabel::isRMW() const
 	return nLab && nLab->isRMW() && nLab->getAddr() == getAddr();
 }
 
+bool WriteLabel::isEffectful() const
+{
+	auto &g = *getParent();
+	auto *xLab = llvm::dyn_cast<FaiWriteLabel>(this);
+	auto *rLab = llvm::dyn_cast<FaiReadLabel>(g.getPreviousLabel(this));
+	if (!xLab || rLab->getOp() != llvm::AtomicRMWInst::BinOp::Xchg)
+		return true;
+
+	return rLab->getAccessValue(rLab->getAccess()) != xLab->getVal();
+}
+
+bool WriteLabel::isObservable() const
+{
+	if (isAtLeastRelease() || !getAddr().isDynamic())
+		return true;
+
+	auto &g = *getParent();
+	auto wpreds = g.po_preds(this);
+	auto mLabIt = std::ranges::find_if(wpreds, [this](auto &lab) {
+		if (auto *aLab = llvm::dyn_cast<MallocLabel>(&lab)) {
+			if (aLab->contains(this->getAddr()))
+				return true;
+		}
+		return false;
+	});
+	if (mLabIt == std::ranges::end(wpreds))
+		return true;
+
+	auto *mLab = &*mLabIt;
+	for (auto j = mLab->getIndex() + 1; j < getIndex(); j++) {
+		auto *lab = g.getEventLabel(Event(getThread(), j));
+		if (lab->isAtLeastRelease())
+			return true;
+		/* The location must not be read (loop counter) */
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+			if (rLab->getAddr() == getAddr())
+				return true;
+	}
+	return false;
+}
+
 bool ReadLabel::valueMakesRMWSucceed(const SVal &val) const
 {
 	if (FaiReadLabel::classofKind(getKind()))

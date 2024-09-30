@@ -3265,47 +3265,6 @@ bool GenMCDriver::handleOptional(std::unique_ptr<OptionalLabel> lab)
 	return false; /* should not be expanded yet */
 }
 
-bool GenMCDriver::isWriteEffectful(const WriteLabel *wLab)
-{
-	auto &g = getGraph();
-	auto *xLab = llvm::dyn_cast<FaiWriteLabel>(wLab);
-	auto *rLab = llvm::dyn_cast<FaiReadLabel>(g.getPreviousLabel(wLab));
-	if (!xLab || rLab->getOp() != llvm::AtomicRMWInst::BinOp::Xchg)
-		return true;
-
-	return rLab->getAccessValue(rLab->getAccess()) != xLab->getVal();
-}
-
-bool GenMCDriver::isWriteObservable(const WriteLabel *wLab)
-{
-	if (wLab->isAtLeastRelease() || !wLab->getAddr().isDynamic())
-		return true;
-
-	auto &g = getGraph();
-	auto wpreds = po_preds(g, wLab);
-	auto mLabIt = std::ranges::find_if(wpreds, [wLab](auto &lab) {
-		if (auto *aLab = llvm::dyn_cast<MallocLabel>(&lab)) {
-			if (aLab->contains(wLab->getAddr()))
-				return true;
-		}
-		return false;
-	});
-	if (mLabIt == std::ranges::end(wpreds))
-		return true;
-
-	auto *mLab = &*mLabIt;
-	for (auto j = mLab->getIndex() + 1; j < wLab->getIndex(); j++) {
-		auto *lab = g.getEventLabel(Event(wLab->getThread(), j));
-		if (lab->isAtLeastRelease())
-			return true;
-		/* The location must not be read (loop counter) */
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-			if (rLab->getAddr() == wLab->getAddr())
-				return true;
-	}
-	return false;
-}
-
 void GenMCDriver::handleSpinStart(std::unique_ptr<SpinStartLabel> lab)
 {
 	auto &g = getGraph();
@@ -3336,7 +3295,7 @@ void GenMCDriver::handleSpinStart(std::unique_ptr<SpinStartLabel> lab)
 	for (auto i = pLab->getIndex() + 1; i < stLab->getIndex(); i++) {
 		auto *wLab =
 			llvm::dyn_cast<WriteLabel>(g.getEventLabel(Event(stLab->getThread(), i)));
-		if (wLab && isWriteEffectful(wLab) && isWriteObservable(wLab))
+		if (wLab && wLab->isEffectful() && wLab->isObservable())
 			return; /* found event w/ side-effects */
 	}
 	/* Spinloop detected */

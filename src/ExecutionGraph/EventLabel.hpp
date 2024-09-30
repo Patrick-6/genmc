@@ -1138,6 +1138,12 @@ public:
 	/* Whether this is part of an RMW operation */
 	bool isRMW() const;
 
+	/* Whether this write modifies global memory (SAVer) */
+	bool isEffectful() const;
+
+	/* Whether this write is (externally) observable */
+	bool isObservable() const;
+
 	/* Iterators for readers */
 	using ReaderList = CopyableIList<ReadLabel>;
 	using rf_iterator = ReaderList::iterator;
