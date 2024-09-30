@@ -230,21 +230,6 @@ SAddr GenMCDriver::getFreshAddr(const MallocLabel *aLab)
 	return SAddr();
 }
 
-int GenMCDriver::getFreshFd()
-{
-	int fd = fds.find_first_unset();
-
-	/* If no available descriptor found, grow fds and try again */
-	if (fd == -1) {
-		fds.resize(2 * fds.size() + 1);
-		return getFreshFd();
-	}
-
-	/* Otherwise, mark the file descriptor as used */
-	markFdAsUsed(fd);
-	return fd;
-}
-
 void GenMCDriver::markFdAsUsed(int fd)
 {
 	if (fd > fds.size())

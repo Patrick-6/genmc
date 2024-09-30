@@ -318,9 +318,6 @@ protected:
 	/* Returns a fresh address for a new allocation */
 	SAddr getFreshAddr(const MallocLabel *aLab);
 
-	/* Pers: Returns a fresh file descriptor for a new open() call (marks it as in use) */
-	int getFreshFd();
-
 	/* Pers: Marks that the file descriptor fd is in use */
 	void markFdAsUsed(int fd);
 
