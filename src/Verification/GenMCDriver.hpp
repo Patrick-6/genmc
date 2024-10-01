@@ -337,9 +337,6 @@ protected:
 	bool isSymmetryOK(const EventLabel *lab);
 	void updatePrefixWithSymmetriesSR(EventLabel *lab);
 
-	/* Returns the value with which a barrier at PTR has been initialized */
-	SVal getBarrierInitValue(const AAccess &a);
-
 	/* Pers: Returns true if we are currently running the recovery routine */
 	bool inRecoveryMode() const;
 

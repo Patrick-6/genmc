@@ -144,3 +144,17 @@ auto findAllocatingLabel(ExecutionGraph &g, const SAddr &addr) -> MallocLabel *
 	return const_cast<MallocLabel *>(
 		findAllocatingLabel(static_cast<const ExecutionGraph &>(g), addr));
 }
+
+auto findBarrierInitValue(const ExecutionGraph &g, const AAccess &access) -> SVal
+{
+	auto sIt = std::find_if(g.co_begin(access.getAddr()), g.co_end(access.getAddr()),
+				[&access, &g](auto &bLab) {
+					BUG_ON(!llvm::isa<WriteLabel>(bLab));
+					return bLab.getAddr() == access.getAddr() &&
+					       bLab.isNotAtomic();
+				});
+
+	/* All errors pertinent to initialization should be captured elsewhere */
+	BUG_ON(sIt == g.co_end(access.getAddr()));
+	return sIt->getAccessValue(access);
+}

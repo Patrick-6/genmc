@@ -21,6 +21,9 @@
 #ifndef GENMC_GRAPH_UTILS_HPP
 #define GENMC_GRAPH_UTILS_HPP
 
+#include "Support/MemAccess.hpp"
+#include "Support/SVal.hpp"
+
 class SAddr;
 class MemAccessLabel;
 class UnlockWriteLabel;
@@ -52,5 +55,9 @@ auto findMatchingSpeculativeRead(const ReadLabel *cLab, const EventLabel *&scLab
  * Assumes that only one such event may exist */
 auto findAllocatingLabel(ExecutionGraph &g, const SAddr &addr) -> MallocLabel *;
 auto findAllocatingLabel(const ExecutionGraph &g, const SAddr &addr) -> const MallocLabel *;
+
+/** Returns the initializing value for a barrier event.
+ * Assumes there is exactly one such event */
+auto findBarrierInitValue(const ExecutionGraph &g, const AAccess &access) -> SVal;
 
 #endif /* GENMC_GRAPH_UTILS_HPP */

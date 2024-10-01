@@ -1096,21 +1096,6 @@ void GenMCDriver::cacheEventLabel(const EventLabel *lab)
 	labs.clear();
 }
 
-SVal GenMCDriver::getBarrierInitValue(const AAccess &access)
-{
-	const auto &g = getGraph();
-	auto sIt = std::find_if(g.co_begin(access.getAddr()), g.co_end(access.getAddr()),
-				[&access, &g](auto &bLab) {
-					BUG_ON(!llvm::isa<WriteLabel>(bLab));
-					return bLab.getAddr() == access.getAddr() &&
-					       bLab.isNotAtomic();
-				});
-
-	/* All errors pertinent to initialization should be captured elsewhere */
-	BUG_ON(sIt == g.co_end(access.getAddr()));
-	return sIt->getAccessValue(access);
-}
-
 std::optional<SVal> GenMCDriver::getReadRetValue(const ReadLabel *rLab)
 {
 	/* Bottom is an acceptable re-option only @ replay */
@@ -1121,7 +1106,8 @@ std::optional<SVal> GenMCDriver::getReadRetValue(const ReadLabel *rLab)
 
 	/* Reading a non-init barrier value means that the thread should block */
 	auto res = rLab->getAccessValue(rLab->getAccess());
-	BUG_ON(llvm::isa<BWaitReadLabel>(rLab) && res != getBarrierInitValue(rLab->getAccess()) &&
+	BUG_ON(llvm::isa<BWaitReadLabel>(rLab) &&
+	       res != findBarrierInitValue(getGraph(), rLab->getAccess()) &&
 	       !llvm::isa<TerminatorLabel>(getGraph().getLastThreadLabel(rLab->getThread())));
 	return {res};
 }
@@ -2089,7 +2075,7 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 
 	/* If this is the last part of barrier_wait() check whether we should block */
 	auto retVal = g.getEventLabel(*rf)->getAccessValue(lab->getAccess());
-	if (llvm::isa<BWaitReadLabel>(lab) && retVal != getBarrierInitValue(lab->getAccess())) {
+	if (llvm::isa<BWaitReadLabel>(lab) && retVal != findBarrierInitValue(g, lab->getAccess())) {
 		blockThread(BarrierBlockLabel::create(lab->getPos().next()));
 	}
 	return {retVal};
@@ -2183,7 +2169,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	if (getConf()->helper && wLab->isRMW())
 		annotateStoreHELPER(&*wLab);
 	if (llvm::isa<BIncFaiWriteLabel>(&*wLab) && wLab->getVal() == SVal(0))
-		wLab->setVal(getBarrierInitValue(wLab->getAccess()));
+		wLab->setVal(findBarrierInitValue(g, wLab->getAccess()));
 
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 
@@ -2457,7 +2443,7 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab, std::vecto
 		return false;
 
 	/* If the barrier_wait() does not write the initial value, nothing to do */
-	auto iVal = getBarrierInitValue(sLab->getAccess());
+	auto iVal = findBarrierInitValue(getGraph(), sLab->getAccess());
 	if (sLab->getVal() != iVal)
 		return true;
 
@@ -3038,7 +3024,7 @@ WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 		result = getEE()->executeAtomicRMWOperation(rfVal, faiLab->getOpVal(),
 							    faiLab->getSize(), faiLab->getOp());
 		if (llvm::isa<BIncFaiReadLabel>(faiLab) && result == SVal(0))
-			result = getBarrierInitValue(rLab->getAccess());
+			result = findBarrierInitValue(getGraph(), rLab->getAccess());
 		wattr = faiLab->getAttr();
 	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
 		result = casLab->getSwapVal();
@@ -3128,7 +3114,7 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 
 	/* Blocked barrier: block thread */
 	if (llvm::isa<BWaitReadLabel>(rLab) &&
-	    rLab->getAccessValue(rLab->getAccess()) != getBarrierInitValue(rLab->getAccess())) {
+	    rLab->getAccessValue(rLab->getAccess()) != findBarrierInitValue(g, rLab->getAccess())) {
 		blockThread(BarrierBlockLabel::create(rLab->getPos().next()));
 	}
 
