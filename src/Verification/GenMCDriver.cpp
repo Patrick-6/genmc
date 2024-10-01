@@ -1253,10 +1253,8 @@ VerificationError GenMCDriver::checkIPRValidity(const ReadLabel *rLab)
 	return VerificationError::VE_WWRace;
 }
 
-bool GenMCDriver::threadReadsMaximal(int tid)
+bool threadReadsMaximal(const ExecutionGraph &g, int tid)
 {
-	auto &g = getGraph();
-
 	/*
 	 * Depending on whether this is a DSA loop or not, we have to
 	 * adjust the detection starting point: DSA-blocked threads
@@ -1300,7 +1298,7 @@ void GenMCDriver::checkLiveness()
 	auto nonTermTID = 0u;
 	if (std::all_of(spinBlocked.begin(), spinBlocked.end(), [&](int tid) {
 		    nonTermTID = tid;
-		    return threadReadsMaximal(tid);
+		    return threadReadsMaximal(g, tid);
 	    })) {
 		/* Print some TID blocked by a spinloop */
 		reportError({g.getLastThreadLabel(nonTermTID)->getPos(),

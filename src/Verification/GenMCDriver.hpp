@@ -149,7 +149,40 @@ public:
 	};
 
 private:
-	struct Execution;
+	/* Represents the execution at a given point */
+	struct Execution {
+		Execution() = delete;
+		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&cm);
+
+		Execution(const Execution &) = delete;
+		auto operator=(const Execution &) -> Execution & = delete;
+		Execution(Execution &&) = default;
+		auto operator=(Execution &&) -> Execution & = default;
+
+		/* Returns a reference to the current graph */
+		ExecutionGraph &getGraph() { return *graph; }
+		const ExecutionGraph &getGraph() const { return *graph; }
+
+		LocalQueueT &getWorkqueue() { return workqueue; }
+		const LocalQueueT &getWorkqueue() const { return workqueue; }
+
+		ChoiceMap &getChoiceMap() { return choices; }
+		const ChoiceMap &getChoiceMap() const { return choices; }
+
+		void restrict(Stamp stamp);
+
+		~Execution();
+
+	private:
+		/* Removes all items with stamp >= STAMP from the list */
+		void restrictWorklist(Stamp stamp);
+		void restrictGraph(Stamp stamp);
+		void restrictChoices(Stamp stamp);
+
+		std::unique_ptr<ExecutionGraph> graph;
+		ChoiceMap choices;
+		LocalQueueT workqueue;
+	};
 
 	static bool isInvalidAccessError(VerificationError s)
 	{
@@ -190,26 +223,11 @@ public:
 	/* Starts the verification procedure for a driver */
 	void run();
 
-	/* Stops the verification procedure when an error is found */
-	void halt(VerificationError status);
-
 	/* Returns the result of the verification procedure */
 	const Result &getResult() const { return result; }
 	Result &getResult() { return result; }
 
-	/* Gets/sets the thread pool this driver should account to */
-	ThreadPool *getThreadPool() { return pool; }
-	ThreadPool *getThreadPool() const { return pool; }
-	void setThreadPool(ThreadPool *tp) { pool = tp; }
-
-	/* Initializes the exploration from a given state */
-	void initFromState(std::unique_ptr<State> s);
-
-	/* Extracts the current driver state.
-	 * The driver is left in an inconsistent form */
-	std::unique_ptr<State> extractState();
-
-	/*** Instruction-related actions ***/
+	/*** Instruction handling ***/
 
 	/* A thread has just finished execution, nothing for the interpreter */
 	void handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab);
@@ -272,6 +290,8 @@ public:
 	virtual ~GenMCDriver();
 
 protected:
+	friend class ThreadPool;
+
 	GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 		    std::unique_ptr<ModuleInfo> MI, ThreadPool *pool = nullptr,
 		    Mode = VerificationMode{});
@@ -303,6 +323,12 @@ protected:
 	ConsistencyChecker &getConsChecker() { return *consChecker; }
 	const ConsistencyChecker &getConsChecker() const { return *consChecker; }
 
+	const SAddrAllocator &getAddrAllocator() const { return alloctor; }
+	SAddrAllocator &getAddrAllocator() { return alloctor; }
+
+	/* Stops the verification procedure when an error is found */
+	void halt(VerificationError status);
+
 	/* Pushes E to the execution stack. */
 	void pushExecution(Execution &&e);
 
@@ -310,9 +336,17 @@ protected:
 	 * Returns false if the stack is empty or this was the last entry. */
 	bool popExecution();
 
-	/* Returns the address allocator */
-	const SAddrAllocator &getAddrAllocator() const { return alloctor; }
-	SAddrAllocator &getAddrAllocator() { return alloctor; }
+	/* Gets/sets the thread pool this driver should account to */
+	ThreadPool *getThreadPool() { return pool; }
+	ThreadPool *getThreadPool() const { return pool; }
+	void setThreadPool(ThreadPool *tp) { pool = tp; }
+
+	/* Initializes the exploration from a given state */
+	void initFromState(std::unique_ptr<State> s);
+
+	/* Extracts the current driver state.
+	 * The driver is left in an inconsistent form */
+	std::unique_ptr<State> extractState();
 
 	/* Returns a fresh address for a new allocation */
 	SAddr getFreshAddr(const MallocLabel *aLab);
@@ -357,51 +391,7 @@ protected:
 			totalExplored > result.estimationMean);
 	}
 
-	/* Liveness: Checks whether a spin-blocked thread reads co-maximal values */
-	bool threadReadsMaximal(int tid);
-
-	/* Liveness: Reports an error on liveness violations */
-	void checkLiveness();
-
-	/* Reports an error if there is unfreed memory */
-	void checkUnfreedMemory();
-
 private:
-	/* Represents the execution at a given point */
-	struct Execution {
-		Execution() = delete;
-		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&cm);
-
-		Execution(const Execution &) = delete;
-		auto operator=(const Execution &) -> Execution & = delete;
-		Execution(Execution &&) = default;
-		auto operator=(Execution &&) -> Execution & = default;
-
-		/* Returns a reference to the current graph */
-		ExecutionGraph &getGraph() { return *graph; }
-		const ExecutionGraph &getGraph() const { return *graph; }
-
-		LocalQueueT &getWorkqueue() { return workqueue; }
-		const LocalQueueT &getWorkqueue() const { return workqueue; }
-
-		ChoiceMap &getChoiceMap() { return choices; }
-		const ChoiceMap &getChoiceMap() const { return choices; }
-
-		void restrict(Stamp stamp);
-
-		~Execution();
-
-	private:
-		/* Removes all items with stamp >= STAMP from the list */
-		void restrictWorklist(Stamp stamp);
-		void restrictGraph(Stamp stamp);
-		void restrictChoices(Stamp stamp);
-
-		std::unique_ptr<ExecutionGraph> graph;
-		ChoiceMap choices;
-		LocalQueueT workqueue;
-	};
-
 	/*** Worklist-related ***/
 
 	/* Adds an appropriate entry to the worklist */
@@ -501,6 +491,12 @@ private:
 	 * if there are more than one stores annotated as final at the time WLAB
 	 * is added, reports an error */
 	VerificationError checkFinalAnnotations(const WriteLabel *wLab);
+
+	/* Liveness: Reports an error on liveness violations */
+	void checkLiveness();
+
+	/* Reports an error if there is unfreed memory */
+	void checkUnfreedMemory();
 
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph(const EventLabel *lab);
