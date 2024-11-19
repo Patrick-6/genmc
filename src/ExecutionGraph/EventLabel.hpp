@@ -42,6 +42,7 @@
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>
 #include <optional>
+#include <ranges>
 
 class DskAccessLabel;
 class ReadLabel;
@@ -223,8 +224,18 @@ public:
 	/* Whether this label can have outgoing dep edges */
 	bool isDependable() const { return isDependable(getKind()); }
 
-	/* Whether this label carries a value */
-	bool hasValue() const { return hasValue(getKind()); }
+	/* Whether this label returns a value */
+	bool returnsValue() const { return returnsValue(getKind()); }
+
+	/* Returns the value returned by the label */
+	SVal getReturnValue() const;
+
+	/* Returns whether this label accesses some value */
+	bool accessesValue() const { return accessesValue(getKind()); }
+
+	/* Returns the value from memory the label accesses.
+	 * (The label needs to be a memory access.) */
+	SVal getAccessValue(const AAccess &access) const;
 
 	/* Whether this label has a location */
 	bool hasLocation() const { return hasLocation(getKind()); }
@@ -265,7 +276,8 @@ private:
 	friend class DepExecutionGraph;
 
 	static inline bool isDependable(EventLabelKind k);
-	static inline bool hasValue(EventLabelKind k);
+	static inline bool returnsValue(EventLabelKind k);
+	static inline bool accessesValue(EventLabelKind k);
 	static inline bool hasLocation(EventLabelKind k);
 
 	void setStamp(Stamp s) { stamp = s; }
@@ -396,10 +408,14 @@ public:
 	const_rf_iterator rf_begin(SAddr addr) const { return initRfs.at(addr).begin(); };
 	rf_iterator rf_end(SAddr addr) { return initRfs[addr].end(); }
 	const_rf_iterator rf_end(SAddr addr) const { return initRfs.at(addr).end(); }
+	auto rfs(SAddr addr) const { return std::views::all(initRfs.at(addr)); }
+	auto rfs(SAddr addr) { return std::views::all(initRfs.at(addr)); }
 
 	DEFINE_STANDARD_MEMBERS(Init)
 
 private:
+	friend class ReadLabel; // FIXME: Robustify; no friendship necessary
+
 	void addReader(ReadLabel *rLab);
 
 	/* Removes all readers that satisfy predicate F */
@@ -684,9 +700,13 @@ public:
 		: ReadLabel(pos, ord, loc, size, type, nullptr, nullptr, deps)
 	{}
 
-	/* Returns the position of the write this read is readinf-from */
+	/* Returns the position of the write this read is reading-from */
 	EventLabel *getRf() const { return readsFrom; }
 	EventLabel *getRf() { return readsFrom; }
+
+	/* Changes the reads-from edge for this label.
+	 * Also updates reader information in the writer */
+	void setRf(EventLabel *rfLab);
 
 	/* Whether this read has a set RF and reads externally */
 	bool readsExt() const
@@ -702,8 +722,17 @@ public:
 		       (getRf()->getPos().isInitializer() || getRf()->getThread() == getThread());
 	}
 
+	/* Whether the read is part of an RMW operation (needs to be part of a graph) */
+	bool isRMW() const;
+
 	/* Returns true if the read was revisited in-place */
 	bool isIPR() const { return ipr; }
+
+	/* Convenience function that returns whether reading a value will create an RMW */
+	bool valueMakesRMWSucceed(const SVal &val) const;
+
+	/* Convenience function that returns whether reading a value makes the assume succeed */
+	bool valueMakesAssumeSucceed(const SVal &val) const;
 
 	/* Sets the IPR status for this read */
 	void setIPRStatus(bool status) { ipr = status; }
@@ -718,7 +747,7 @@ public:
 	virtual void reset() override
 	{
 		MemAccessLabel::reset();
-		setRf(nullptr);
+		setRfNoCascade(nullptr);
 		ipr = false;
 	}
 
@@ -739,10 +768,7 @@ private:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
-	/* Changes the reads-from edge for this label. This should only
-	 * be called from the execution graph to update other relevant
-	 * information as well */
-	void setRf(EventLabel *rfLab) { readsFrom = rfLab; }
+	void setRfNoCascade(EventLabel *rfLab) { readsFrom = rfLab; }
 
 	/* Position of the write it is reading from in the graph */
 	EventLabel *readsFrom = nullptr;
@@ -1109,6 +1135,15 @@ public:
 	bool isFinal() const { return hasAttr(WriteAttr::Final); }
 	bool isLocal() const { return hasAttr(WriteAttr::Local); }
 
+	/* Whether this is part of an RMW operation */
+	bool isRMW() const;
+
+	/* Whether this write modifies global memory (SAVer) */
+	bool isEffectful() const;
+
+	/* Whether this write is (externally) observable */
+	bool isObservable() const;
+
 	/* Iterators for readers */
 	using ReaderList = CopyableIList<ReadLabel>;
 	using rf_iterator = ReaderList::iterator;
@@ -1144,6 +1179,7 @@ public:
 private:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
+	friend class ReadLabel; // FIXME: Robustify; no friendship necessary
 
 	/* Adds a read to the list of reads reading from the write */
 	void addReader(ReadLabel *rLab)
@@ -1864,10 +1900,15 @@ inline bool EventLabel::isDependable(EventLabelKind k)
 	return ReadLabel::classofKind(k) || k == Malloc || k == Optional;
 }
 
-inline bool EventLabel::hasValue(EventLabelKind k)
+inline bool EventLabel::returnsValue(EventLabelKind k)
 {
 	return ThreadStartLabel::classofKind(k) || ReadLabel::classofKind(k) || k == ThreadJoin ||
 	       k == Optional;
+}
+
+inline bool EventLabel::accessesValue(EventLabelKind k)
+{
+	return InitLabel::classofKind(k) || MemAccessLabel::classofKind(k);
 }
 
 inline bool EventLabel::hasLocation(EventLabelKind k) { return MemAccessLabel::classofKind(k); }

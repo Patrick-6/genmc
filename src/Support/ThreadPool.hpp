@@ -25,7 +25,7 @@
 #include "Static/LLVMModule.hpp"
 #include "Support/Error.hpp"
 #include "Support/ThreadPinner.hpp"
-#include "Verification/DriverFactory.hpp"
+#include "Verification/GenMCDriver.hpp"
 #include "config.h"
 #include <llvm/IR/Module.h>
 #include <llvm/Transforms/Utils/Cloning.h>
@@ -146,8 +146,8 @@ public:
 			auto newmod = LLVMModule::cloneModule(mod, contexts_.back());
 			auto newMI = MI->clone(*newmod);
 
-			auto dw = DriverFactory::create(this, conf, std::move(newmod),
-							std::move(newMI));
+			auto dw = GenMCDriver::create(conf, std::move(newmod), std::move(newMI),
+						      this);
 			if (i == 0)
 				submit(std::move(dw->extractState()));
 			addWorker(i, std::move(dw));

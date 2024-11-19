@@ -22,21 +22,21 @@
  * CAUTION: This file is generated automatically by Kater -- DO NOT EDIT.
  *******************************************************************************/
 
-#include "SCDriver.hpp"
-#include "Static/ModuleInfo.hpp"
+#include "SCChecker.hpp"
+#include "ADT/VSet.hpp"
+#include "ExecutionGraph/ExecutionGraph.hpp"
+#include "ExecutionGraph/GraphIterators.hpp"
+#include "ExecutionGraph/GraphUtils.hpp"
+#include "Verification/VerificationError.hpp"
 
-SCDriver::SCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		std::unique_ptr<ModuleInfo> MI, GenMCDriver::Mode mode /* = GenMCDriver::VerificationMode{} */)
-	: GenMCDriver(conf, std::move(mod), std::move(MI), mode) {}
-
-bool SCDriver::isDepTracking() const
+bool SCChecker::isDepTracking() const
 {
 	return 0;
 }
 
-bool SCDriver::visitCalc57_0(const EventLabel *lab, View &calcRes) const 
+bool SCChecker::visitCalc57_0(const EventLabel *lab, View &calcRes) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 
@@ -44,9 +44,9 @@ bool SCDriver::visitCalc57_0(const EventLabel *lab, View &calcRes) const
 	return true;
 }
 
-bool SCDriver::visitCalc57_1(const EventLabel *lab, View &calcRes) const 
+bool SCChecker::visitCalc57_1(const EventLabel *lab, View &calcRes) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (auto pLab = lab; true)if (calcRes.update(pLab->view(0)); true) {
@@ -59,19 +59,13 @@ bool SCDriver::visitCalc57_1(const EventLabel *lab, View &calcRes) const
 	return true;
 }
 
-bool SCDriver::visitCalc57_2(const EventLabel *lab, View &calcRes) const 
+bool SCChecker::visitCalc57_2(const EventLabel *lab, View &calcRes) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (auto pLab = po_imm_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
 			if (!visitCalc57_0(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCalc57_1(pLab, calcRes)){
 				return false;
 		}
 		
@@ -82,13 +76,19 @@ bool SCDriver::visitCalc57_2(const EventLabel *lab, View &calcRes) const
 		}
 		
 	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCalc57_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
 
 	return true;
 }
 
-bool SCDriver::visitCalc57_3(const EventLabel *lab, View &calcRes) const 
+bool SCChecker::visitCalc57_3(const EventLabel *lab, View &calcRes) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (auto pLab = tc_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
@@ -131,24 +131,24 @@ bool SCDriver::visitCalc57_3(const EventLabel *lab, View &calcRes) const
 	return true;
 }
 
-View SCDriver::visitCalc57(const EventLabel *lab) const
+View SCChecker::visitCalc57(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 	View calcRes;
 
 
 	visitCalc57_2(lab, calcRes);
 	return calcRes;
 }
-auto SCDriver::checkCalc57(const EventLabel *lab) const
+auto SCChecker::checkCalc57(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	return visitCalc57(lab);
 }
-bool SCDriver::visitCalc62_0(const EventLabel *lab, View &calcRes) const 
+bool SCChecker::visitCalc62_0(const EventLabel *lab, View &calcRes) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 
@@ -156,9 +156,9 @@ bool SCDriver::visitCalc62_0(const EventLabel *lab, View &calcRes) const
 	return true;
 }
 
-bool SCDriver::visitCalc62_1(const EventLabel *lab, View &calcRes) const 
+bool SCChecker::visitCalc62_1(const EventLabel *lab, View &calcRes) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (auto pLab = lab; true)if (calcRes.update(pLab->view(0)); true) {
@@ -171,19 +171,19 @@ bool SCDriver::visitCalc62_1(const EventLabel *lab, View &calcRes) const
 	return true;
 }
 
-bool SCDriver::visitCalc62_2(const EventLabel *lab, View &calcRes) const 
+bool SCChecker::visitCalc62_2(const EventLabel *lab, View &calcRes) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCalc62_1(pLab, calcRes)){
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc62_0(pLab, calcRes)){
 				return false;
 		}
 		
 	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc62_0(pLab, calcRes)){
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCalc62_1(pLab, calcRes)){
 				return false;
 		}
 		
@@ -198,29 +198,11 @@ bool SCDriver::visitCalc62_2(const EventLabel *lab, View &calcRes) const
 	return true;
 }
 
-bool SCDriver::visitCalc62_3(const EventLabel *lab, View &calcRes) const 
+bool SCChecker::visitCalc62_3(const EventLabel *lab, View &calcRes) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
-	if (auto pLab = tc_pred(g, lab); pLab) {
-			if (!visitCalc62_1(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-			if (!visitCalc62_1(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-			if (!visitCalc62_1(pLab, calcRes)){
-				return false;
-		}
-		
-	}
 	if (auto pLab = tc_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
 			if (!visitCalc62_0(pLab, calcRes)){
 				return false;
@@ -239,51 +221,68 @@ bool SCDriver::visitCalc62_3(const EventLabel *lab, View &calcRes) const
 		}
 		
 	}
+	if (auto pLab = tc_pred(g, lab); pLab) {
+			if (!visitCalc62_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+			if (!visitCalc62_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+			if (!visitCalc62_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
 
 	return true;
 }
 
-View SCDriver::visitCalc62(const EventLabel *lab) const
+View SCChecker::visitCalc62(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 	View calcRes;
 
 
 	visitCalc62_2(lab, calcRes);
 	return calcRes;
 }
-auto SCDriver::checkCalc62(const EventLabel *lab) const
+auto SCChecker::checkCalc62(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	return visitCalc62(lab);
 }
-void SCDriver::calculateSaved(EventLabel *lab)
+void SCChecker::calculateSaved(EventLabel *lab)
 {
 }
 
-void SCDriver::calculateViews(EventLabel *lab)
+void SCChecker::calculateViews(EventLabel *lab)
 {
 	lab->addView(checkCalc57(lab));
 	lab->addView(checkCalc62(lab));
 }
 
-void SCDriver::updateMMViews(EventLabel *lab)
+void SCChecker::updateMMViews(EventLabel *lab)
 {
 	calculateViews(lab);
 	calculateSaved(lab);
 	lab->setPrefixView(calculatePrefixView(lab));
 }
 
-const View &SCDriver::getHbView(const EventLabel *lab) const
+const View &SCChecker::getHbView(const EventLabel *lab) const
 {
 	return lab->view(0);
 }
 
 
-bool SCDriver::isWriteRfBefore(Event a, Event b)
+bool SCChecker::isWriteRfBefore(const ExecutionGraph &g, Event a, Event b)
 {
-	auto &g = getGraph();
 	auto &before = g.getEventLabel(b)->view(0);
 	if (before.contains(a))
 		return true;
@@ -299,21 +298,18 @@ bool SCDriver::isWriteRfBefore(Event a, Event b)
 }
 
 std::vector<Event>
-SCDriver::getInitRfsAtLoc(SAddr addr)
+SCChecker::getInitRfsAtLoc(const ExecutionGraph &g, SAddr addr)
 {
 	std::vector<Event> result;
 
-	for (const auto &lab : getGraph().labels()) {
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab))
-			if (rLab->getRf()->getPos().isInitializer() && rLab->getAddr() == addr)
-				result.push_back(rLab->getPos());
+	for (const auto &lab : g.getInitLabel()->rfs(addr)) {
+		result.push_back(lab.getPos());
 	}
 	return result;
 }
 
-bool SCDriver::isHbOptRfBefore(const Event e, const Event write)
+bool SCChecker::isHbOptRfBefore(const ExecutionGraph &g, const Event e, const Event write)
 {
-	auto &g = getGraph();
 	const EventLabel *lab = g.getEventLabel(write);
 
 	BUG_ON(!llvm::isa<WriteLabel>(lab));
@@ -328,51 +324,46 @@ bool SCDriver::isHbOptRfBefore(const Event e, const Event write)
 	return false;
 }
 
-ExecutionGraph::co_iterator
-SCDriver::splitLocMOBefore(SAddr addr, Event e)
+ExecutionGraph::const_co_iterator
+SCChecker::splitLocMOBefore(const ExecutionGraph &g, SAddr addr, Event e)
 {
-	auto &g = getGraph();
 	auto rit = std::find_if(g.co_rbegin(addr), g.co_rend(addr), [&](auto &lab){
-		return isWriteRfBefore(lab.getPos(), e);
+		return isWriteRfBefore(g, lab.getPos(), e);
 	});
 	/* Convert to forward iterator, but be _really_ careful */
 	if (rit == g.co_rend(addr))
 		return g.co_begin(addr);
-	return ++ExecutionGraph::co_iterator(*rit);
+	return ++ExecutionGraph::const_co_iterator(*rit);
 }
 
-ExecutionGraph::co_iterator
-SCDriver::splitLocMOAfterHb(SAddr addr, const Event read)
+ExecutionGraph::const_co_iterator
+SCChecker::splitLocMOAfterHb(const ExecutionGraph &g, SAddr addr, const Event read)
 {
-	auto &g = getGraph();
-
-	auto initRfs = g.getInitRfsAtLoc(addr);
+	auto initRfs = getInitRfsAtLoc(g, addr);
 	if (std::any_of(initRfs.begin(), initRfs.end(), [&read,&g](const Event &rf){
 		return g.getEventLabel(rf)->view(0).contains(read);
 	}))
 		return g.co_begin(addr);
 
 	auto it = std::find_if(g.co_begin(addr), g.co_end(addr), [&](auto &lab){
-		return isHbOptRfBefore(read, lab.getPos());
+		return isHbOptRfBefore(g, read, lab.getPos());
 	});
 	if (it == g.co_end(addr) || it->view(0).contains(read))
 		return it;
 	return ++it;
 }
 
-ExecutionGraph::co_iterator
-SCDriver::splitLocMOAfter(SAddr addr, const Event e)
+ExecutionGraph::const_co_iterator
+SCChecker::splitLocMOAfter(const ExecutionGraph &g, SAddr addr, const Event e)
 {
-	auto &g = getGraph();
 	return std::find_if(g.co_begin(addr), g.co_end(addr), [&](auto &lab){
-		return isHbOptRfBefore(e, lab.getPos());
+		return isHbOptRfBefore(g, e, lab.getPos());
 	});
 }
 
 std::vector<Event>
-SCDriver::getCoherentStores(SAddr addr, Event read)
+SCChecker::getCoherentStores(const ExecutionGraph &g, SAddr addr, Event read)
 {
-	auto &g = getGraph();
 	std::vector<Event> stores;
 
 	/* Fastpath: co_max(G) is po-before R */
@@ -387,7 +378,7 @@ SCDriver::getCoherentStores(SAddr addr, Event read)
 	 * initializer store. Otherwise, we can read from all concurrent
 	 * stores and the mo-latest of the (rf?;hb)-before stores.
 	 */
-	auto begIt = splitLocMOBefore(addr, read);
+	auto begIt = splitLocMOBefore(g, addr, read);
 	if (begIt == g.co_begin(addr))
 		stores.push_back(Event::getInit());
 	else {
@@ -400,7 +391,7 @@ SCDriver::getCoherentStores(SAddr addr, Event read)
 	 * account for the possibility the read is hb-before some other
 	 * store, or some read that reads from a store.
 	 */
-	auto endIt = (isDepTracking()) ? splitLocMOAfterHb(addr, read) : g.co_end(addr);
+	auto endIt = (isDepTracking()) ? splitLocMOAfterHb(g, addr, read) : g.co_end(addr);
 	std::transform(begIt, endIt, std::back_inserter(stores), [&](auto &lab){
 		return lab.getPos();
 	});
@@ -408,12 +399,11 @@ SCDriver::getCoherentStores(SAddr addr, Event read)
 }
 
 std::vector<Event>
-SCDriver::getMOOptRfAfter(const WriteLabel *sLab)
+SCChecker::getMOOptRfAfter(const ExecutionGraph &g, const WriteLabel *sLab)
 {
 	std::vector<Event> after;
 	std::vector<const ReadLabel *> rfAfter;
 
-	const auto &g = getGraph();
 	std::for_each(g.co_succ_begin(sLab), g.co_succ_end(sLab),
 		      [&](auto &wLab){
 			      after.push_back(wLab.getPos());
@@ -427,9 +417,8 @@ SCDriver::getMOOptRfAfter(const WriteLabel *sLab)
 }
 
 std::vector<Event>
-SCDriver::getMOInvOptRfAfter(const WriteLabel *sLab)
+SCChecker::getMOInvOptRfAfter(const ExecutionGraph &g, const WriteLabel *sLab)
 {
-	auto &g = getGraph();
 	std::vector<Event> after;
 	std::vector<const ReadLabel *> rfAfter;
 
@@ -445,7 +434,7 @@ SCDriver::getMOInvOptRfAfter(const WriteLabel *sLab)
 	});
 
 	/* Then, we add the reader list for the initializer */
-	auto initRfs = g.getInitRfsAtLoc(sLab->getAddr());
+	auto initRfs = getInitRfsAtLoc(g, sLab->getAddr());
 	after.insert(after.end(), initRfs.begin(), initRfs.end());
 	return after;
 }
@@ -474,9 +463,8 @@ getRevisitableFrom(const ExecutionGraph &g, const WriteLabel *sLab,
 }
 
 std::vector<Event>
-SCDriver::getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf)
+SCChecker::getCoherentRevisits(const ExecutionGraph &g, const WriteLabel *sLab, const VectorClock &pporf)
 {
-	auto &g = getGraph();
 	std::vector<Event> ls;
 
 	/* Fastpath: previous co-max is ppo-before SLAB */
@@ -489,11 +477,11 @@ SCDriver::getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf)
 	}
 
 	/* If this store is po- and mo-maximal then we are done */
-	if (!isDepTracking() && g.isCoMaximal(sLab->getAddr(), sLab->getPos()))
+	if (!isDepTracking() && sLab == g.co_max(sLab->getAddr()))
 		return ls;
 
 	/* First, we have to exclude (mo;rf?;hb?;sb)-after reads */
-	auto optRfs = getMOOptRfAfter(sLab);
+	auto optRfs = getMOOptRfAfter(g, sLab);
 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
 				{ const View &before = g.getEventLabel(e)->view(0);
 				  return std::any_of(optRfs.begin(), optRfs.end(),
@@ -514,7 +502,7 @@ SCDriver::getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf)
 	/* ...and also exclude (mo^-1; rf?; (hb^-1)?; sb^-1)-after reads in
 	 * the resulting graph */
 	auto &before = pporf;
-	auto moInvOptRfs = getMOInvOptRfAfter(sLab);
+	auto moInvOptRfs = getMOInvOptRfAfter(g, sLab);
 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
 				{ auto *eLab = g.getEventLabel(e);
 				  auto v = g.getViewFromStamp(eLab->getStamp());
@@ -531,9 +519,8 @@ SCDriver::getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf)
 }
 
 std::vector<Event>
-SCDriver::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
+SCChecker::getCoherentPlacings(const ExecutionGraph &g, SAddr addr, Event store, bool isRMW)
 {
-	auto &g = getGraph();
 	std::vector<Event> result;
 
 	/* If it is an RMW store, there is only one possible position in MO */
@@ -547,10 +534,10 @@ SCDriver::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
 	}
 
 	/* Otherwise, we calculate the full range and add the store */
-	auto rangeBegin = splitLocMOBefore(addr, store);
-	auto rangeEnd = (isDepTracking()) ? splitLocMOAfter(addr, store) : g.co_end(addr);
+	auto rangeBegin = splitLocMOBefore(g, addr, store);
+	auto rangeEnd = (isDepTracking()) ? splitLocMOAfter(g, addr, store) : g.co_end(addr);
 	auto cos = llvm::iterator_range(rangeBegin, rangeEnd) |
-		   std::views::filter([&](auto &sLab) { return !g.isRMWStore(sLab.getPos()); }) |
+		   std::views::filter([&](auto &sLab) { return !sLab.isRMW(); }) |
 		   std::views::transform([&](auto &sLab) {
 			   auto *pLab = g.co_imm_pred(&sLab);
 			   return pLab ? pLab->getPos() : Event::getInit();
@@ -561,9 +548,9 @@ SCDriver::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
 						      : g.co_imm_pred(&*rangeEnd)->getPos());
 	return result;
 }
-bool SCDriver::visitCoherence_0(const EventLabel *lab) const 
+bool SCChecker::visitCoherence_0(const EventLabel *lab) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	++visitedCoherenceAccepting;
 
@@ -572,9 +559,9 @@ bool SCDriver::visitCoherence_0(const EventLabel *lab) const
 	return true;
 }
 
-bool SCDriver::visitCoherence_1(const EventLabel *lab) const 
+bool SCChecker::visitCoherence_1(const EventLabel *lab) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	visitedCoherence_1[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::entered };
 
@@ -584,11 +571,6 @@ bool SCDriver::visitCoherence_1(const EventLabel *lab) const
 		}
 	}
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCoherence_0(pLab)){
-				return false;
-		}
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
 		auto &node = visitedCoherence_1[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen) {
 			if (!visitCoherence_1(pLab)){
@@ -599,32 +581,22 @@ bool SCDriver::visitCoherence_1(const EventLabel *lab) const
 			return false;
 		} else if (node.status == NodeStatus::left) {
 
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCoherence_0(pLab)){
+				return false;
 		}
 	}
 	visitedCoherence_1[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::left };
 	return true;
 }
 
-bool SCDriver::visitCoherence_2(const EventLabel *lab) const 
+bool SCChecker::visitCoherence_2(const EventLabel *lab) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
-	if (auto pLab = tc_pred(g, lab); pLab) {
-			if (!visitCoherence_0(pLab)){
-				return false;
-		}
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-			if (!visitCoherence_0(pLab)){
-				return false;
-		}
-	}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-			if (!visitCoherence_0(pLab)){
-				return false;
-		}
-	}
 	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto &node = visitedCoherence_1[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen) {
@@ -662,15 +634,28 @@ bool SCDriver::visitCoherence_2(const EventLabel *lab) const
 			return false;
 		} else if (node.status == NodeStatus::left) {
 
+		}
+	}
+	if (auto pLab = tc_pred(g, lab); pLab) {
+			if (!visitCoherence_0(pLab)){
+				return false;
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+			if (!visitCoherence_0(pLab)){
+				return false;
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+			if (!visitCoherence_0(pLab)){
+				return false;
 		}
 	}
 	return true;
 }
 
-bool SCDriver::visitCoherenceFull() const
+bool SCChecker::visitCoherenceFull(const ExecutionGraph &g) const
 {
-	auto &g = getGraph();
-
 	visitedCoherenceAccepting = 0;
 	visitedCoherence_1.clear();
 	visitedCoherence_1.resize(g.getMaxStamp().get() + 1);
@@ -678,9 +663,9 @@ bool SCDriver::visitCoherenceFull() const
 		&& std::ranges::all_of(g.labels(), [&](auto &lab){ return visitedCoherence_1[lab.getStamp().get()].status != NodeStatus::unseen || visitCoherence_1(&lab); });
 }
 
-bool SCDriver::visitConsAcyclic1_0(const EventLabel *lab) const 
+bool SCChecker::visitConsAcyclic1_0(const EventLabel *lab) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	++visitedConsAcyclic1Accepting;
 	visitedConsAcyclic1_0[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
@@ -769,9 +754,9 @@ bool SCDriver::visitConsAcyclic1_0(const EventLabel *lab) const
 	return true;
 }
 
-bool SCDriver::visitConsAcyclic1(const EventLabel *lab) const
+bool SCChecker::visitConsAcyclic1(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	visitedConsAcyclic1Accepting = 0;
 	visitedConsAcyclic1_0.clear();
@@ -780,10 +765,8 @@ bool SCDriver::visitConsAcyclic1(const EventLabel *lab) const
 		&& (visitedConsAcyclic1_0[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_0(lab));
 }
 
-bool SCDriver::visitConsAcyclic1Full() const
+bool SCChecker::visitConsAcyclic1Full(const ExecutionGraph &g) const
 {
-	auto &g = getGraph();
-
 	visitedConsAcyclic1Accepting = 0;
 	visitedConsAcyclic1_0.clear();
 	visitedConsAcyclic1_0.resize(g.getMaxStamp().get() + 1);
@@ -791,21 +774,21 @@ bool SCDriver::visitConsAcyclic1Full() const
 		&& std::ranges::all_of(g.labels(), [&](auto &lab){ return visitedConsAcyclic1_0[lab.getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_0(&lab); });
 }
 
-bool SCDriver::checkConsAcyclic1(const EventLabel *lab) const
+bool SCChecker::checkConsAcyclic1(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	return visitConsAcyclic1(lab);
 }
-bool SCDriver::visitError2(const EventLabel *lab) const
+bool SCChecker::visitError2(const EventLabel *lab) const
 {
 	return false;
 }
 
-bool SCDriver::visitLHSUnlessError2_0(const EventLabel *lab, const View &v) const 
+bool SCChecker::visitLHSUnlessError2_0(const EventLabel *lab, const View &v) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (!v.contains(lab->getPos())) {
@@ -817,9 +800,9 @@ cexLab = lab;
 	return true;
 }
 
-bool SCDriver::visitLHSUnlessError2_1(const EventLabel *lab, const View &v) const 
+bool SCChecker::visitLHSUnlessError2_1(const EventLabel *lab, const View &v) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (auto pLab = alloc_pred(g, lab); pLab) {
@@ -832,9 +815,9 @@ bool SCDriver::visitLHSUnlessError2_1(const EventLabel *lab, const View &v) cons
 	return true;
 }
 
-bool SCDriver::visitUnlessError2(const EventLabel *lab) const
+bool SCChecker::visitUnlessError2(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError2Accepting.clear();
  	visitedLHSUnlessError2Accepting.resize(g.getMaxStamp().get() + 1, false);
@@ -844,9 +827,9 @@ bool SCDriver::visitUnlessError2(const EventLabel *lab) const
 		&& visitLHSUnlessError2_1(lab, v);
 }
 
-bool SCDriver::checkError2(const EventLabel *lab) const
+bool SCChecker::checkError2(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (visitUnlessError2(lab))
@@ -854,14 +837,14 @@ bool SCDriver::checkError2(const EventLabel *lab) const
 
 	return visitError2(lab);
 }
-bool SCDriver::visitError3(const EventLabel *lab) const
+bool SCChecker::visitError3(const EventLabel *lab) const
 {
 	return false;
 }
 
-bool SCDriver::visitLHSUnlessError3_0(const EventLabel *lab) const 
+bool SCChecker::visitLHSUnlessError3_0(const EventLabel *lab) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	return false;
@@ -870,9 +853,9 @@ bool SCDriver::visitLHSUnlessError3_0(const EventLabel *lab) const
 	return true;
 }
 
-bool SCDriver::visitLHSUnlessError3_1(const EventLabel *lab) const 
+bool SCChecker::visitLHSUnlessError3_1(const EventLabel *lab) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<FreeLabel>(pLab) && !llvm::isa<HpRetireLabel>(pLab)) {
@@ -903,9 +886,9 @@ bool SCDriver::visitLHSUnlessError3_1(const EventLabel *lab) const
 	return true;
 }
 
-bool SCDriver::visitUnlessError3(const EventLabel *lab) const
+bool SCChecker::visitUnlessError3(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError3Accepting.clear();
  	visitedLHSUnlessError3Accepting.resize(g.getMaxStamp().get() + 1, false);
@@ -923,9 +906,9 @@ bool SCDriver::visitUnlessError3(const EventLabel *lab) const
 	return true;
 }
 
-bool SCDriver::checkError3(const EventLabel *lab) const
+bool SCChecker::checkError3(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (visitUnlessError3(lab))
@@ -933,14 +916,14 @@ bool SCDriver::checkError3(const EventLabel *lab) const
 
 	return visitError3(lab);
 }
-bool SCDriver::visitError4(const EventLabel *lab) const
+bool SCChecker::visitError4(const EventLabel *lab) const
 {
 	return false;
 }
 
-bool SCDriver::visitLHSUnlessError4_0(const EventLabel *lab, const View &v) const 
+bool SCChecker::visitLHSUnlessError4_0(const EventLabel *lab, const View &v) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (!v.contains(lab->getPos())) {
@@ -952,9 +935,9 @@ cexLab = lab;
 	return true;
 }
 
-bool SCDriver::visitLHSUnlessError4_1(const EventLabel *lab, const View &v) const 
+bool SCChecker::visitLHSUnlessError4_1(const EventLabel *lab, const View &v) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	for (auto &tmp : alloc_succs(g, lab)) if (auto *pLab = &tmp; true) {
@@ -967,19 +950,19 @@ bool SCDriver::visitLHSUnlessError4_1(const EventLabel *lab, const View &v) cons
 	return true;
 }
 
-bool SCDriver::visitLHSUnlessError4_2(const EventLabel *lab, const View &v) const 
+bool SCChecker::visitLHSUnlessError4_2(const EventLabel *lab, const View &v) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
-			if (!visitLHSUnlessError4_1(pLab, v)){
+			if (!visitLHSUnlessError4_0(pLab, v)){
 			return false;
 		}
 		
 	}
 	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
-			if (!visitLHSUnlessError4_0(pLab, v)){
+			if (!visitLHSUnlessError4_1(pLab, v)){
 			return false;
 		}
 		
@@ -988,9 +971,9 @@ bool SCDriver::visitLHSUnlessError4_2(const EventLabel *lab, const View &v) cons
 	return true;
 }
 
-bool SCDriver::visitUnlessError4(const EventLabel *lab) const
+bool SCChecker::visitUnlessError4(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError4Accepting.clear();
  	visitedLHSUnlessError4Accepting.resize(g.getMaxStamp().get() + 1, false);
@@ -1000,9 +983,9 @@ bool SCDriver::visitUnlessError4(const EventLabel *lab) const
 		&& visitLHSUnlessError4_2(lab, v);
 }
 
-bool SCDriver::checkError4(const EventLabel *lab) const
+bool SCChecker::checkError4(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (visitUnlessError4(lab))
@@ -1010,14 +993,14 @@ bool SCDriver::checkError4(const EventLabel *lab) const
 
 	return visitError4(lab);
 }
-bool SCDriver::visitError5(const EventLabel *lab) const
+bool SCChecker::visitError5(const EventLabel *lab) const
 {
 	return false;
 }
 
-bool SCDriver::visitLHSUnlessError5_0(const EventLabel *lab) const 
+bool SCChecker::visitLHSUnlessError5_0(const EventLabel *lab) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	return false;
@@ -1026,9 +1009,9 @@ bool SCDriver::visitLHSUnlessError5_0(const EventLabel *lab) const
 	return true;
 }
 
-bool SCDriver::visitLHSUnlessError5_1(const EventLabel *lab) const 
+bool SCChecker::visitLHSUnlessError5_1(const EventLabel *lab) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (auto pLab = free_succ(g, lab); pLab)if (true && llvm::isa<FreeLabel>(pLab) && !llvm::isa<HpRetireLabel>(pLab)) {
@@ -1041,9 +1024,9 @@ bool SCDriver::visitLHSUnlessError5_1(const EventLabel *lab) const
 	return true;
 }
 
-bool SCDriver::visitLHSUnlessError5_2(const EventLabel *lab) const 
+bool SCChecker::visitLHSUnlessError5_2(const EventLabel *lab) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (auto pLab = alloc_pred(g, lab); pLab) {
@@ -1056,9 +1039,9 @@ bool SCDriver::visitLHSUnlessError5_2(const EventLabel *lab) const
 	return true;
 }
 
-bool SCDriver::visitUnlessError5(const EventLabel *lab) const
+bool SCChecker::visitUnlessError5(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError5Accepting.clear();
  	visitedLHSUnlessError5Accepting.resize(g.getMaxStamp().get() + 1, false);
@@ -1076,9 +1059,9 @@ bool SCDriver::visitUnlessError5(const EventLabel *lab) const
 	return true;
 }
 
-bool SCDriver::checkError5(const EventLabel *lab) const
+bool SCChecker::checkError5(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (visitUnlessError5(lab))
@@ -1086,14 +1069,14 @@ bool SCDriver::checkError5(const EventLabel *lab) const
 
 	return visitError5(lab);
 }
-bool SCDriver::visitError6(const EventLabel *lab) const
+bool SCChecker::visitError6(const EventLabel *lab) const
 {
 	return false;
 }
 
-bool SCDriver::visitLHSUnlessError6_0(const EventLabel *lab, const View &v) const 
+bool SCChecker::visitLHSUnlessError6_0(const EventLabel *lab, const View &v) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (!v.contains(lab->getPos())) {
@@ -1105,9 +1088,9 @@ cexLab = lab;
 	return true;
 }
 
-bool SCDriver::visitLHSUnlessError6_1(const EventLabel *lab, const View &v) const 
+bool SCChecker::visitLHSUnlessError6_1(const EventLabel *lab, const View &v) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	for (auto &tmp : alloc_succs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<MemAccessLabel>(pLab) && llvm::dyn_cast<MemAccessLabel>(pLab)->getAddr().isDynamic() && !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(pLab))) {
@@ -1120,9 +1103,9 @@ bool SCDriver::visitLHSUnlessError6_1(const EventLabel *lab, const View &v) cons
 	return true;
 }
 
-bool SCDriver::visitLHSUnlessError6_2(const EventLabel *lab, const View &v) const 
+bool SCChecker::visitLHSUnlessError6_2(const EventLabel *lab, const View &v) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (true && llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
@@ -1141,9 +1124,9 @@ bool SCDriver::visitLHSUnlessError6_2(const EventLabel *lab, const View &v) cons
 	return true;
 }
 
-bool SCDriver::visitUnlessError6(const EventLabel *lab) const
+bool SCChecker::visitUnlessError6(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError6Accepting.clear();
  	visitedLHSUnlessError6Accepting.resize(g.getMaxStamp().get() + 1, false);
@@ -1153,9 +1136,9 @@ bool SCDriver::visitUnlessError6(const EventLabel *lab) const
 		&& visitLHSUnlessError6_2(lab, v);
 }
 
-bool SCDriver::checkError6(const EventLabel *lab) const
+bool SCChecker::checkError6(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (visitUnlessError6(lab))
@@ -1163,14 +1146,14 @@ bool SCDriver::checkError6(const EventLabel *lab) const
 
 	return visitError6(lab);
 }
-bool SCDriver::visitError7(const EventLabel *lab) const
+bool SCChecker::visitError7(const EventLabel *lab) const
 {
 	return false;
 }
 
-bool SCDriver::visitLHSUnlessError7_0(const EventLabel *lab) const 
+bool SCChecker::visitLHSUnlessError7_0(const EventLabel *lab) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	return false;
@@ -1179,9 +1162,9 @@ bool SCDriver::visitLHSUnlessError7_0(const EventLabel *lab) const
 	return true;
 }
 
-bool SCDriver::visitLHSUnlessError7_1(const EventLabel *lab) const 
+bool SCChecker::visitLHSUnlessError7_1(const EventLabel *lab) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (auto pLab = free_succ(g, lab); pLab)if (true && llvm::isa<HpRetireLabel>(pLab)) {
@@ -1194,9 +1177,9 @@ bool SCDriver::visitLHSUnlessError7_1(const EventLabel *lab) const
 	return true;
 }
 
-bool SCDriver::visitLHSUnlessError7_2(const EventLabel *lab) const 
+bool SCChecker::visitLHSUnlessError7_2(const EventLabel *lab) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDynamic() && !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(lab)))if (auto pLab = alloc_pred(g, lab); pLab) {
@@ -1209,9 +1192,9 @@ bool SCDriver::visitLHSUnlessError7_2(const EventLabel *lab) const
 	return true;
 }
 
-bool SCDriver::visitUnlessError7(const EventLabel *lab) const
+bool SCChecker::visitUnlessError7(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError7Accepting.clear();
  	visitedLHSUnlessError7Accepting.resize(g.getMaxStamp().get() + 1, false);
@@ -1229,9 +1212,9 @@ bool SCDriver::visitUnlessError7(const EventLabel *lab) const
 	return true;
 }
 
-bool SCDriver::checkError7(const EventLabel *lab) const
+bool SCChecker::checkError7(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (visitUnlessError7(lab))
@@ -1239,14 +1222,14 @@ bool SCDriver::checkError7(const EventLabel *lab) const
 
 	return visitError7(lab);
 }
-bool SCDriver::visitError8(const EventLabel *lab) const
+bool SCChecker::visitError8(const EventLabel *lab) const
 {
 	return false;
 }
 
-bool SCDriver::visitLHSUnlessError8_0(const EventLabel *lab, const View &v) const 
+bool SCChecker::visitLHSUnlessError8_0(const EventLabel *lab, const View &v) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (!v.contains(lab->getPos())) {
@@ -1258,9 +1241,9 @@ cexLab = lab;
 	return true;
 }
 
-bool SCDriver::visitLHSUnlessError8_1(const EventLabel *lab, const View &v) const 
+bool SCChecker::visitLHSUnlessError8_1(const EventLabel *lab, const View &v) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (true && lab->isNotAtomic() && llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<WriteLabel>(pLab)) {
@@ -1303,9 +1286,9 @@ bool SCDriver::visitLHSUnlessError8_1(const EventLabel *lab, const View &v) cons
 	return true;
 }
 
-bool SCDriver::visitUnlessError8(const EventLabel *lab) const
+bool SCChecker::visitUnlessError8(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError8Accepting.clear();
  	visitedLHSUnlessError8Accepting.resize(g.getMaxStamp().get() + 1, false);
@@ -1315,9 +1298,9 @@ bool SCDriver::visitUnlessError8(const EventLabel *lab) const
 		&& visitLHSUnlessError8_1(lab, v);
 }
 
-bool SCDriver::checkError8(const EventLabel *lab) const
+bool SCChecker::checkError8(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (visitUnlessError8(lab))
@@ -1325,14 +1308,14 @@ bool SCDriver::checkError8(const EventLabel *lab) const
 
 	return visitError8(lab);
 }
-bool SCDriver::visitWarning9(const EventLabel *lab) const
+bool SCChecker::visitWarning9(const EventLabel *lab) const
 {
 	return false;
 }
 
-bool SCDriver::visitLHSUnlessWarning9_0(const EventLabel *lab, const View &v) const 
+bool SCChecker::visitLHSUnlessWarning9_0(const EventLabel *lab, const View &v) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (!v.contains(lab->getPos())) {
@@ -1344,9 +1327,9 @@ cexLab = lab;
 	return true;
 }
 
-bool SCDriver::visitLHSUnlessWarning9_1(const EventLabel *lab, const View &v) const 
+bool SCChecker::visitLHSUnlessWarning9_1(const EventLabel *lab, const View &v) const 
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (true && llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<WriteLabel>(pLab)) {
@@ -1359,9 +1342,9 @@ bool SCDriver::visitLHSUnlessWarning9_1(const EventLabel *lab, const View &v) co
 	return true;
 }
 
-bool SCDriver::visitUnlessWarning9(const EventLabel *lab) const
+bool SCChecker::visitUnlessWarning9(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 	visitedLHSUnlessWarning9Accepting.clear();
  	visitedLHSUnlessWarning9Accepting.resize(g.getMaxStamp().get() + 1, false);
@@ -1371,9 +1354,9 @@ bool SCDriver::visitUnlessWarning9(const EventLabel *lab) const
 		&& visitLHSUnlessWarning9_1(lab, v);
 }
 
-bool SCDriver::checkWarning9(const EventLabel *lab) const
+bool SCChecker::checkWarning9(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 
 
 	if (visitUnlessWarning9(lab))
@@ -1381,7 +1364,7 @@ bool SCDriver::checkWarning9(const EventLabel *lab) const
 
 	return visitWarning9(lab);
 }
-VerificationError SCDriver::checkErrors(const EventLabel *lab, const EventLabel *&race) const
+VerificationError SCChecker::checkErrors(const EventLabel *lab, const EventLabel *&race) const
 {
 	if (!checkError2(lab)) {
 		race = cexLab;
@@ -1421,7 +1404,7 @@ VerificationError SCDriver::checkErrors(const EventLabel *lab, const EventLabel 
 	return VerificationError::VE_OK;
 }
 
-std::vector<VerificationError> SCDriver::checkWarnings(const EventLabel *lab, const VSet<VerificationError> &seenWarnings, std::vector<const EventLabel *> &racyLabs) const
+std::vector<VerificationError> SCChecker::checkWarnings(const EventLabel *lab, const VSet<VerificationError> &seenWarnings, std::vector<const EventLabel *> &racyLabs) const
 {
 	std::vector<VerificationError> result;
 
@@ -1433,16 +1416,16 @@ std::vector<VerificationError> SCDriver::checkWarnings(const EventLabel *lab, co
 	return result;
 }
 
-bool SCDriver::isConsistent(const EventLabel *lab) const
+bool SCChecker::isConsistent(const EventLabel *lab) const
 {
 
 	return true
 		&& checkConsAcyclic1(lab);
 }
 
-View SCDriver::calcPPoRfBefore(const EventLabel *lab) const
+View SCChecker::calcPPoRfBefore(const EventLabel *lab) const
 {
-	auto &g = getGraph();
+	auto &g = *lab->getParent();
 	View pporf;
 	pporf.updateIdx(lab->getPos());
 
@@ -1458,7 +1441,7 @@ View SCDriver::calcPPoRfBefore(const EventLabel *lab) const
 		pporf.update(g.getLastThreadLabel(tjLab->getChildId())->getPrefixView());
 	return pporf;
 }
-std::unique_ptr<VectorClock> SCDriver::calculatePrefixView(const EventLabel *lab) const
+std::unique_ptr<VectorClock> SCChecker::calculatePrefixView(const EventLabel *lab) const
 {
 	return std::make_unique<View>(calcPPoRfBefore(lab));
 }

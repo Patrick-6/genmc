@@ -34,6 +34,7 @@ libgenmc_a_SOURCES = \
   src/ExecutionGraph/Event.cpp \
   src/ExecutionGraph/EventLabel.cpp \
   src/ExecutionGraph/ExecutionGraph.cpp \
+  src/ExecutionGraph/GraphUtils.cpp \
   src/ExecutionGraph/Stamp.cpp \
   src/Runtime/Execution.cpp \
   src/Runtime/ExternalFunctions.cpp \
@@ -78,13 +79,14 @@ libgenmc_a_SOURCES = \
   src/Verification/VerificationError.cpp \
   src/Verification/Revisit.cpp \
   src/Verification/Consistency/BoundDecider.cpp \
+  src/Verification/Consistency/ConsistencyChecker.cpp \
   src/Verification/Consistency/ContextBoundDecider.cpp \
-  src/Verification/Consistency/IMMDriver.cpp \
-  src/Verification/Consistency/RADriver.cpp \
-  src/Verification/Consistency/RC11Driver.cpp \
+  src/Verification/Consistency/IMMChecker.cpp \
+  src/Verification/Consistency/RAChecker.cpp \
+  src/Verification/Consistency/RC11Checker.cpp \
   src/Verification/Consistency/RoundBoundDecider.cpp \
-  src/Verification/Consistency/SCDriver.cpp \
-  src/Verification/Consistency/TSODriver.cpp \
+  src/Verification/Consistency/SCChecker.cpp \
+  src/Verification/Consistency/TSOChecker.cpp \
   src/main.cpp
 
 TESTS=scripts/fast-driver.sh scripts/randomize-driver.sh

@@ -92,7 +92,7 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 			}
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->getRf() && !preds->contains(rLab->getRf()->getPos()))
-					rLab->setRf(nullptr);
+					rLab->setRfNoCascade(nullptr);
 			}
 			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
 				if (mLab->getAlloc() && !preds->contains(mLab->getAlloc()))
@@ -138,7 +138,7 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 
 std::unique_ptr<ExecutionGraph> DepExecutionGraph::getCopyUpTo(const VectorClock &v) const
 {
-	auto og = std::unique_ptr<DepExecutionGraph>(new DepExecutionGraph());
+	auto og = std::unique_ptr<DepExecutionGraph>(new DepExecutionGraph(this->initValGetter_));
 	copyGraphUpTo(*og, v);
 	return og;
 }
