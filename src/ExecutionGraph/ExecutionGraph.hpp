@@ -119,6 +119,15 @@ public:
 	auto thr_ids() const { return std::views::iota(0, (int)getNumThreads()); }
 	auto thr_ids() { return std::views::iota(0, (int)getNumThreads()); }
 
+	auto po(int tid) const
+	{
+		return std::views::all(events[tid]) | std::ranges::views::transform(indirect);
+	}
+	auto po(int tid)
+	{
+		return std::views::all(events[tid]) | std::ranges::views::transform(indirect);
+	}
+
 	auto po_succs(const EventLabel *lab) const
 	{
 		const auto &thr = events[lab->getThread()];
