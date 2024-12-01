@@ -1824,7 +1824,7 @@ View RAChecker::calcPPoRfBefore(const EventLabel *lab) const
 	View pporf;
 	pporf.updateIdx(lab->getPos());
 
-	auto *pLab = g.getPreviousLabel(lab);
+	auto *pLab = g.po_imm_pred(lab);
 	if (!pLab)
 		return pporf;
 	pporf.update(pLab->getPrefixView());

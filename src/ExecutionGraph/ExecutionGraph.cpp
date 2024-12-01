@@ -43,7 +43,7 @@ Event ExecutionGraph::getPendingRMW(const WriteLabel *sLab) const
 		return Event::getInit();
 
 	/* Otherwise, scan for other RMWs that successfully read the same val */
-	auto *pLab = llvm::dyn_cast<ReadLabel>(getPreviousLabel(sLab));
+	auto *pLab = llvm::dyn_cast<ReadLabel>(po_imm_pred(sLab));
 	BUG_ON(!pLab->getRf());
 	std::vector<Event> pending;
 

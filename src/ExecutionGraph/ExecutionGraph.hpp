@@ -156,29 +156,33 @@ public:
 
 	/* Returns the label in the previous position of E.
 	 * Returns nullptr if E is the first event of a thread */
-	const EventLabel *getPreviousLabel(const EventLabel *lab) const
+	auto po_imm_pred(const EventLabel *lab) const -> const EventLabel *
 	{
 		return lab->getIndex() == 0 ? nullptr
 					    : events[lab->getThread()][lab->getIndex() - 1].get();
 	}
-	EventLabel *getPreviousLabel(EventLabel *lab)
+	auto po_imm_pred(EventLabel *lab) -> EventLabel *
 	{
+		// NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
 		return const_cast<EventLabel *>(
-			static_cast<const ExecutionGraph &>(*this).getPreviousLabel(lab));
+			static_cast<const ExecutionGraph &>(*this).po_imm_pred(lab));
+		// NOLINTEND(cppcoreguidelines-pro-type-const-cast)
 	}
 
 	/* Returns the label in the next position of E.
 	 * Returns nullptr if E is the last event of a thread */
-	const EventLabel *getNextLabel(const EventLabel *lab) const
+	auto po_imm_succ(const EventLabel *lab) const -> const EventLabel *
 	{
 		return lab->getIndex() == getThreadSize(lab->getThread()) - 1
 			       ? nullptr
 			       : events[lab->getThread()][lab->getIndex() + 1].get();
 	}
-	EventLabel *getNextLabel(EventLabel *lab)
+	auto po_imm_succ(EventLabel *lab) -> EventLabel *
 	{
+		// NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
 		return const_cast<EventLabel *>(
-			static_cast<const ExecutionGraph &>(*this).getNextLabel(lab));
+			static_cast<const ExecutionGraph &>(*this).po_imm_succ(lab));
+		// NOLINTEND(cppcoreguidelines-pro-type-const-cast)
 	}
 
 	loc_iterator loc_begin() { return coherence.begin(); }

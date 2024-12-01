@@ -69,7 +69,7 @@ bool ReadLabel::isRMW() const
 		return false;
 
 	auto &g = *getParent();
-	auto *nLab = llvm::dyn_cast_or_null<WriteLabel>(g.getNextLabel(this));
+	auto *nLab = llvm::dyn_cast_or_null<WriteLabel>(g.po_imm_succ(this));
 	return nLab && nLab->isRMW() && nLab->getAddr() == getAddr();
 }
 
@@ -77,7 +77,7 @@ bool WriteLabel::isEffectful() const
 {
 	auto &g = *getParent();
 	auto *xLab = llvm::dyn_cast<FaiWriteLabel>(this);
-	auto *rLab = llvm::dyn_cast<FaiReadLabel>(g.getPreviousLabel(this));
+	auto *rLab = llvm::dyn_cast<FaiReadLabel>(g.po_imm_pred(this));
 	if (!xLab || rLab->getOp() != llvm::AtomicRMWInst::BinOp::Xchg)
 		return true;
 

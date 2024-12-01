@@ -941,7 +941,7 @@ bool GenMCDriver::isRevisitValid(const Revisit &revisit)
 		return false;
 
 	/* If an extra event is added, re-check consistency */
-	auto *nLab = g.getNextLabel(mLab);
+	auto *nLab = g.po_imm_succ(mLab);
 	return !rLab || !rLab->isRMW() ||
 	       (isExecutionValid(nLab) && checkForRaces(nLab) == VerificationError::VE_OK);
 }
@@ -1261,7 +1261,7 @@ bool threadReadsMaximal(const ExecutionGraph &g, int tid)
 	 * will have a SpinStart as their last event.
 	 */
 	BUG_ON(!llvm::isa<BlockLabel>(g.getLastThreadLabel(tid)));
-	auto *lastLab = g.getPreviousLabel(g.getLastThreadLabel(tid));
+	auto *lastLab = g.po_imm_pred(g.getLastThreadLabel(tid));
 	auto start = llvm::isa<SpinStartLabel>(lastLab) ? lastLab->getPos().prev()
 							: lastLab->getPos();
 	for (auto j = start.index; j > 0; j--) {
@@ -1910,7 +1910,7 @@ std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
 	auto isSettledRMWInView = [](auto &rLab, auto &before) {
 		auto &g = *rLab.getParent();
 		return rLab.isRMW() &&
-		       ((!rLab.isRevisitable() && !llvm::dyn_cast<WriteLabel>(g.getNextLabel(&rLab))
+		       ((!rLab.isRevisitable() && !llvm::dyn_cast<WriteLabel>(g.po_imm_succ(&rLab))
 							   ->hasAttr(WriteAttr::RevBlocker)) ||
 			before.contains(rLab.getPos()));
 	};
@@ -2089,7 +2089,7 @@ void GenMCDriver::annotateStoreHELPER(WriteLabel *wLab)
 		return;
 
 	/* Check whether we can mark it as RevBlocker */
-	auto *pLab = g.getPreviousLabel(wLab);
+	auto *pLab = g.po_imm_pred(wLab);
 	auto *mLab = llvm::dyn_cast_or_null<MemAccessLabel>(
 		getPreviousVisibleAccessLabel(pLab->getPos()));
 	auto *rLab = llvm::dyn_cast_or_null<ReadLabel>(mLab);
@@ -2451,13 +2451,13 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab, std::vecto
 			      if (!llvm::isa<BarrierBlockLabel>(&lab))
 				      return false;
 			      auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(
-				      g.getPreviousLabel(g.getPreviousLabel(&lab)));
+				      g.po_imm_pred(g.po_imm_pred(&lab)));
 			      return pLab->getAddr() == sLab->getAddr();
 		      }) |
 		      std::views::transform([](auto &lab) { return lab.getPos(); });
 	std::vector<Event> bs(std::ranges::begin(bsView), std::ranges::end(bsView));
 	auto unblockedLoads = std::count_if(loads.begin(), loads.end(), [&](auto &l) {
-		auto *nLab = llvm::dyn_cast_or_null<BlockLabel>(g.getNextLabel(g.getEventLabel(l)));
+		auto *nLab = llvm::dyn_cast_or_null<BlockLabel>(g.po_imm_succ(g.getEventLabel(l)));
 		return !nLab;
 	});
 	if (bs.size() > iVal.get() || unblockedLoads > 0)
@@ -2465,7 +2465,7 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab, std::vecto
 
 	for (auto &b : bs) {
 		auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(
-			g.getPreviousLabel(g.getPreviousLabel(g.getEventLabel(b))));
+			g.po_imm_pred(g.po_imm_pred(g.getEventLabel(b))));
 		BUG_ON(!pLab);
 		unblockThread(b);
 		g.removeLast(b.thread);
@@ -2659,7 +2659,7 @@ void GenMCDriver::revisitInPlace(const BackwardRevisit &br)
 	auto *sLab = g.getWriteLabel(br.getRev());
 
 	BUG_ON(!llvm::isa<ReadLabel>(rLab));
-	if (g.getNextLabel(rLab))
+	if (g.po_imm_succ(rLab))
 		g.removeLast(rLab->getThread());
 	rLab->setRf(sLab);
 	rLab->setAddedMax(true); // always true for atomicity violations
@@ -2726,7 +2726,7 @@ std::unique_ptr<BackwardRevisit> GenMCDriver::constructBackwardRevisit(const Rea
 
 	/* Check whether there is a conflicting RevBlocker */
 	auto pending = g.getPendingRMW(sLab);
-	auto *pLab = llvm::dyn_cast_or_null<WriteLabel>(g.getNextLabel(g.getEventLabel(pending)));
+	auto *pLab = llvm::dyn_cast_or_null<WriteLabel>(g.po_imm_succ(g.getEventLabel(pending)));
 	pending = (!pending.isInitializer() && pLab->hasAttr(WriteAttr::RevBlocker))
 			  ? pending.next()
 			  : Event::getInit();
@@ -3566,7 +3566,7 @@ void GenMCDriver::recPrintTraceBefore(const Event &e, View &a,
 			continue;
 		/* Similarly for a Wna just after the creation of a thread
 		 * (it is the store of the PID) */
-		if (i > 0 && llvm::isa<ThreadCreateLabel>(g.getPreviousLabel(lab)))
+		if (i > 0 && llvm::isa<ThreadCreateLabel>(g.po_imm_pred(lab)))
 			continue;
 		Parser::parseInstFromMData(thr.prefixLOC[i], thr.threadFun->getName().str(), ss);
 	}
