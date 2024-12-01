@@ -315,15 +315,15 @@ public:
 	/* Thread-related methods */
 
 	/* Creates a new thread in the execution graph */
-	inline void addNewThread() { events.push_back({}); };
+	void addNewThread() { events.push_back({}); };
 
 	/* Pers: Add/remove a thread for the recovery procedure */
-	inline void addRecoveryThread()
+	void addRecoveryThread()
 	{
 		recoveryTID = events.size();
 		events.push_back({});
 	};
-	inline void delRecoveryThread()
+	void delRecoveryThread()
 	{
 		events.pop_back();
 		recoveryTID = -1;
@@ -331,16 +331,16 @@ public:
 
 	/* Returns the tid of the recovery routine.
 	 * If not in recovery mode, returns -1 */
-	inline int getRecoveryRoutineId() const { return recoveryTID; };
+	int getRecoveryRoutineId() const { return recoveryTID; };
 
 	/* Returns the number of threads currently in the graph */
-	inline unsigned int getNumThreads() const { return events.size(); };
+	unsigned int getNumThreads() const { return events.size(); };
 
 	/* Returns the size of the thread tid */
-	inline unsigned int getThreadSize(int tid) const { return events[tid].size(); };
+	unsigned int getThreadSize(int tid) const { return events[tid].size(); };
 
 	/* Returns true if the thread tid is empty */
-	inline bool isThreadEmpty(int tid) const { return getThreadSize(tid) == 0; };
+	bool isThreadEmpty(int tid) const { return getThreadSize(tid) == 0; };
 
 	/* Event addition/removal methods */
 
