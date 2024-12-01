@@ -24,7 +24,6 @@
 #include "ExecutionGraph/GraphIterators.hpp"
 #include "ExecutionGraph/GraphUtils.hpp"
 #include "ExecutionGraph/LabelVisitor.hpp"
-#include "ExecutionGraph/MaximalIterator.hpp"
 #include "Runtime/Interpreter.h"
 #include "Static/LLVMModule.hpp"
 #include "Support/Error.hpp"
