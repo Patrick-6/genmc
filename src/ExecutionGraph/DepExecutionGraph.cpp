@@ -21,31 +21,31 @@
 #include "DepExecutionGraph.hpp"
 #include "config.h"
 
-std::vector<Event> DepExecutionGraph::getRevisitable(const WriteLabel *sLab,
-						     const VectorClock &pporf) const
+auto DepExecutionGraph::getRevisitable(WriteLabel *sLab, const VectorClock &pporf)
+	-> std::vector<ReadLabel *>
 {
+	auto &g = *sLab->getParent();
 	auto pendingRMW = getPendingRMW(sLab);
-	std::vector<Event> loads;
+	std::vector<ReadLabel *> loads;
 
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		if (sLab->getThread() == i)
 			continue;
 		for (auto j = 1u; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
+			auto *lab = getEventLabel(Event(i, j));
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->getAddr() == sLab->getAddr() &&
 				    !pporf.contains(rLab->getPos()) && rLab->isRevisitable() &&
 				    rLab->wasAddedMax())
-					loads.push_back(rLab->getPos());
+					loads.push_back(rLab);
 			}
 		}
 	}
 	if (!pendingRMW.isInitializer())
 		loads.erase(std::remove_if(loads.begin(), loads.end(),
-					   [&](Event &e) {
+					   [&](auto &eLab) {
 						   auto *confLab = getEventLabel(pendingRMW);
-						   return getEventLabel(e)->getStamp() >
-							  confLab->getStamp();
+						   return eLab->getStamp() > confLab->getStamp();
 					   }),
 			    loads.end());
 	return loads;

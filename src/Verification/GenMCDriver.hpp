@@ -520,16 +520,16 @@ private:
 	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
 
 	/* Est: Picks (and sets) a random RF among some possible options */
-	Event pickRandomRf(ReadLabel *rLab, std::vector<Event> &stores);
+	EventLabel *pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *> &stores);
 
 	/* Est: Picks (and sets) a random CO among some possible options */
-	void pickRandomCo(WriteLabel *sLab, std::vector<Event> &cos);
+	void pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos);
 
 	/* BAM: Tries to optimize barrier-related revisits */
-	bool tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab, std::vector<Event> &loads);
+	bool tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab, std::vector<ReadLabel *> &loads);
 
 	/* IPR: Tries to revisit blocked reads in-place */
-	void tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &loads);
+	void tryOptimizeIPRs(const WriteLabel *sLab, std::vector<ReadLabel *> &loads);
 
 	/* IPR: Removes a CAS that blocks when reading from SLAB.
 	 * Returns whether if the label was removed
@@ -537,14 +537,14 @@ private:
 	bool removeCASReadIfBlocks(const ReadLabel *rLab, const EventLabel *sLab);
 
 	/* Helper: Optimizes revisits of reads that will lead to a failed speculation */
-	void optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads);
+	void optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<ReadLabel *> &loads);
 
 	/* Helper: Optimize the revisit in case SLAB is a RevBlocker */
-	bool tryOptimizeRevBlockerAddition(const WriteLabel *sLab, std::vector<Event> &loads);
+	bool tryOptimizeRevBlockerAddition(const WriteLabel *sLab, std::vector<ReadLabel *> &loads);
 
 	/* Opt: Tries to optimize revisiting from LAB. It may modify
 	 * LOADS, and returns whether we can skip revisiting altogether */
-	bool tryOptimizeRevisits(WriteLabel *lab, std::vector<Event> &loads);
+	bool tryOptimizeRevisits(WriteLabel *lab, std::vector<ReadLabel *> &loads);
 
 	/* Constructs a BackwardRevisit representing RLAB <- SLAB */
 	std::unique_ptr<BackwardRevisit> constructBackwardRevisit(const ReadLabel *rLab,
@@ -586,11 +586,11 @@ private:
 
 	/* Helper: Checks whether the execution should continue upon SLAB revisited LOADS.
 	 * Returns true if yes, and false (+moot) otherwise  */
-	bool checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<Event> &loads);
+	bool checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<ReadLabel *> &loads);
 
 	/* Calculates all possible coherence placings for SLAB and
 	 * pushes them to the worklist. */
-	void calcCoOrderings(WriteLabel *sLab, const std::vector<Event> &cos);
+	void calcCoOrderings(WriteLabel *sLab, const std::vector<EventLabel *> &cos);
 
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
@@ -631,15 +631,17 @@ private:
 	/* Given a list of stores that it is consistent to read-from,
 	 * filters out options that can be skipped (according to the conf),
 	 * and determines the order in which these options should be explored */
-	void filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores);
+	void filterOptimizeRfs(const ReadLabel *lab, std::vector<EventLabel *> &stores);
 
 	bool isExecutionValid(const EventLabel *lab);
 
 	/* Removes rfs from RFS until a consistent option for RLAB is found */
-	std::optional<Event> findConsistentRf(ReadLabel *rLab, std::vector<Event> &rfs);
+	std::optional<EventLabel *> findConsistentRf(ReadLabel *rLab,
+						     std::vector<EventLabel *> &rfs);
 
 	/* Remove cos from COS until a consistent option for WLAB is found */
-	std::optional<Event> findConsistentCo(WriteLabel *wLab, std::vector<Event> &cos);
+	std::optional<EventLabel *> findConsistentCo(WriteLabel *wLab,
+						     std::vector<EventLabel *> &cos);
 
 	/* Checks whether the addition of WLAB creates an atomicity violation.
 	 * If so, returns false and moots the execution if possible. */
@@ -660,10 +662,10 @@ private:
 	bool areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab);
 
 	/* BAM: Filters out unnecessary rfs for LAB when BAM is enabled */
-	void filterConflictingBarriers(const ReadLabel *lab, std::vector<Event> &stores);
+	void filterConflictingBarriers(const ReadLabel *lab, std::vector<EventLabel *> &stores);
 
 	/* Estimation: Filters outs stores read by RMW loads */
-	void filterAtomicityViolations(const ReadLabel *lab, std::vector<Event> &stores);
+	void filterAtomicityViolations(const ReadLabel *lab, std::vector<EventLabel *> &stores);
 
 	/* IPR: Performs BR in-place */
 	void revisitInPlace(const BackwardRevisit &br);
@@ -702,21 +704,22 @@ private:
 	bool sharePrefixSR(int tid, Event pos) const;
 
 	/* SR: Filter stores that will lead to a symmetric execution */
-	void filterSymmetricStoresSR(const ReadLabel *rLab, std::vector<Event> &stores) const;
+	void filterSymmetricStoresSR(const ReadLabel *rLab,
+				     std::vector<EventLabel *> &stores) const;
 
 	/* SAVer: Filters stores that will lead to an assume-blocked execution */
-	void filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<Event> &stores);
+	void filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<EventLabel *> &stores);
 
 	/*** Estimation-related ***/
 
 	/* Registers that RLAB can read from all stores in STORES */
-	void updateStSpaceChoices(const ReadLabel *rLab, const std::vector<Event> &stores);
+	void updateStSpaceChoices(const ReadLabel *rLab, const std::vector<EventLabel *> &stores);
 
 	/* Registers that each L in LOADS can read from SLAB */
-	void updateStSpaceChoices(const std::vector<Event> &loads, const WriteLabel *sLab);
+	void updateStSpaceChoices(const std::vector<ReadLabel *> &loads, const WriteLabel *sLab);
 
 	/* Registers that SLAB can be after each S in STORES */
-	void updateStSpaceChoices(const WriteLabel *sLab, const std::vector<Event> &stores);
+	void updateStSpaceChoices(const WriteLabel *sLab, const std::vector<EventLabel *> &stores);
 
 	/* Makes an estimation about the state space and updates the current one.
 	 * Has to run at the end of an execution */
@@ -766,11 +769,11 @@ private:
 
 	/* Returns an approximation of consistent rfs for RLAB.
 	 * The rfs are ordered according to CO */
-	virtual std::vector<Event> getRfsApproximation(const ReadLabel *rLab);
+	virtual std::vector<EventLabel *> getRfsApproximation(ReadLabel *rLab);
 
 	/* Returns an approximation of the reads that SLAB can revisit.
 	 * The reads are ordered in reverse-addition order */
-	virtual std::vector<Event> getRevisitableApproximation(const WriteLabel *sLab);
+	virtual std::vector<ReadLabel *> getRevisitableApproximation(WriteLabel *sLab);
 
 	/* Returns a vector clock representing the prefix of e.
 	 * Depending on whether dependencies are tracked, the prefix can be

@@ -455,8 +455,7 @@ public:
 	Event getPendingRMW(const WriteLabel *sLab) const;
 
 	/* Returns a list of loads that can be revisited */
-	virtual std::vector<Event> getRevisitable(const WriteLabel *sLab,
-						  const VectorClock &pporf) const;
+	virtual std::vector<ReadLabel *> getRevisitable(WriteLabel *sLab, const VectorClock &pporf);
 
 	/* Boolean helper functions */
 

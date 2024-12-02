@@ -48,23 +48,15 @@ private:
 	bool isConsistent(const EventLabel *lab) const override;
 	VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const;
 	std::vector<VerificationError> checkWarnings(const EventLabel *lab, const VSet<VerificationError> &reported, std::vector<const EventLabel *> &races) const;
-	std::vector<Event> getCoherentStores(const ExecutionGraph &g, SAddr addr, Event read) override;
-	std::vector<Event> getCoherentRevisits(const ExecutionGraph &g, const WriteLabel *sLab, const VectorClock &pporf) override;
-	std::vector<Event> getCoherentPlacings(const ExecutionGraph &g, SAddr addr, Event store, bool isRMW) override;
+	std::vector<EventLabel *> getCoherentStores(ReadLabel *rLab) override;
+	std::vector<ReadLabel *> getCoherentRevisits(WriteLabel *sLab, const VectorClock &pporf) override;
+	std::vector<EventLabel *> getCoherentPlacings(WriteLabel *sLab) override;
 	void updateMMViews(EventLabel *lab) override;
 	std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const override;
 	const View &getHbView(const EventLabel *lab) const override;
 	bool isDepTracking() const;
 	void calculateSaved(EventLabel *lab);
 	void calculateViews(EventLabel *lab);
-	bool isWriteRfBefore(const ExecutionGraph &g, Event a, Event b);
-	std::vector<Event> getInitRfsAtLoc(const ExecutionGraph &g, SAddr addr);
-	bool isHbOptRfBefore(const ExecutionGraph &g, const Event e, const Event write);
-	ExecutionGraph::const_co_iterator splitLocMOBefore(const ExecutionGraph &g, SAddr addr, Event e);
-	ExecutionGraph::const_co_iterator splitLocMOAfterHb(const ExecutionGraph &g, SAddr addr, const Event read);
-	ExecutionGraph::const_co_iterator splitLocMOAfter(const ExecutionGraph &g, SAddr addr, const Event e);
-	std::vector<Event> getMOOptRfAfter(const ExecutionGraph &g, const WriteLabel *sLab);
-	std::vector<Event> getMOInvOptRfAfter(const ExecutionGraph &g, const WriteLabel *sLab);
 	mutable const EventLabel *cexLab{};
 
 	mutable std::vector<NodeStatus> visitedCalc58_0;

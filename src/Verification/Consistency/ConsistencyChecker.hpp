@@ -70,14 +70,12 @@ public:
 				   std::vector<const EventLabel *> &races) const
 		-> std::vector<VerificationError> = 0;
 
-	virtual auto getCoherentRevisits(const ExecutionGraph &g, const WriteLabel *sLab,
-					 const VectorClock &pporf) -> std::vector<Event> = 0;
+	virtual auto getCoherentRevisits(WriteLabel *sLab, const VectorClock &pporf)
+		-> std::vector<ReadLabel *> = 0;
 
-	virtual auto getCoherentStores(const ExecutionGraph &g, SAddr addr, Event read)
-		-> std::vector<Event> = 0;
+	virtual auto getCoherentStores(ReadLabel *rLab) -> std::vector<EventLabel *> = 0;
 
-	virtual auto getCoherentPlacings(const ExecutionGraph &g, SAddr addr, Event read,
-					 bool isRMW) -> std::vector<Event> = 0;
+	virtual auto getCoherentPlacings(WriteLabel *wLab) -> std::vector<EventLabel *> = 0;
 
 	/* Updates lab with model-specific information.
 	 * Needs to be called every time a new label is added to the graph */
