@@ -239,7 +239,7 @@ public:
 	{
 		return ++const_reverse_co_iterator(lab);
 	}
-	const_reverse_co_iterator co_pred_end(WriteLabel *lab) { return co_rend(lab->getAddr()); }
+	reverse_co_iterator co_pred_end(WriteLabel *lab) { return co_rend(lab->getAddr()); }
 	const_reverse_co_iterator co_pred_end(const WriteLabel *lab) const
 	{
 		return co_rend(lab->getAddr());
