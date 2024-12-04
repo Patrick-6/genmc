@@ -23,7 +23,6 @@
 
 #include "ADT/Trie.hpp"
 #include "Config/Config.hpp"
-#include "ExecutionGraph/DepInfo.hpp"
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "Support/SAddrAllocator.hpp"
@@ -32,13 +31,10 @@
 #include <llvm/ADT/BitVector.h>
 #include <llvm/IR/Module.h>
 
-#include <cstdint>
 #include <ctime>
 #include <map>
 #include <memory>
-#include <numeric>
 #include <random>
-#include <unordered_set>
 #include <utility>
 #include <variant>
 
