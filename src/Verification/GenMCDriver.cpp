@@ -58,7 +58,7 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 				 ? std::make_unique<DepExecutionGraph>(initValGetter)
 				 : std::make_unique<ExecutionGraph>(initValGetter);
 	execStack.emplace_back(std::move(execGraph), std::move(LocalQueueT()),
-			       std::move(ChoiceMap()));
+			       std::move(ChoiceMap()), std::move(SAddrAllocator()));
 
 	consChecker = ConsistencyChecker::create(getConf()->model);
 	auto hasBounder = userConf->bound.has_value();
@@ -96,8 +96,10 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 
 GenMCDriver::~GenMCDriver() = default;
 
-GenMCDriver::Execution::Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&m)
-	: graph(std::move(g)), workqueue(std::move(w)), choices(std::move(m))
+GenMCDriver::Execution::Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&m,
+				  SAddrAllocator &&alloctor)
+	: graph(std::move(g)), workqueue(std::move(w)), choices(std::move(m)),
+	  alloctor(std::move(alloctor))
 {}
 GenMCDriver::Execution::~Execution() = default;
 
@@ -157,11 +159,30 @@ void GenMCDriver::Execution::restrictChoices(Stamp stamp)
 	}
 }
 
+void GenMCDriver::Execution::restrictAllocator(Stamp stamp)
+{
+	auto &g = getGraph();
+	View v;
+	for (auto t : g.thr_ids()) {
+		v.setMax({t, 1});
+		for (auto &lab : g.po(t)) {
+			if (auto *mLab = llvm::dyn_cast<MallocLabel>(&lab)) {
+				if (mLab->getAllocAddr().isDynamic())
+					v.setMax({t, static_cast<int>((mLab->getAllocAddr().get() &
+								       SAddr::indexMask) +
+								      mLab->getAllocSize())});
+			}
+		}
+	}
+	getAllocator().restrict(v);
+}
+
 void GenMCDriver::Execution::restrict(Stamp stamp)
 {
 	restrictGraph(stamp);
 	restrictWorklist(stamp);
 	restrictChoices(stamp);
+	restrictAllocator(stamp);
 }
 
 void GenMCDriver::pushExecution(Execution &&e) { execStack.push_back(std::move(e)); }
@@ -174,19 +195,15 @@ bool GenMCDriver::popExecution()
 	return !execStack.empty();
 }
 
-GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, ChoiceMap &&m, SAddrAllocator &&a,
-			  ValuePrefixT &&c, Event la)
-	: graph(std::move(g)), choices(std::move(m)), alloctor(std::move(a)), cache(std::move(c)),
-	  lastAdded(la)
+GenMCDriver::State::State(GenMCDriver::Execution &&e, Event la) : exec(std::move(e)), lastAdded(la)
 {}
 GenMCDriver::State::~State() = default;
 
 void GenMCDriver::initFromState(std::unique_ptr<State> s)
 {
 	execStack.clear();
-	execStack.emplace_back(std::move(s->graph), LocalQueueT(), std::move(s->choices));
-	alloctor = std::move(s->alloctor);
-	seenPrefixes = std::move(s->cache);
+	execStack.emplace_back(std::move(s->exec.graph), LocalQueueT(), std::move(s->exec.choices),
+			       std::move(s->exec.alloctor));
 	lastAdded = s->lastAdded;
 
 	/* We have to also reset the initvalgetter */
@@ -195,10 +212,10 @@ void GenMCDriver::initFromState(std::unique_ptr<State> s)
 
 std::unique_ptr<GenMCDriver::State> GenMCDriver::extractState()
 {
-	auto cache = std::move(seenPrefixes);
-	seenPrefixes.clear();
-	return std::make_unique<State>(getGraph().clone(), ChoiceMap(getChoiceMap()),
-				       SAddrAllocator(alloctor), std::move(cache), lastAdded);
+	return std::make_unique<State>(GenMCDriver::Execution(getGraph().clone(), LocalQueueT(),
+							      ChoiceMap(getChoiceMap()),
+							      SAddrAllocator(getAddrAllocator())),
+				       lastAdded);
 }
 
 /* Returns a fresh address to be used from the interpreter */
@@ -211,12 +228,12 @@ SAddr GenMCDriver::getFreshAddr(const MallocLabel *aLab)
 	switch (aLab->getStorageDuration()) {
 	case StorageDuration::SD_Automatic:
 		return getAddrAllocator().allocAutomatic(
-			aLab->getAllocSize(), alignment,
+			aLab->getThread(), aLab->getAllocSize(), alignment,
 			aLab->getStorageType() == StorageType::ST_Durable,
 			aLab->getAddressSpace() == AddressSpace::AS_Internal);
 	case StorageDuration::SD_Heap:
 		return getAddrAllocator().allocHeap(
-			aLab->getAllocSize(), alignment,
+			aLab->getThread(), aLab->getAllocSize(), alignment,
 			aLab->getStorageType() == StorageType::ST_Durable,
 			aLab->getAddressSpace() == AddressSpace::AS_Internal);
 	case StorageDuration::SD_Static: /* Cannot ask for fresh static addresses */
@@ -446,20 +463,20 @@ void GenMCDriver::handleExecutionStart()
 	}
 }
 
-std::pair<std::vector<SVal>, Event> GenMCDriver::extractValPrefix(Event pos)
+std::pair<std::vector<SVal>, std::vector<Event>> GenMCDriver::extractValPrefix(Event pos)
 {
 	auto &g = getGraph();
 	std::vector<SVal> vals;
-	Event last;
+	std::vector<Event> events;
 
 	for (auto i = 0u; i < pos.index; i++) {
 		auto *lab = g.getEventLabel(Event(pos.thread, i));
 		if (lab->returnsValue()) {
 			vals.push_back(lab->getReturnValue());
-			last = lab->getPos();
+			events.push_back(lab->getPos());
 		}
 	}
-	return {vals, last};
+	return {vals, events};
 }
 
 Event findNextLabelToAdd(const ExecutionGraph &g, Event pos)
@@ -986,8 +1003,7 @@ EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 	auto &g = getGraph();
 
 	/* Cache the event before updating views (inits are added w/ tcreate) */
-	if (lab->getIndex() > 0)
-		cacheEventLabel(&*lab);
+	cacheEventLabel(&*lab);
 
 	/* Add and update views */
 	auto *addedLab = g.addLabelToGraph(std::move(lab));
@@ -1053,46 +1069,57 @@ void GenMCDriver::cacheEventLabel(const EventLabel *lab)
 
 	auto &g = getGraph();
 
-	/* Extract value prefix and cached data */
-	auto [vals, last] = extractValPrefix(lab->getPos());
-	auto *data = retrieveCachedSuccessors(lab->getThread(), vals);
+	/* Helper that copies and resets the prefix of LAB starting from index FROM. */
+	auto copyPrefix = [&](auto from, auto &lab) {
+		std::vector<std::unique_ptr<EventLabel>> labs;
+		for (auto i = from; i <= lab->getIndex(); i++) {
+			auto cLab = (i == lab->getIndex())
+					    ? lab->clone()
+					    : g.getEventLabel(Event(lab->getThread(), i))->clone();
+			cLab->reset();
+			labs.push_back(std::move(cLab));
+		}
+		return labs;
+	};
+
+	/* Extract value prefix and find how much of it has already been cached */
+	auto [vals, indices] = extractValPrefix(lab->getPos());
+	auto commonPrefixLen = seenPrefixes[lab->getThread()].findLongestCommonPrefix(vals);
+	std::vector<SVal> seenVals(vals.begin(), vals.begin() + commonPrefixLen);
+	auto *data = retrieveCachedSuccessors(lab->getThread(), seenVals);
+	BUG_ON(!data);
 
 	/*
-	 * Check if there are any new data to cache.
+	 * Fastpath: if there are no new data to cache, return.
 	 * (For dep-tracking, we could optimize toIdx and collect until
 	 * a new (non-empty) label with a value is found.)
 	 */
-	auto fromIdx = (!data || data->empty()) ? last.index : data->back()->getIndex();
-	auto toIdx = lab->getIndex();
-	if (data && !data->empty() && data->back()->getIndex() >= toIdx)
+	if (!data->empty() && data->back()->getIndex() >= lab->getIndex())
 		return;
 
 	/*
-	 * Go ahead and collect the new data. We have to be careful when
-	 * cloning LAB because it has not been added to the graph yet.
+	 * Fetch the labels to cache. We try to copy as little as possible,
+	 * by inspecting what's already cached.
 	 */
-	std::vector<std::unique_ptr<EventLabel>> labs;
-	for (auto i = fromIdx + 1; i <= toIdx; i++) {
-		auto cLab = (i == lab->getIndex())
-				    ? lab->clone()
-				    : g.getEventLabel(Event(lab->getThread(), i))->clone();
-		cLab->reset();
-		labs.push_back(std::move(cLab));
+	auto fromIdx = commonPrefixLen == 0 ? 0 : indices[commonPrefixLen - 1].index + 1;
+	if (!data->empty())
+		fromIdx = std::max(data->back()->getIndex() + 1, fromIdx);
+	auto labs = copyPrefix(fromIdx, lab);
+
+	/* Go ahead and copy */
+	for (auto i = 0U; i < labs.size(); i++) {
+		/* Ensure label has not already been cached */
+		BUG_ON(!data->empty() && data->back()->getIndex() >= labs[i]->getIndex());
+		/* If the last cached label returns a value, then we need
+		 * to cache to a different bucket */
+		if (!data->empty() && data->back()->returnsValue()) {
+			seenVals.push_back(vals[seenVals.size()]);
+			auto res = seenPrefixes[lab->getThread()].addSeq(seenVals, {});
+			BUG_ON(!res);
+			data = retrieveCachedSuccessors(lab->getThread(), seenVals);
+		}
+		data->push_back(std::move(labs[i]));
 	}
-
-	/* Is there an existing entry? */
-	if (!data) {
-		auto res = seenPrefixes[lab->getThread()].addSeq(vals, std::move(labs));
-		BUG_ON(!res);
-		return;
-	}
-
-	BUG_ON(data->empty() && last.index >= lab->getIndex());
-	BUG_ON(!data->empty() && data->back()->getIndex() + 1 != lab->getIndex());
-
-	data->reserve(data->size() + labs.size());
-	std::move(std::begin(labs), std::end(labs), std::back_inserter(*data));
-	labs.clear();
 }
 
 std::optional<SVal> GenMCDriver::getReadRetValue(const ReadLabel *rLab)
@@ -2227,8 +2254,12 @@ SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
 		return SVal(lab->getAllocAddr().get());
 	}
 
-	/* Fix and add label to the graph; return the new address */
-	if (aLab->getAllocAddr() == SAddr())
+	/* Fix and add label to the graph. Cached labels might already have an address,
+	 * but we enforce that's the same with the new one dispensed (for non-dep-tracking) */
+	auto oldAddr = aLab->getAllocAddr();
+	BUG_ON(!getConf()->isDepTrackingModel && oldAddr != SAddr() &&
+	       oldAddr != aLab->getAllocAddr());
+	if (oldAddr == SAddr())
 		aLab->setAllocAddr(getFreshAddr(&*aLab));
 	auto *lab = llvm::dyn_cast<MallocLabel>(addLabelToGraph(std::move(aLab)));
 	return SVal(lab->getAllocAddr().get());
@@ -2949,6 +2980,27 @@ GenMCDriver::ChoiceMap GenMCDriver::createChoiceMapForCopy(const ExecutionGraph 
 	return result;
 }
 
+SAddrAllocator GenMCDriver::createAllocatorForCopy(const ExecutionGraph &og) const
+{
+	SAddrAllocator result(getAddrAllocator());
+
+	View v;
+	for (auto t : og.thr_ids()) {
+		v.setMax({t, 1});
+		for (auto &lab : og.po(t)) {
+			auto *mLab = llvm::dyn_cast<MallocLabel>(&lab);
+			if (!mLab)
+				continue;
+			if (mLab->getAllocAddr().isDynamic())
+				v.setMax({t, static_cast<int>((mLab->getAllocAddr().get() &
+							       SAddr::indexMask) +
+							      mLab->getAllocSize())});
+		}
+	}
+	result.restrict(v);
+	return result;
+}
+
 bool GenMCDriver::checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<ReadLabel *> &loads)
 {
 	if (!getConf()->helper || !sLab->hasAttr(WriteAttr::RevBlocker))
@@ -3159,8 +3211,9 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 
 	auto og = copyGraph(&br, &*v);
 	auto m = createChoiceMapForCopy(*og);
+	auto alloctor = createAllocatorForCopy(*og);
 
-	pushExecution({std::move(og), LocalQueueT(), std::move(m)});
+	pushExecution({std::move(og), LocalQueueT(), std::move(m), std::move(alloctor)});
 
 	repairDanglingReads(getGraph());
 	auto ok = revisitRead(br);

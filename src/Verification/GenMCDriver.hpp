@@ -108,17 +108,53 @@ public:
 		}
 	};
 
-	/* Driver (global) state */
-	struct State {
+	/* Represents the execution at a given point */
+	struct Execution {
+		Execution() = delete;
+		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&cm,
+			  SAddrAllocator &&alloctor);
+
+		Execution(const Execution &) = delete;
+		auto operator=(const Execution &) -> Execution & = delete;
+		Execution(Execution &&) = default;
+		auto operator=(Execution &&) -> Execution & = default;
+
+		/* Returns a reference to the current graph */
+		ExecutionGraph &getGraph() { return *graph; }
+		const ExecutionGraph &getGraph() const { return *graph; }
+
+		LocalQueueT &getWorkqueue() { return workqueue; }
+		const LocalQueueT &getWorkqueue() const { return workqueue; }
+
+		ChoiceMap &getChoiceMap() { return choices; }
+		const ChoiceMap &getChoiceMap() const { return choices; }
+
+		const SAddrAllocator &getAllocator() const { return alloctor; }
+		SAddrAllocator &getAllocator() { return alloctor; }
+
+		void restrict(Stamp stamp);
+
+		~Execution();
+
+		/* Removes all items with stamp >= STAMP from the list */
+		void restrictWorklist(Stamp stamp);
+		void restrictGraph(Stamp stamp);
+		void restrictChoices(Stamp stamp);
+		void restrictAllocator(Stamp stamp);
+
 		std::unique_ptr<ExecutionGraph> graph;
+		LocalQueueT workqueue;
 		ChoiceMap choices;
 		SAddrAllocator alloctor;
-		ValuePrefixT cache;
+	};
+
+	/* Driver (global) state */
+	struct State {
+		Execution exec;
 		Event lastAdded;
 
 		State() = delete;
-		State(std::unique_ptr<ExecutionGraph> g, ChoiceMap &&m, SAddrAllocator &&alloctor,
-		      ValuePrefixT &&cache, Event la);
+		State(Execution &&e, Event la);
 
 		State(const State &) = delete;
 		auto operator=(const State &) -> State & = delete;
@@ -145,41 +181,6 @@ public:
 	};
 
 private:
-	/* Represents the execution at a given point */
-	struct Execution {
-		Execution() = delete;
-		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&cm);
-
-		Execution(const Execution &) = delete;
-		auto operator=(const Execution &) -> Execution & = delete;
-		Execution(Execution &&) = default;
-		auto operator=(Execution &&) -> Execution & = default;
-
-		/* Returns a reference to the current graph */
-		ExecutionGraph &getGraph() { return *graph; }
-		const ExecutionGraph &getGraph() const { return *graph; }
-
-		LocalQueueT &getWorkqueue() { return workqueue; }
-		const LocalQueueT &getWorkqueue() const { return workqueue; }
-
-		ChoiceMap &getChoiceMap() { return choices; }
-		const ChoiceMap &getChoiceMap() const { return choices; }
-
-		void restrict(Stamp stamp);
-
-		~Execution();
-
-	private:
-		/* Removes all items with stamp >= STAMP from the list */
-		void restrictWorklist(Stamp stamp);
-		void restrictGraph(Stamp stamp);
-		void restrictChoices(Stamp stamp);
-
-		std::unique_ptr<ExecutionGraph> graph;
-		ChoiceMap choices;
-		LocalQueueT workqueue;
-	};
-
 	static bool isInvalidAccessError(VerificationError s)
 	{
 		return VerificationError::VE_InvalidAccessBegin <= s &&
@@ -316,11 +317,11 @@ protected:
 	ChoiceMap &getChoiceMap() { return getExecution().getChoiceMap(); }
 	const ChoiceMap &getChoiceMap() const { return getExecution().getChoiceMap(); }
 
+	const SAddrAllocator &getAddrAllocator() const { return getExecution().getAllocator(); }
+	SAddrAllocator &getAddrAllocator() { return getExecution().getAllocator(); }
+
 	ConsistencyChecker &getConsChecker() { return *consChecker; }
 	const ConsistencyChecker &getConsChecker() const { return *consChecker; }
-
-	const SAddrAllocator &getAddrAllocator() const { return alloctor; }
-	SAddrAllocator &getAddrAllocator() { return alloctor; }
 
 	/* Stops the verification procedure when an error is found */
 	void halt(VerificationError status);
@@ -348,7 +349,7 @@ protected:
 	SAddr getFreshAddr(const MallocLabel *aLab);
 
 	/* Returns all values read leading up to POS */
-	std::pair<std::vector<SVal>, Event> extractValPrefix(Event pos);
+	std::pair<std::vector<SVal>, std::vector<Event>> extractValPrefix(Event pos);
 
 	/* Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
@@ -623,6 +624,7 @@ private:
 	std::unique_ptr<ExecutionGraph> copyGraph(const BackwardRevisit *br, VectorClock *v) const;
 
 	ChoiceMap createChoiceMapForCopy(const ExecutionGraph &og) const;
+	SAddrAllocator createAllocatorForCopy(const ExecutionGraph &og) const;
 
 	/* Given a list of stores that it is consistent to read-from,
 	 * filters out options that can be skipped (according to the conf),
@@ -801,9 +803,6 @@ private:
 
 	/* Consistency checker (mm-specific) */
 	std::unique_ptr<ConsistencyChecker> consChecker;
-
-	/* An allocator for fresh addresses */
-	SAddrAllocator alloctor;
 
 	/* Opt: Cached labels for optimized scheduling */
 	ValuePrefixT seenPrefixes;

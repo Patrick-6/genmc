@@ -71,6 +71,7 @@ libgenmc_a_SOURCES = \
   src/Support/NameInfo.cpp \
   src/Support/Parser.cpp \
   src/Support/SAddr.cpp \
+  src/Support/SAddrAllocator.cpp \
   src/Support/SVal.cpp \
   src/Support/ThreadPinner.cpp \
   src/Support/ThreadPool.cpp \
