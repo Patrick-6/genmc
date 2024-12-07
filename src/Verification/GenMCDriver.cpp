@@ -58,7 +58,8 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 				 ? std::make_unique<DepExecutionGraph>(initValGetter)
 				 : std::make_unique<ExecutionGraph>(initValGetter);
 	execStack.emplace_back(std::move(execGraph), std::move(LocalQueueT()),
-			       std::move(ChoiceMap()), std::move(SAddrAllocator()));
+			       std::move(ChoiceMap()), std::move(SAddrAllocator()),
+			       Event::getInit());
 
 	consChecker = ConsistencyChecker::create(getConf()->model);
 	auto hasBounder = userConf->bound.has_value();
@@ -97,9 +98,9 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 GenMCDriver::~GenMCDriver() = default;
 
 GenMCDriver::Execution::Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&m,
-				  SAddrAllocator &&alloctor)
+				  SAddrAllocator &&alloctor, Event lastAdded)
 	: graph(std::move(g)), workqueue(std::move(w)), choices(std::move(m)),
-	  alloctor(std::move(alloctor))
+	  alloctor(std::move(alloctor)), lastAdded(lastAdded)
 {}
 GenMCDriver::Execution::~Execution() = default;
 
@@ -195,27 +196,21 @@ bool GenMCDriver::popExecution()
 	return !execStack.empty();
 }
 
-GenMCDriver::State::State(GenMCDriver::Execution &&e, Event la) : exec(std::move(e)), lastAdded(la)
-{}
-GenMCDriver::State::~State() = default;
-
-void GenMCDriver::initFromState(std::unique_ptr<State> s)
+void GenMCDriver::initFromState(std::unique_ptr<Execution> exec)
 {
 	execStack.clear();
-	execStack.emplace_back(std::move(s->exec.graph), LocalQueueT(), std::move(s->exec.choices),
-			       std::move(s->exec.alloctor));
-	lastAdded = s->lastAdded;
+	execStack.emplace_back(std::move(exec->graph), LocalQueueT(), std::move(exec->choices),
+			       std::move(exec->alloctor), exec->lastAdded);
 
 	/* We have to also reset the initvalgetter */
 	getGraph().setInitValGetter([&](auto &access) { return getEE()->getLocInitVal(access); });
 }
 
-std::unique_ptr<GenMCDriver::State> GenMCDriver::extractState()
+std::unique_ptr<GenMCDriver::Execution> GenMCDriver::extractState()
 {
-	return std::make_unique<State>(GenMCDriver::Execution(getGraph().clone(), LocalQueueT(),
-							      ChoiceMap(getChoiceMap()),
-							      SAddrAllocator(getAddrAllocator())),
-				       lastAdded);
+	return std::make_unique<Execution>(GenMCDriver::Execution(
+		getGraph().clone(), LocalQueueT(), ChoiceMap(getChoiceMap()),
+		SAddrAllocator(getAddrAllocator()), getExecution().getLastAdded()));
 }
 
 /* Returns a fresh address to be used from the interpreter */
@@ -801,14 +796,14 @@ void GenMCDriver::unblockThread(Event pos)
 
 bool GenMCDriver::scheduleAtomicity()
 {
-	auto *lastLab = getGraph().getEventLabel(lastAdded);
+	auto *lastLab = getGraph().getEventLabel(getExecution().getLastAdded());
 	if (llvm::isa<FaiReadLabel>(lastLab)) {
-		getEE()->scheduleThread(lastAdded.thread);
+		getEE()->scheduleThread(lastLab->getThread());
 		return true;
 	}
 	if (auto *casLab = llvm::dyn_cast<CasReadLabel>(lastLab)) {
 		if (casLab->getAccessValue(casLab->getAccess()) == casLab->getExpected()) {
-			getEE()->scheduleThread(lastAdded.thread);
+			getEE()->scheduleThread(lastLab->getThread());
 			return true;
 		}
 	}
@@ -1011,7 +1006,7 @@ EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(addedLab))
 		g.addAlloc(findAllocatingLabel(g, mLab->getAddr()), mLab);
 
-	lastAdded = addedLab->getPos();
+	getExecution().getLastAdded() = addedLab->getPos();
 	if (addedLab->getIndex() >= getConf()->warnOnGraphSize) {
 		LOG_ONCE("large-graph", VerbosityLevel::Tip)
 			<< "The execution graph seems quite large. "
@@ -3213,7 +3208,8 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 	auto m = createChoiceMapForCopy(*og);
 	auto alloctor = createAllocatorForCopy(*og);
 
-	pushExecution({std::move(og), LocalQueueT(), std::move(m), std::move(alloctor)});
+	pushExecution(
+		{std::move(og), LocalQueueT(), std::move(m), std::move(alloctor), br.getPos()});
 
 	repairDanglingReads(getGraph());
 	auto ok = revisitRead(br);
@@ -3235,7 +3231,7 @@ bool GenMCDriver::restrictAndRevisit(Stamp stamp, const WorkSet::ItemT &item)
 	/* First, appropriately restrict the worklist and the graph */
 	getExecution().restrict(stamp);
 
-	lastAdded = item->getPos();
+	getExecution().getLastAdded() = item->getPos();
 	if (auto *fr = llvm::dyn_cast<ForwardRevisit>(&*item))
 		return forwardRevisit(*fr);
 	if (auto *br = llvm::dyn_cast<BackwardRevisit>(&*item)) {

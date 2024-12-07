@@ -112,7 +112,7 @@ public:
 	struct Execution {
 		Execution() = delete;
 		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&cm,
-			  SAddrAllocator &&alloctor);
+			  SAddrAllocator &&alloctor, Event lastAdded);
 
 		Execution(const Execution &) = delete;
 		auto operator=(const Execution &) -> Execution & = delete;
@@ -132,6 +132,9 @@ public:
 		const SAddrAllocator &getAllocator() const { return alloctor; }
 		SAddrAllocator &getAllocator() { return alloctor; }
 
+		const Event &getLastAdded() const { return lastAdded; }
+		Event &getLastAdded() { return lastAdded; }
+
 		void restrict(Stamp stamp);
 
 		~Execution();
@@ -146,22 +149,7 @@ public:
 		LocalQueueT workqueue;
 		ChoiceMap choices;
 		SAddrAllocator alloctor;
-	};
-
-	/* Driver (global) state */
-	struct State {
-		Execution exec;
-		Event lastAdded;
-
-		State() = delete;
-		State(Execution &&e, Event la);
-
-		State(const State &) = delete;
-		auto operator=(const State &) -> State & = delete;
-		State(State &&) = default;
-		auto operator=(State &&) -> State & = default;
-
-		~State();
+		Event lastAdded = Event::getInit();
 	};
 
 	/** Details for an error to be reported */
@@ -339,11 +327,11 @@ protected:
 	void setThreadPool(ThreadPool *tp) { pool = tp; }
 
 	/* Initializes the exploration from a given state */
-	void initFromState(std::unique_ptr<State> s);
+	void initFromState(std::unique_ptr<Execution> s);
 
 	/* Extracts the current driver state.
 	 * The driver is left in an inconsistent form */
-	std::unique_ptr<State> extractState();
+	std::unique_ptr<Execution> extractState();
 
 	/* Returns a fresh address for a new allocation */
 	SAddr getFreshAddr(const MallocLabel *aLab);
@@ -819,9 +807,6 @@ private:
 
 	/* Opt: Whether a particular read needs to be repaired during rescheduling */
 	Event readToReschedule = Event::getInit();
-
-	/* Opt: Keeps track of the last event added for scheduling opt */
-	Event lastAdded = Event::getInit();
 
 	/* Verification result to be returned to caller */
 	Result result{};
