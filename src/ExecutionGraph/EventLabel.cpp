@@ -279,6 +279,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabel
 		break;
 	case EventLabel::HpProtect:
 		s << "HP_PROTECT";
+		break;
 	case EventLabel::Optional:
 		s << "OPTIONAL";
 		break;
