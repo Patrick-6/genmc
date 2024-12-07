@@ -49,10 +49,10 @@ protected:
 		-> SAddr
 	{
 		auto offset = alignment - 1;
-		auto oldAddr = pool;
-		pool += (offset + size);
-		return allocFun(thread, (oldAddr + offset) & ~(alignment - 1),
-				static_cast<bool &&>(isDurable), static_cast<bool &&>(isInternal));
+		unsigned newAddr = (pool + offset) & ~offset;
+		pool = newAddr + size;
+		return allocFun(thread, newAddr, static_cast<bool &&>(isDurable),
+				static_cast<bool &&>(isInternal));
 	}
 
 public:
