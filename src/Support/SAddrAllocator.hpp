@@ -77,6 +77,9 @@ public:
 
 	void restrict(const VectorClock &view);
 
+	friend auto operator<<(llvm::raw_ostream &rhs, const SAddrAllocator &alloctor)
+		-> llvm::raw_ostream &;
+
 private:
 	/* Helper class to avoid allocating null for heap addresses */
 	class WidthProxy {
