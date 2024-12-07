@@ -42,6 +42,7 @@ SVal EventLabel::getAccessValue(const AAccess &access) const
 SVal EventLabel::getReturnValue() const
 {
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(this)) {
+		BUG_ON(!rLab->getRf());
 		return getAccessValue(rLab->getAccess());
 	}
 	if (auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(this)) {
