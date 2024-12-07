@@ -36,6 +36,15 @@ libgenmc_a_SOURCES = \
   src/ExecutionGraph/ExecutionGraph.cpp \
   src/ExecutionGraph/GraphUtils.cpp \
   src/ExecutionGraph/Stamp.cpp \
+  src/ExecutionGraph/Consistency/BoundDecider.cpp \
+  src/ExecutionGraph/Consistency/ConsistencyChecker.cpp \
+  src/ExecutionGraph/Consistency/ContextBoundDecider.cpp \
+  src/ExecutionGraph/Consistency/IMMChecker.cpp \
+  src/ExecutionGraph/Consistency/RAChecker.cpp \
+  src/ExecutionGraph/Consistency/RC11Checker.cpp \
+  src/ExecutionGraph/Consistency/RoundBoundDecider.cpp \
+  src/ExecutionGraph/Consistency/SCChecker.cpp \
+  src/ExecutionGraph/Consistency/TSOChecker.cpp \
   src/Runtime/Execution.cpp \
   src/Runtime/ExternalFunctions.cpp \
   src/Runtime/Interpreter.cpp \
@@ -79,15 +88,6 @@ libgenmc_a_SOURCES = \
   src/Verification/WorkSet.cpp \
   src/Verification/VerificationError.cpp \
   src/Verification/Revisit.cpp \
-  src/Verification/Consistency/BoundDecider.cpp \
-  src/Verification/Consistency/ConsistencyChecker.cpp \
-  src/Verification/Consistency/ContextBoundDecider.cpp \
-  src/Verification/Consistency/IMMChecker.cpp \
-  src/Verification/Consistency/RAChecker.cpp \
-  src/Verification/Consistency/RC11Checker.cpp \
-  src/Verification/Consistency/RoundBoundDecider.cpp \
-  src/Verification/Consistency/SCChecker.cpp \
-  src/Verification/Consistency/TSOChecker.cpp \
   src/main.cpp
 
 TESTS=scripts/fast-driver.sh scripts/randomize-driver.sh

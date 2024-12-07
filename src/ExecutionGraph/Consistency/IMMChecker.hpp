@@ -25,7 +25,7 @@
 #ifndef GENMC_IMM_CHECKER_HPP
 #define GENMC_IMM_CHECKER_HPP
 
-#include "Verification/Consistency/ConsistencyChecker.hpp"
+#include "ExecutionGraph/Consistency/ConsistencyChecker.hpp"
 #include <cstdint>
 #include <vector>
 

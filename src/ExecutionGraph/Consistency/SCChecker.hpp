@@ -22,14 +22,14 @@
  * CAUTION: This file is generated automatically by Kater -- DO NOT EDIT.
  *******************************************************************************/
 
-#ifndef GENMC_TSO_CHECKER_HPP
-#define GENMC_TSO_CHECKER_HPP
+#ifndef GENMC_SC_CHECKER_HPP
+#define GENMC_SC_CHECKER_HPP
 
-#include "Verification/Consistency/ConsistencyChecker.hpp"
+#include "ExecutionGraph/Consistency/ConsistencyChecker.hpp"
 #include <cstdint>
 #include <vector>
 
-class TSOChecker : public ConsistencyChecker {
+class SCChecker : public ConsistencyChecker {
 
 private:
 	enum class NodeStatus : unsigned char { unseen, entered, left };
@@ -42,7 +42,7 @@ private:
 	};
 
 public:
-	TSOChecker() {};
+	SCChecker() {};
 
 private:
 	bool isConsistent(const EventLabel *lab) const override;
@@ -99,15 +99,9 @@ private:
 	bool visitCoherenceFull(const ExecutionGraph &g) const;
 
 	mutable std::vector<NodeVisitStatus> visitedConsAcyclic1_0;
-	mutable std::vector<NodeVisitStatus> visitedConsAcyclic1_1;
-	mutable std::vector<NodeVisitStatus> visitedConsAcyclic1_2;
-	mutable std::vector<NodeVisitStatus> visitedConsAcyclic1_3;
 	mutable uint32_t visitedConsAcyclic1Accepting;
 
 	bool visitConsAcyclic1_0(const EventLabel *lab) const;
-	bool visitConsAcyclic1_1(const EventLabel *lab) const;
-	bool visitConsAcyclic1_2(const EventLabel *lab) const;
-	bool visitConsAcyclic1_3(const EventLabel *lab) const;
 
 	bool visitConsAcyclic1(const EventLabel *lab) const;
 
@@ -224,4 +218,4 @@ private:
 
 };
 
-#endif /* GENMC_TSO_CHECKER_HPP */
+#endif /* GENMC_SC_CHECKER_HPP */

@@ -18,13 +18,13 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "Verification/Consistency/ConsistencyChecker.hpp"
+#include "ExecutionGraph/Consistency/ConsistencyChecker.hpp"
 #include "Config/MemoryModel.hpp"
-#include "Verification/Consistency/IMMChecker.hpp"
-#include "Verification/Consistency/RAChecker.hpp"
-#include "Verification/Consistency/RC11Checker.hpp"
-#include "Verification/Consistency/SCChecker.hpp"
-#include "Verification/Consistency/TSOChecker.hpp"
+#include "ExecutionGraph/Consistency/IMMChecker.hpp"
+#include "ExecutionGraph/Consistency/RAChecker.hpp"
+#include "ExecutionGraph/Consistency/RC11Checker.hpp"
+#include "ExecutionGraph/Consistency/SCChecker.hpp"
+#include "ExecutionGraph/Consistency/TSOChecker.hpp"
 
 auto ConsistencyChecker::create(ModelType model) -> std::unique_ptr<ConsistencyChecker>
 {

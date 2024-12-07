@@ -20,6 +20,8 @@
 
 #include "GenMCDriver.hpp"
 #include "Config/Config.hpp"
+#include "ExecutionGraph/Consistency/BoundDecider.hpp"
+#include "ExecutionGraph/Consistency/ConsistencyChecker.hpp"
 #include "ExecutionGraph/DepExecutionGraph.hpp"
 #include "ExecutionGraph/GraphIterators.hpp"
 #include "ExecutionGraph/GraphUtils.hpp"
@@ -31,8 +33,6 @@
 #include "Support/Parser.hpp"
 #include "Support/SExprVisitor.hpp"
 #include "Support/ThreadPool.hpp"
-#include "Verification/Consistency/BoundDecider.hpp"
-#include "Verification/Consistency/ConsistencyChecker.hpp"
 #include "Verification/DriverHandlerDispatcher.hpp"
 #include "config.h"
 #include <llvm/IR/Verifier.h>
