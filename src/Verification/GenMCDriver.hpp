@@ -27,7 +27,7 @@
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "Support/SAddrAllocator.hpp"
 #include "Verification/VerificationError.hpp"
-#include "Verification/WorkSet.hpp"
+#include "Verification/WorkList.hpp"
 #include <llvm/ADT/BitVector.h>
 #include <llvm/IR/Module.h>
 

@@ -18,7 +18,7 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
-#include "WorkSet.hpp"
+#include "WorkList.hpp"
 
 auto operator<<(llvm::raw_ostream &s, const WorkList &wset) -> llvm::raw_ostream &
 {

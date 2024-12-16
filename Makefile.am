@@ -85,7 +85,7 @@ libgenmc_a_SOURCES = \
   src/Support/ThreadPinner.cpp \
   src/Support/ThreadPool.cpp \
   src/Verification/GenMCDriver.cpp \
-  src/Verification/WorkSet.cpp \
+  src/Verification/WorkList.cpp \
   src/Verification/VerificationError.cpp \
   src/Verification/Revisit.cpp \
   src/main.cpp
