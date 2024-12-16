@@ -123,6 +123,11 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 		thr.erase(thr.begin() + preds->getMax(i) + 1, thr.end());
 	}
 
+	/* Fix stamps */
+	resetStamp(0U);
+	for (auto &lab : labels())
+		lab.setStamp(nextStamp());
+
 	/* Finally, do not keep any nullptrs in the graph */
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {

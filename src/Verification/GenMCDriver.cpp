@@ -131,7 +131,6 @@ void GenMCDriver::Execution::restrictGraph(Stamp stamp)
 	 * BEGINs). Fix their stamps too. */
 	auto &g = getGraph();
 	g.cutToStamp(stamp);
-	g.compressStampsAfter(stamp);
 	repairDanglingReads(g);
 }
 
@@ -2912,7 +2911,6 @@ std::unique_ptr<ExecutionGraph> GenMCDriver::copyGraph(const BackwardRevisit *br
 	/* Ensure the prefix of the write will not be revisitable */
 	auto *revLab = og->getReadLabel(br->getPos());
 
-	og->compressStampsAfter(revLab->getStamp());
 	for (auto &lab : og->labels()) {
 		if (prefix.contains(lab.getPos()))
 			lab.setRevisitStatus(false);
