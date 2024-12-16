@@ -135,19 +135,6 @@ void GenMCDriver::Execution::restrictGraph(Stamp stamp)
 	repairDanglingReads(g);
 }
 
-void GenMCDriver::Execution::restrictWorklist(Stamp stamp)
-{
-	std::vector<Stamp> idxsToRemove;
-
-	auto &workqueue = getWorkqueue();
-	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit)
-		if (rit->first > stamp && rit->second.empty())
-			idxsToRemove.push_back(rit->first); // TODO: break out of loop?
-
-	for (auto &i : idxsToRemove)
-		workqueue.erase(i);
-}
-
 void GenMCDriver::Execution::restrictChoices(Stamp stamp)
 {
 	auto &choices = getChoiceMap();
@@ -181,7 +168,6 @@ void GenMCDriver::Execution::restrictAllocator(Stamp stamp)
 void GenMCDriver::Execution::restrict(Stamp stamp)
 {
 	restrictGraph(stamp);
-	restrictWorklist(stamp);
 	restrictChoices(stamp);
 	restrictAllocator(stamp);
 }
@@ -616,7 +602,7 @@ void GenMCDriver::handleExecutionEnd()
 	if (inEstimationMode()) {
 		updateStSpaceEstimation();
 		if (!shouldStopEstimating())
-			addToWorklist(0, std::make_unique<RerunForwardRevisit>());
+			getWorkqueue().add(std::make_unique<RerunForwardRevisit>());
 	}
 
 	/* Ignore the execution if some assume has failed */
@@ -743,24 +729,6 @@ GenMCDriver::Result GenMCDriver::estimate(std::shared_ptr<const Config> conf,
 					  GenMCDriver::EstimationMode{conf->estimationMax});
 	driver->run();
 	return driver->getResult();
-}
-
-void GenMCDriver::addToWorklist(Stamp stamp, WorkSet::ItemT item)
-{
-	getWorkqueue()[stamp].add(std::move(item));
-}
-
-std::pair<Stamp, WorkSet::ItemT> GenMCDriver::getNextItem()
-{
-	auto &workqueue = getWorkqueue();
-	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit) {
-		if (rit->second.empty()) {
-			continue;
-		}
-
-		return {rit->first, rit->second.getNext()};
-	}
-	return {0, nullptr};
 }
 
 /************************************************************
@@ -910,14 +878,14 @@ void GenMCDriver::explore()
 			 */
 			resetExplorationOptions();
 
-			auto [stamp, item] = getNextItem();
+			auto item = getWorkqueue().getNext();
 			if (!item) {
 				if (popExecution())
 					continue;
 				return;
 			}
 			auto pos = item->getPos();
-			validExecution = restrictAndRevisit(stamp, item) && isRevisitValid(*item);
+			validExecution = restrictAndRevisit(item) && isRevisitValid(*item);
 		}
 	}
 }
@@ -2087,9 +2055,8 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 		/* Push all the other alternatives choices to the Stack (many maximals for wb) */
 		for (const auto &sLab : stores | std::views::take(stores.size() - 1)) {
 			auto status = false; /* MO messes with the status */
-			addToWorklist(lab->getStamp(),
-				      std::make_unique<ReadForwardRevisit>(lab->getPos(),
-									   sLab->getPos(), status));
+			getWorkqueue().add(std::make_unique<ReadForwardRevisit>(
+				lab->getPos(), sLab->getPos(), status));
 		}
 	}
 
@@ -2160,7 +2127,7 @@ void GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos)
 	 * If that is the case, we have to ensure that estimation won't stop. */
 	if (cos.empty()) {
 		moot();
-		addToWorklist(0, std::make_unique<RerunForwardRevisit>());
+		getWorkqueue().add(std::make_unique<RerunForwardRevisit>());
 		return;
 	}
 
@@ -2181,11 +2148,9 @@ void GenMCDriver::updateStSpaceChoices(const WriteLabel *wLab,
 
 void GenMCDriver::calcCoOrderings(WriteLabel *lab, const std::vector<EventLabel *> &cos)
 {
-	auto &g = getGraph();
-
 	for (auto &predLab : cos | std::views::take(cos.size() - 1)) {
-		addToWorklist(lab->getStamp(), std::make_unique<WriteForwardRevisit>(
-						       lab->getPos(), predLab->getPos()));
+		getWorkqueue().add(
+			std::make_unique<WriteForwardRevisit>(lab->getPos(), predLab->getPos()));
 	}
 }
 
@@ -3045,7 +3010,7 @@ bool GenMCDriver::calcRevisits(WriteLabel *sLab)
 		if (!isMaximalExtension(*br))
 			break;
 
-		addToWorklist(sLab->getStamp(), std::move(br));
+		getWorkqueue().add(std::move(br));
 	}
 
 	return checkAtomicity(sLab) && checkRevBlockHELPER(sLab, loads) && !isMoot();
@@ -3226,9 +3191,12 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 	return true;
 }
 
-bool GenMCDriver::restrictAndRevisit(Stamp stamp, const WorkSet::ItemT &item)
+bool GenMCDriver::restrictAndRevisit(const WorkList::ItemT &item)
 {
 	/* First, appropriately restrict the worklist and the graph */
+	auto &g = getGraph();
+	auto *br = llvm::dyn_cast<BackwardRevisit>(&*item);
+	auto stamp = g.getEventLabel(br ? br->getRev() : item->getPos())->getStamp();
 	getExecution().restrict(stamp);
 
 	getExecution().getLastAdded() = item->getPos();
@@ -3271,8 +3239,7 @@ bool GenMCDriver::handleOptional(std::unique_ptr<OptionalLabel> lab)
 	auto *oLab = llvm::dyn_cast<OptionalLabel>(addLabelToGraph(std::move(lab)));
 
 	if (!inEstimationMode() && oLab->isExpandable())
-		addToWorklist(oLab->getStamp(),
-			      std::make_unique<OptionalForwardRevisit>(oLab->getPos()));
+		getWorkqueue().add(std::make_unique<OptionalForwardRevisit>(oLab->getPos()));
 	return false; /* should not be expanded yet */
 }
 

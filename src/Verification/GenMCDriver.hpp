@@ -50,7 +50,7 @@ enum class BoundCalculationStrategy;
 class GenMCDriver {
 
 protected:
-	using LocalQueueT = std::map<Stamp, WorkSet>;
+	using LocalQueueT = WorkList;
 	using ValuePrefixT = std::unordered_map<
 		unsigned int,
 		Trie<std::vector<SVal>, std::vector<std::unique_ptr<EventLabel>>, SValUCmp>>;
@@ -140,7 +140,6 @@ public:
 		~Execution();
 
 		/* Removes all items with stamp >= STAMP from the list */
-		void restrictWorklist(Stamp stamp);
 		void restrictGraph(Stamp stamp);
 		void restrictChoices(Stamp stamp);
 		void restrictAllocator(Stamp stamp);
@@ -380,11 +379,11 @@ private:
 	/*** Worklist-related ***/
 
 	/* Adds an appropriate entry to the worklist */
-	void addToWorklist(Stamp stamp, WorkSet::ItemT item);
+	void addToWorklist(Stamp stamp, WorkList::ItemT item);
 
 	/* Fetches the next backtrack option.
 	 * A default-constructed item means that the list is empty */
-	std::pair<Stamp, WorkSet::ItemT> getNextItem();
+	std::pair<Stamp, WorkList::ItemT> getNextItem();
 
 	/*** Exploration-related ***/
 
@@ -599,7 +598,7 @@ private:
 
 	/* Adjusts the graph and the worklist according to the backtracking option S.
 	 * Returns true if the resulting graph should be explored */
-	bool restrictAndRevisit(Stamp st, const WorkSet::ItemT &s);
+	bool restrictAndRevisit(const WorkList::ItemT &s);
 
 	/* If rLab is the read part of an RMW operation that now became
 	 * successful, this function adds the corresponding write part.
