@@ -287,22 +287,10 @@ protected:
 	llvm::Interpreter *getEE() const { return EE.get(); }
 
 	/* Returns a reference to the current execution */
-	Execution &getExecution() { return execStack.back(); }
-	const Execution &getExecution() const { return execStack.back(); }
+	Execution &getExec() { return execStack.back(); }
+	const Execution &getExec() const { return execStack.back(); }
 
-	/* Returns a reference to the current graph */
-	ExecutionGraph &getGraph() { return getExecution().getGraph(); }
-	const ExecutionGraph &getGraph() const { return getExecution().getGraph(); }
-
-	LocalQueueT &getWorkqueue() { return getExecution().getWorkqueue(); }
-	const LocalQueueT &getWorkqueue() const { return getExecution().getWorkqueue(); }
-
-	ChoiceMap &getChoiceMap() { return getExecution().getChoiceMap(); }
-	const ChoiceMap &getChoiceMap() const { return getExecution().getChoiceMap(); }
-
-	const SAddrAllocator &getAddrAllocator() const { return getExecution().getAllocator(); }
-	SAddrAllocator &getAddrAllocator() { return getExecution().getAllocator(); }
-
+	/* Returns a reference to the set consistency checker */
 	ConsistencyChecker &getConsChecker() { return *consChecker; }
 	const ConsistencyChecker &getConsChecker() const { return *consChecker; }
 
