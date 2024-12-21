@@ -26,6 +26,7 @@
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "Support/SAddrAllocator.hpp"
+#include "Verification/ChoiceMap.hpp"
 #include "Verification/VerificationError.hpp"
 #include "Verification/WorkList.hpp"
 #include <llvm/ADT/BitVector.h>
@@ -54,7 +55,6 @@ protected:
 	using ValuePrefixT = std::unordered_map<
 		unsigned int,
 		Trie<std::vector<SVal>, std::vector<std::unique_ptr<EventLabel>>, SValUCmp>>;
-	using ChoiceMap = std::map<Stamp, VSet<Event>>;
 
 public:
 	/* The operating mode of the driver */
@@ -135,14 +135,10 @@ public:
 		const Event &getLastAdded() const { return lastAdded; }
 		Event &getLastAdded() { return lastAdded; }
 
+		/* Removes all items with stamp >= STAMP from the execution */
 		void restrict(Stamp stamp);
 
 		~Execution();
-
-		/* Removes all items with stamp >= STAMP from the list */
-		void restrictGraph(Stamp stamp);
-		void restrictChoices(Stamp stamp);
-		void restrictAllocator(Stamp stamp);
 
 		std::unique_ptr<ExecutionGraph> graph;
 		LocalQueueT workqueue;
@@ -376,15 +372,6 @@ protected:
 	}
 
 private:
-	/*** Worklist-related ***/
-
-	/* Adds an appropriate entry to the worklist */
-	void addToWorklist(Stamp stamp, WorkList::ItemT item);
-
-	/* Fetches the next backtrack option.
-	 * A default-constructed item means that the list is empty */
-	std::pair<Stamp, WorkList::ItemT> getNextItem();
-
 	/*** Exploration-related ***/
 
 	/* The workhorse for run().
@@ -610,9 +597,6 @@ private:
 	 * May modify V but will not execute BR in the copy. */
 	std::unique_ptr<ExecutionGraph> copyGraph(const BackwardRevisit *br, VectorClock *v) const;
 
-	ChoiceMap createChoiceMapForCopy(const ExecutionGraph &og) const;
-	SAddrAllocator createAllocatorForCopy(const ExecutionGraph &og) const;
-
 	/* Given a list of stores that it is consistent to read-from,
 	 * filters out options that can be skipped (according to the conf),
 	 * and determines the order in which these options should be explored */
@@ -696,15 +680,6 @@ private:
 	void filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<EventLabel *> &stores);
 
 	/*** Estimation-related ***/
-
-	/* Registers that RLAB can read from all stores in STORES */
-	void updateStSpaceChoices(const ReadLabel *rLab, const std::vector<EventLabel *> &stores);
-
-	/* Registers that each L in LOADS can read from SLAB */
-	void updateStSpaceChoices(const std::vector<ReadLabel *> &loads, const WriteLabel *sLab);
-
-	/* Registers that SLAB can be after each S in STORES */
-	void updateStSpaceChoices(const WriteLabel *sLab, const std::vector<EventLabel *> &stores);
 
 	/* Makes an estimation about the state space and updates the current one.
 	 * Has to run at the end of an execution */

@@ -84,6 +84,7 @@ libgenmc_a_SOURCES = \
   src/Support/SVal.cpp \
   src/Support/ThreadPinner.cpp \
   src/Support/ThreadPool.cpp \
+  src/Verification/ChoiceMap.cpp \
   src/Verification/GenMCDriver.cpp \
   src/Verification/WorkList.cpp \
   src/Verification/VerificationError.cpp \

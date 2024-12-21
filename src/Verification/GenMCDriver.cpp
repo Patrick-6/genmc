@@ -124,51 +124,31 @@ void repairDanglingReads(ExecutionGraph &g)
 	}
 }
 
-void GenMCDriver::Execution::restrictGraph(Stamp stamp)
+static auto createAllocView(const ExecutionGraph &g) -> View
 {
-	/* Restrict the graph (and relations). It can be the case that
-	 * events with larger stamp remain in the graph (e.g.,
-	 * BEGINs). Fix their stamps too. */
-	auto &g = getGraph();
-	g.cutToStamp(stamp);
-	repairDanglingReads(g);
-}
-
-void GenMCDriver::Execution::restrictChoices(Stamp stamp)
-{
-	auto &choices = getChoiceMap();
-	for (auto cit = choices.begin(); cit != choices.end();) {
-		if (cit->first > stamp.get()) {
-			cit = choices.erase(cit);
-		} else {
-			++cit;
-		}
-	}
-}
-
-void GenMCDriver::Execution::restrictAllocator(Stamp stamp)
-{
-	auto &g = getGraph();
 	View v;
 	for (auto t : g.thr_ids()) {
 		v.setMax({t, 1});
 		for (auto &lab : g.po(t)) {
-			if (auto *mLab = llvm::dyn_cast<MallocLabel>(&lab)) {
-				if (mLab->getAllocAddr().isDynamic())
-					v.setMax({t, static_cast<int>((mLab->getAllocAddr().get() &
-								       SAddr::indexMask) +
-								      mLab->getAllocSize())});
-			}
+			auto *mLab = llvm::dyn_cast<MallocLabel>(&lab);
+			if (!mLab)
+				continue;
+			if (mLab->getAllocAddr().isDynamic())
+				v.setMax({t, static_cast<int>((mLab->getAllocAddr().get() &
+							       SAddr::indexMask) +
+							      mLab->getAllocSize())});
 		}
 	}
-	getAllocator().restrict(v);
+	return v;
 }
 
 void GenMCDriver::Execution::restrict(Stamp stamp)
 {
-	restrictGraph(stamp);
-	restrictChoices(stamp);
-	restrictAllocator(stamp);
+	auto &g = getGraph();
+	g.cutToStamp(stamp);
+	repairDanglingReads(g);
+	getChoiceMap().cut(*g.getViewFromStamp(stamp));
+	getAllocator().restrict(createAllocView(g));
 }
 
 void GenMCDriver::pushExecution(Execution &&e) { execStack.push_back(std::move(e)); }
@@ -1980,16 +1960,6 @@ void GenMCDriver::filterAtomicityViolations(const ReadLabel *rLab,
 		stores.end());
 }
 
-void GenMCDriver::updateStSpaceChoices(const ReadLabel *rLab,
-				       const std::vector<EventLabel *> &stores)
-{
-	auto &choices = getChoiceMap()[rLab->getStamp()];
-	std::vector<Event> storeEvents;
-	std::transform(stores.begin(), stores.end(), std::back_inserter(storeEvents),
-		       [](auto &wLab) { return wLab->getPos(); });
-	choices = std::move(storeEvents);
-}
-
 EventLabel *GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *> &stores)
 {
 	auto &g = getGraph();
@@ -2046,7 +2016,7 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 
 	std::optional<EventLabel *> rf = std::nullopt;
 	if (inEstimationMode()) {
-		updateStSpaceChoices(lab, stores);
+		getChoiceMap().update(lab, stores);
 		filterAtomicityViolations(lab, stores);
 		rf = pickRandomRf(lab, stores);
 	} else {
@@ -2135,16 +2105,6 @@ void GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos)
 	g.moveStoreCOAfter(sLab, cos[random]);
 }
 
-void GenMCDriver::updateStSpaceChoices(const WriteLabel *wLab,
-				       const std::vector<EventLabel *> &stores)
-{
-	auto &choices = getChoiceMap()[wLab->getStamp()];
-	std::vector<Event> storeEvents;
-	std::transform(stores.begin(), stores.end(), std::back_inserter(storeEvents),
-		       [](auto &wLab) { return wLab->getPos(); });
-	choices = std::move(storeEvents);
-}
-
 void GenMCDriver::calcCoOrderings(WriteLabel *lab, const std::vector<EventLabel *> &cos)
 {
 	for (auto &predLab : cos | std::views::take(cos.size() - 1)) {
@@ -2188,7 +2148,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	std::optional<EventLabel *> co;
 	if (inEstimationMode()) {
 		pickRandomCo(lab, cos);
-		updateStSpaceChoices(lab, cos);
+		getChoiceMap().update(lab, cos);
 	} else {
 		co = findConsistentCo(lab, cos);
 		calcCoOrderings(lab, cos);
@@ -2918,47 +2878,6 @@ std::unique_ptr<ExecutionGraph> GenMCDriver::copyGraph(const BackwardRevisit *br
 	return og;
 }
 
-GenMCDriver::ChoiceMap GenMCDriver::createChoiceMapForCopy(const ExecutionGraph &og) const
-{
-	const auto &g = getGraph();
-	const auto &choices = getChoiceMap();
-	ChoiceMap result;
-
-	for (auto &lab : g.labels()) {
-		if (!og.containsPos(lab.getPos()) || !choices.count(lab.getStamp()))
-			continue;
-
-		auto oldStamp = lab.getStamp();
-		auto newStamp = og.getEventLabel(lab.getPos())->getStamp();
-		for (const auto &e : choices.at(oldStamp)) {
-			if (og.containsPos(e))
-				result[newStamp.get()].insert(e);
-		}
-	}
-	return result;
-}
-
-SAddrAllocator GenMCDriver::createAllocatorForCopy(const ExecutionGraph &og) const
-{
-	SAddrAllocator result(getAddrAllocator());
-
-	View v;
-	for (auto t : og.thr_ids()) {
-		v.setMax({t, 1});
-		for (auto &lab : og.po(t)) {
-			auto *mLab = llvm::dyn_cast<MallocLabel>(&lab);
-			if (!mLab)
-				continue;
-			if (mLab->getAllocAddr().isDynamic())
-				v.setMax({t, static_cast<int>((mLab->getAllocAddr().get() &
-							       SAddr::indexMask) +
-							      mLab->getAllocSize())});
-		}
-	}
-	result.restrict(v);
-	return result;
-}
-
 bool GenMCDriver::checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<ReadLabel *> &loads)
 {
 	if (!getConf()->helper || !sLab->hasAttr(WriteAttr::RevBlocker))
@@ -2976,16 +2895,6 @@ bool GenMCDriver::checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<
 	return true;
 }
 
-void GenMCDriver::updateStSpaceChoices(const std::vector<ReadLabel *> &loads,
-				       const WriteLabel *sLab)
-{
-	auto &g = getGraph();
-	auto &choices = getChoiceMap();
-	for (const auto *rLab : loads) {
-		choices[rLab->getStamp()].insert(sLab->getPos());
-	}
-}
-
 bool GenMCDriver::calcRevisits(WriteLabel *sLab)
 {
 	auto &g = getGraph();
@@ -2997,7 +2906,7 @@ bool GenMCDriver::calcRevisits(WriteLabel *sLab)
 
 	/* If operating in estimation mode, don't actually revisit */
 	if (inEstimationMode()) {
-		updateStSpaceChoices(loads, sLab);
+		getChoiceMap().update(loads, sLab);
 		return checkAtomicity(sLab) && checkRevBlockHELPER(sLab, loads) && !isMoot();
 	}
 
@@ -3168,11 +3077,13 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 				brh ? g.getWriteLabel(brh->getMid()) : nullptr);
 
 	auto og = copyGraph(&br, &*v);
-	auto m = createChoiceMapForCopy(*og);
-	auto alloctor = createAllocatorForCopy(*og);
+	auto cmap = ChoiceMap(getChoiceMap());
+	cmap.cut(*v);
+	auto alloctor = SAddrAllocator(getAddrAllocator());
+	alloctor.restrict(createAllocView(*og));
 
 	pushExecution(
-		{std::move(og), LocalQueueT(), std::move(m), std::move(alloctor), br.getPos()});
+		{std::move(og), LocalQueueT(), std::move(cmap), std::move(alloctor), br.getPos()});
 
 	repairDanglingReads(getGraph());
 	auto ok = revisitRead(br);
