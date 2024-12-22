@@ -104,7 +104,7 @@ GenMCDriver::Execution::Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT
 {}
 GenMCDriver::Execution::~Execution() = default;
 
-void repairRead(ExecutionGraph &g, ReadLabel *lab)
+static void repairRead(ExecutionGraph &g, ReadLabel *lab)
 {
 	auto *maxLab = g.co_max(lab->getAddr());
 	lab->setRf(maxLab);
@@ -112,13 +112,11 @@ void repairRead(ExecutionGraph &g, ReadLabel *lab)
 	lab->setIPRStatus(maxLab->getStamp() > lab->getStamp());
 }
 
-void repairDanglingReads(ExecutionGraph &g)
+static void repairDanglingReads(ExecutionGraph &g)
 {
 	for (auto i = 0U; i < g.getNumThreads(); i++) {
 		auto *rLab = llvm::dyn_cast<ReadLabel>(g.getLastThreadLabel(i));
-		if (!rLab)
-			continue;
-		if (!rLab->getRf()) {
+		if (rLab && !rLab->getRf()) {
 			repairRead(g, rLab);
 		}
 	}
