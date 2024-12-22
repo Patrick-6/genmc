@@ -319,8 +319,6 @@ protected:
 	std::optional<SVal> getReadRetValue(const ReadLabel *rLab);
 	SVal getRecReadRetValue(const ReadLabel *rLab);
 
-	int getSymmPredTid(int tid) const;
-	int getSymmSuccTid(int tid) const;
 	bool isEcoBefore(const EventLabel *lab, int tid) const;
 	bool isEcoSymmetric(const EventLabel *lab, int tid) const;
 	bool isPredSymmetryOK(const EventLabel *lab, int tid);

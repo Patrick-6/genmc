@@ -308,12 +308,13 @@ int GenMCDriver::getFirstSchedulableSymmetric(int tid)
 	if (!getConf()->symmetryReduction)
 		return tid;
 
+	auto &g = getExec().getGraph();
 	auto firstSched = tid;
-	auto symm = getSymmPredTid(tid);
+	auto symm = g.getFirstThreadLabel(tid)->getSymmPredTid();
 	while (symm != -1) {
 		if (isSchedulable(symm))
 			firstSched = symm;
-		symm = getSymmPredTid(symm);
+		symm = g.getFirstThreadLabel(symm)->getSymmPredTid();
 	}
 	return firstSched;
 }
@@ -1319,25 +1320,6 @@ void GenMCDriver::filterConflictingBarriers(const ReadLabel *lab, std::vector<Ev
 	stores.erase(std::remove_if(stores.begin(), stores.end(),
 				    [&](auto &sLab) { return isReadByExclusiveRead(sLab); }),
 		     stores.end());
-	return;
-}
-
-int GenMCDriver::getSymmPredTid(int tid) const
-{
-	auto &g = getExec().getGraph();
-	return g.getFirstThreadLabel(tid)->getSymmetricTid();
-}
-
-int GenMCDriver::getSymmSuccTid(int tid) const
-{
-	auto &g = getExec().getGraph();
-	auto symm = tid;
-
-	/* Check if there is anyone else symmetric to SYMM */
-	for (auto i = tid + 1; i < g.getNumThreads(); i++)
-		if (g.getFirstThreadLabel(i)->getSymmetricTid() == symm)
-			return i;
-	return -1; /* no one else */
 }
 
 bool GenMCDriver::isEcoBefore(const EventLabel *lab, int tid) const
@@ -1400,13 +1382,12 @@ bool GenMCDriver::isPredSymmetryOK(const EventLabel *lab)
 	auto &g = getExec().getGraph();
 	std::vector<int> preds;
 
-	auto symm = getSymmPredTid(lab->getThread());
+	auto symm = g.getFirstThreadLabel(lab->getThread())->getSymmPredTid();
 	while (symm != -1) {
 		preds.push_back(symm);
-		symm = getSymmPredTid(symm);
+		symm = g.getFirstThreadLabel(symm)->getSymmPredTid();
 	}
-	return std::all_of(preds.begin(), preds.end(),
-			   [&](auto &symm) { return isPredSymmetryOK(lab, symm); });
+	return std::ranges::all_of(preds, [&](auto &symm) { return isPredSymmetryOK(lab, symm); });
 }
 
 bool GenMCDriver::isSuccSymmetryOK(const EventLabel *lab, int symm)
@@ -1429,30 +1410,29 @@ bool GenMCDriver::isSuccSymmetryOK(const EventLabel *lab)
 	auto &g = getExec().getGraph();
 	std::vector<int> succs;
 
-	auto symm = getSymmSuccTid(lab->getThread());
+	auto symm = g.getFirstThreadLabel(lab->getThread())->getSymmSuccTid();
 	while (symm != -1) {
 		succs.push_back(symm);
-		symm = getSymmSuccTid(symm);
+		symm = g.getFirstThreadLabel(symm)->getSymmSuccTid();
 	}
-	return std::all_of(succs.begin(), succs.end(),
-			   [&](auto &symm) { return isSuccSymmetryOK(lab, symm); });
+	return std::ranges::all_of(succs, [&](auto &symm) { return isSuccSymmetryOK(lab, symm); });
 }
 
 bool GenMCDriver::isSymmetryOK(const EventLabel *lab)
 {
-	auto &g = getExec().getGraph();
 	return isPredSymmetryOK(lab) && isSuccSymmetryOK(lab);
 }
 
 void GenMCDriver::updatePrefixWithSymmetriesSR(EventLabel *lab)
 {
-	auto t = getSymmPredTid(lab->getThread());
-	if (t == -1)
+	auto &g = *lab->getParent();
+	auto symm = g.getFirstThreadLabel(lab->getThread())->getSymmPredTid();
+	if (symm == -1)
 		return;
 
 	auto &v = lab->getPrefixView();
-	auto si = calcLargestSymmPrefixBeforeSR(t, lab->getPos());
-	auto *symmLab = getExec().getGraph().getEventLabel({t, si});
+	auto si = calcLargestSymmPrefixBeforeSR(symm, lab->getPos());
+	auto *symmLab = getExec().getGraph().getEventLabel({symm, si});
 	v.update(getPrefixView(symmLab));
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(symmLab)) {
 		v.update(getPrefixView(rLab->getRf()));
@@ -1498,7 +1478,7 @@ void GenMCDriver::filterSymmetricStoresSR(const ReadLabel *rLab,
 					  std::vector<EventLabel *> &stores) const
 {
 	auto &g = getExec().getGraph();
-	auto t = getSymmPredTid(rLab->getThread());
+	auto t = g.getFirstThreadLabel(rLab->getThread())->getSymmPredTid();
 
 	/* If there is no symmetric thread, exit */
 	if (t == -1)
@@ -1760,9 +1740,10 @@ int GenMCDriver::handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab)
 		g.removeLast(cid);
 	}
 	auto symm = getSymmetricTidSR(lab, lab->getChildInfo());
-	auto tsLab =
-		ThreadStartLabel::create(Event(cid, 0), lab->getPos(), lab->getChildInfo(), symm);
-	addLabelToGraph(std::move(tsLab));
+	auto *tsLab = addLabelToGraph(
+		ThreadStartLabel::create(Event(cid, 0), lab->getPos(), lab->getChildInfo(), symm));
+	if (symm != -1)
+		g.getFirstThreadLabel(symm)->setSymmSuccTid(cid);
 	return cid;
 }
 
@@ -2361,7 +2342,7 @@ bool GenMCDriver::reportWarningOnce(Event pos, VerificationError wcode,
 			 std::ranges::any_of(
 				 g.thr_ids(),
 				 [&](auto tid) {
-					 return g.getFirstThreadLabel(tid)->getSymmetricTid() != -1;
+					 return g.getFirstThreadLabel(tid)->getSymmPredTid() != -1;
 				 })) ||
 			(getConf()->ipr &&
 			 std::any_of(sameloc_begin(g, lab), sameloc_end(g, lab), [&](auto &oLab) {
@@ -3336,7 +3317,7 @@ void GenMCDriver::printGraph(bool printMetadata /* false */,
 		s << thr;
 		if (getConf()->symmetryReduction) {
 			if (auto *bLab = g.getFirstThreadLabel(i)) {
-				auto symm = bLab->getSymmetricTid();
+				auto symm = bLab->getSymmPredTid();
 				if (symm != -1)
 					s << " symmetric with " << symm;
 			}
