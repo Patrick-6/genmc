@@ -162,26 +162,18 @@ public:
 		bool shouldHalt = true;
 	};
 
-private:
-	static bool isInvalidAccessError(VerificationError s)
-	{
-		return VerificationError::VE_InvalidAccessBegin <= s &&
-		       s <= VerificationError::VE_InvalidAccessEnd;
-	};
-
-public:
-	template <typename... Ts> static std::unique_ptr<GenMCDriver> create(Ts &&...params)
+	template <typename... Ts> static auto create(Ts &&...params) -> std::unique_ptr<GenMCDriver>
 	{
 		return std::unique_ptr<GenMCDriver>(new GenMCDriver(std::forward<Ts>(params)...));
 	}
 
 	/* Creates driver instance(s) and starts verification for the given module. */
-	static Result verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-			     std::unique_ptr<ModuleInfo> modInfo);
+	static auto verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+			   std::unique_ptr<ModuleInfo> modInfo) -> Result;
 
-	static Result estimate(std::shared_ptr<const Config> conf,
-			       const std::unique_ptr<llvm::Module> &mod,
-			       const std::unique_ptr<ModuleInfo> &modInfo);
+	static auto estimate(std::shared_ptr<const Config> conf,
+			     const std::unique_ptr<llvm::Module> &mod,
+			     const std::unique_ptr<ModuleInfo> &modInfo) -> Result;
 
 	/**** Generic actions ***/
 
