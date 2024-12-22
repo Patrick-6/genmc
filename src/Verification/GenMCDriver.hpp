@@ -119,20 +119,20 @@ public:
 		auto operator=(Execution &&) -> Execution & = default;
 
 		/* Returns a reference to the current graph */
-		ExecutionGraph &getGraph() { return *graph; }
-		const ExecutionGraph &getGraph() const { return *graph; }
+		auto getGraph() -> ExecutionGraph & { return *graph; }
+		auto getGraph() const -> const ExecutionGraph & { return *graph; }
 
-		LocalQueueT &getWorkqueue() { return workqueue; }
-		const LocalQueueT &getWorkqueue() const { return workqueue; }
+		auto getWorkqueue() -> LocalQueueT & { return workqueue; }
+		auto getWorkqueue() const -> const LocalQueueT & { return workqueue; }
 
-		ChoiceMap &getChoiceMap() { return choices; }
-		const ChoiceMap &getChoiceMap() const { return choices; }
+		auto getChoiceMap() -> ChoiceMap & { return choices; }
+		auto getChoiceMap() const -> const ChoiceMap & { return choices; }
 
-		const SAddrAllocator &getAllocator() const { return alloctor; }
-		SAddrAllocator &getAllocator() { return alloctor; }
+		auto getAllocator() const -> const SAddrAllocator & { return alloctor; }
+		auto getAllocator() -> SAddrAllocator & { return alloctor; }
 
-		const Event &getLastAdded() const { return lastAdded; }
-		Event &getLastAdded() { return lastAdded; }
+		auto getLastAdded() const -> const Event & { return lastAdded; }
+		auto getLastAdded() -> Event & { return lastAdded; }
 
 		/* Removes all items with stamp >= STAMP from the execution */
 		void restrict(Stamp stamp);
