@@ -44,6 +44,7 @@ libgenmc_a_SOURCES = \
   src/ExecutionGraph/Consistency/RC11Checker.cpp \
   src/ExecutionGraph/Consistency/RoundBoundDecider.cpp \
   src/ExecutionGraph/Consistency/SCChecker.cpp \
+  src/ExecutionGraph/Consistency/SymmetryChecker.cpp \
   src/ExecutionGraph/Consistency/TSOChecker.cpp \
   src/Runtime/Execution.cpp \
   src/Runtime/ExternalFunctions.cpp \

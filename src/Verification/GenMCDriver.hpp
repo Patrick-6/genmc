@@ -45,6 +45,7 @@ class ModuleInfo;
 class ThreadPool;
 class BoundDecider;
 class ConsistencyChecker;
+class SymmetryChecker;
 enum class BoundCalculationStrategy;
 
 class GenMCDriver {
@@ -285,6 +286,10 @@ protected:
 	ConsistencyChecker &getConsChecker() { return *consChecker; }
 	const ConsistencyChecker &getConsChecker() const { return *consChecker; }
 
+	/* Returns a reference to the symmetry checker */
+	SymmetryChecker &getSymmChecker() { return *symmChecker; }
+	const SymmetryChecker &getSymmChecker() const { return *symmChecker; }
+
 	/* Stops the verification procedure when an error is found */
 	void halt(VerificationError status);
 
@@ -318,15 +323,6 @@ protected:
 	 * interpreter. */
 	std::optional<SVal> getReadRetValue(const ReadLabel *rLab);
 	SVal getRecReadRetValue(const ReadLabel *rLab);
-
-	bool isEcoBefore(const EventLabel *lab, int tid) const;
-	bool isEcoSymmetric(const EventLabel *lab, int tid) const;
-	bool isPredSymmetryOK(const EventLabel *lab, int tid);
-	bool isPredSymmetryOK(const EventLabel *lab);
-	bool isSuccSymmetryOK(const EventLabel *lab, int tid);
-	bool isSuccSymmetryOK(const EventLabel *lab);
-	bool isSymmetryOK(const EventLabel *lab);
-	void updatePrefixWithSymmetriesSR(EventLabel *lab);
 
 	/* Pers: Returns true if we are currently running the recovery routine */
 	bool inRecoveryMode() const;
@@ -644,11 +640,6 @@ private:
 	/* SR: Returns the (greatest) ID of a thread that is symmetric to PARENT/INFO */
 	int getSymmetricTidSR(const ThreadCreateLabel *tcLab, const ThreadInfo &info) const;
 
-	int calcLargestSymmPrefixBeforeSR(int tid, Event pos) const;
-
-	/* SR: Returns true if TID has the same prefix up to POS.INDEX as POS.THREAD */
-	bool sharePrefixSR(int tid, Event pos) const;
-
 	/* SR: Filter stores that will lead to a symmetric execution */
 	void filterSymmetricStoresSR(const ReadLabel *rLab,
 				     std::vector<EventLabel *> &stores) const;
@@ -742,6 +733,9 @@ private:
 
 	/* Consistency checker (mm-specific) */
 	std::unique_ptr<ConsistencyChecker> consChecker;
+
+	/* Symmetry checker) */
+	std::unique_ptr<SymmetryChecker> symmChecker;
 
 	/* Opt: Cached labels for optimized scheduling */
 	ValuePrefixT seenPrefixes;
