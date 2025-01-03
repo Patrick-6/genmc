@@ -24,6 +24,7 @@
 
 #include "RAChecker.hpp"
 #include "ADT/VSet.hpp"
+#include "ADT/View.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "ExecutionGraph/GraphIterators.hpp"
 #include "ExecutionGraph/GraphUtils.hpp"
@@ -534,7 +535,6 @@ const View &RAChecker::getHbView(const EventLabel *lab) const
 
 static auto isWriteRfBefore(const WriteLabel *wLab, const EventLabel *lab) -> bool
 {
-	auto &g = *wLab->getParent();
 	auto &before = lab->view(0);
 	return before.contains(wLab->getPos()) ||
 	       std::ranges::any_of(wLab->readers(),

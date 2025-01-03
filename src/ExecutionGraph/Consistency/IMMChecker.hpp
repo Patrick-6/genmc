@@ -26,6 +26,7 @@
 #define GENMC_IMM_CHECKER_HPP
 
 #include "ExecutionGraph/Consistency/ConsistencyChecker.hpp"
+#include "ExecutionGraph/EventLabel.hpp"
 #include <cstdint>
 #include <vector>
 
@@ -47,7 +48,7 @@ public:
 private:
 	bool isConsistent(const EventLabel *lab) const override;
 	VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const;
-	std::vector<VerificationError> checkWarnings(const EventLabel *lab, const VSet<VerificationError> &reported, std::vector<const EventLabel *> &races) const;
+	std::vector<VerificationError> checkWarnings(const EventLabel *lab, const VSet<VerificationError> &reported, std::vector<const EventLabel *> &races) const override;
 	std::vector<EventLabel *> getCoherentStores(ReadLabel *rLab) override;
 	std::vector<ReadLabel *> getCoherentRevisits(WriteLabel *sLab, const VectorClock &pporf) override;
 	std::vector<EventLabel *> getCoherentPlacings(WriteLabel *sLab) override;

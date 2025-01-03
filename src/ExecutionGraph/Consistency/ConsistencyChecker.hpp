@@ -22,9 +22,6 @@
 #define GENMC_CONSISTENCY_CHECKER_HPP
 
 #include "ADT/VSet.hpp"
-#include "ExecutionGraph/Event.hpp"
-#include "ExecutionGraph/ExecutionGraph.hpp"
-#include "Support/SAddr.hpp"
 #include "Verification/VerificationError.hpp"
 
 #include <memory>
@@ -38,8 +35,6 @@ class Config;
 class VectorClock;
 class View;
 enum class ModelType : std::uint8_t;
-
-// TODO: Don't include EG; rewrite coh utils to use labels
 
 /* An abstract class defining the API for checking graph consistency,
  * and for caching memory-model-specific information in the execution graph.
@@ -86,7 +81,7 @@ public:
 
 	virtual auto getHbView(const EventLabel *lab) const -> const View & = 0;
 
-	virtual bool isDepTracking() const = 0;
+	virtual auto isDepTracking() const -> bool = 0;
 
 private:
 	/* We don't need any private members but it's conceivable that
