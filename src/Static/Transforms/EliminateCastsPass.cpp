@@ -40,11 +40,7 @@
 using namespace llvm;
 
 #if LLVM_VERSION_MAJOR >= 12
-#if LLVM_VERSION_MAJOR > 7
 #define IS_LIFETIME_START_OR_END(i) (i)->isLifetimeStartOrEnd()
-#else
-#define IS_LIFETIME_START_OR_END(i) isLifetimeStartOrEnd(i)
-#endif
 #if LLVM_VERSION_MAJOR >= 11
 #define IS_DROPPABLE(i) (i)->isDroppable()
 #else

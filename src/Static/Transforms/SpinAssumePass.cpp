@@ -50,12 +50,6 @@ using namespace llvm;
 #define POSTDOM_PASS PostDominatorTreeWrapperPass
 #define GET_POSTDOM_PASS() getAnalysis<POSTDOM_PASS>().getPostDomTree();
 
-#if LLVM_VERSION_MAJOR >= 9
-#define INSERT_PREHEADER_FOR_LOOP(L, DT, LI) llvm::InsertPreheaderForLoop(L, DT, LI, nullptr, false)
-#else
-#define INSERT_PREHEADER_FOR_LOOP(L, DT, LI) llvm::InsertPreheaderForLoop(L, DT, LI, false)
-#endif
-
 void getLoopCASs(const Loop *l, SmallVector<const AtomicCmpXchgInst *, 4> &cass)
 {
 	for (auto bb = l->block_begin(); bb != l->block_end(); ++bb) {
@@ -675,7 +669,7 @@ auto checkLoop(Loop *l, ModuleAnalysisManager &MAM, bool markStarts) -> bool
 				    .getManager();
 		auto &DT = FAM.getResult<DominatorTreeAnalysis>(*header->getParent());
 		auto &LI = FAM.getResult<LoopAnalysis>(*header->getParent());
-		auto *ph = INSERT_PREHEADER_FOR_LOOP(l, &DT, &LI);
+		auto *ph = llvm::InsertPreheaderForLoop(l, &DT, &LI, nullptr, false);
 		addLoopBeginCallBeforeTerm(ph);
 	}
 

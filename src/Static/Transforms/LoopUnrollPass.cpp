@@ -29,11 +29,7 @@
 #include <llvm/IR/Module.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
-#if LLVM_VERSION_MAJOR < 8
-typedef llvm::TerminatorInst TerminatorInst;
-#else
-typedef llvm::Instruction TerminatorInst;
-#endif
+using TerminatorInst = llvm::Instruction;
 
 #if LLVM_VERSION_MAJOR >= 11
 #define GET_LOADINST_ARG(val)
