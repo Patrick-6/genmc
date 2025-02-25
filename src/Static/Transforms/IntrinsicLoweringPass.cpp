@@ -34,7 +34,7 @@
 
 using namespace llvm;
 
-auto runOnBasicBlock(BasicBlock &BB, IntrinsicLowering *IL) -> bool
+static auto runOnBasicBlock(BasicBlock &BB, IntrinsicLowering *IL) -> bool
 {
 	auto &M = *BB.getParent()->getParent();
 	auto modified = false;

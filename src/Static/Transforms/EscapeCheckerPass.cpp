@@ -22,7 +22,6 @@
 #include "Runtime/InterpreterEnumAPI.hpp"
 #include "Static/LLVMUtils.hpp"
 #include "Static/Transforms/CallInfoCollectionPass.hpp"
-#include "Support/Error.hpp"
 
 #include <llvm/IR/Dominators.h>
 #include <llvm/IR/InstIterator.h>
@@ -34,14 +33,14 @@ using namespace llvm;
 
 /* EscapeInfo impl */
 
-bool EscapeAnalysisResult::escapes(const Value *v) const
+auto EscapeAnalysisResult::escapes(const Value *v) const -> bool
 {
 	auto it = escapePoints.find(v);
 	return it == escapePoints.cend() ? false : !it->second.empty();
 }
 
-bool EscapeAnalysisResult::escapesAfter(const Value *a, const Instruction *b,
-					DominatorTree &DT) const
+auto EscapeAnalysisResult::escapesAfter(const Value *a, const Instruction *b,
+					DominatorTree &DT) const -> bool
 {
 	auto it = escapePoints.find(a);
 	return it == escapePoints.cend()
@@ -50,7 +49,8 @@ bool EscapeAnalysisResult::escapesAfter(const Value *a, const Instruction *b,
 				     [&](const Instruction *p) { return DT.dominates(b, p); });
 }
 
-auto EscapeAnalysisResult::writesDynamicMemory(Value *val /*, AliasAnalysis &AA */) -> Instruction *
+auto EscapeAnalysisResult::writesDynamicMemory(Value *val /*, AliasAnalysis &AA */) const
+	-> Instruction *
 {
 	auto *ptr = dyn_cast<Instruction>(val);
 	if (!ptr)
