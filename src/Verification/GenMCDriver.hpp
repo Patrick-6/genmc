@@ -23,22 +23,18 @@
 
 #include "ADT/Trie.hpp"
 #include "Config/Config.hpp"
-#include "ExecutionGraph/DepInfo.hpp"
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "Support/SAddrAllocator.hpp"
+#include "Verification/ChoiceMap.hpp"
 #include "Verification/VerificationError.hpp"
-#include "Verification/WorkSet.hpp"
+#include "Verification/WorkList.hpp"
 #include <llvm/ADT/BitVector.h>
 #include <llvm/IR/Module.h>
 
-#include <cstdint>
 #include <ctime>
-#include <map>
 #include <memory>
-#include <numeric>
 #include <random>
-#include <unordered_set>
 #include <utility>
 #include <variant>
 
@@ -49,16 +45,16 @@ class ModuleInfo;
 class ThreadPool;
 class BoundDecider;
 class ConsistencyChecker;
+class SymmetryChecker;
 enum class BoundCalculationStrategy;
 
 class GenMCDriver {
 
 protected:
-	using LocalQueueT = std::map<Stamp, WorkSet>;
+	using LocalQueueT = WorkList;
 	using ValuePrefixT = std::unordered_map<
 		unsigned int,
 		Trie<std::vector<SVal>, std::vector<std::unique_ptr<EventLabel>>, SValUCmp>>;
-	using ChoiceMap = std::map<Stamp, VSet<Event>>;
 
 public:
 	/* The operating mode of the driver */
@@ -112,24 +108,43 @@ public:
 		}
 	};
 
-	/* Driver (global) state */
-	struct State {
+	/* Represents the execution at a given point */
+	struct Execution {
+		Execution() = delete;
+		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&cm,
+			  SAddrAllocator &&alloctor, Event lastAdded);
+
+		Execution(const Execution &) = delete;
+		auto operator=(const Execution &) -> Execution & = delete;
+		Execution(Execution &&) = default;
+		auto operator=(Execution &&) -> Execution & = default;
+
+		/* Returns a reference to the current graph */
+		auto getGraph() -> ExecutionGraph & { return *graph; }
+		auto getGraph() const -> const ExecutionGraph & { return *graph; }
+
+		auto getWorkqueue() -> LocalQueueT & { return workqueue; }
+		auto getWorkqueue() const -> const LocalQueueT & { return workqueue; }
+
+		auto getChoiceMap() -> ChoiceMap & { return choices; }
+		auto getChoiceMap() const -> const ChoiceMap & { return choices; }
+
+		auto getAllocator() const -> const SAddrAllocator & { return alloctor; }
+		auto getAllocator() -> SAddrAllocator & { return alloctor; }
+
+		auto getLastAdded() const -> const Event & { return lastAdded; }
+		auto getLastAdded() -> Event & { return lastAdded; }
+
+		/* Removes all items with stamp >= STAMP from the execution */
+		void restrict(Stamp stamp);
+
+		~Execution();
+
 		std::unique_ptr<ExecutionGraph> graph;
+		LocalQueueT workqueue;
 		ChoiceMap choices;
 		SAddrAllocator alloctor;
-		ValuePrefixT cache;
-		Event lastAdded;
-
-		State() = delete;
-		State(std::unique_ptr<ExecutionGraph> g, ChoiceMap &&m, SAddrAllocator &&alloctor,
-		      ValuePrefixT &&cache, Event la);
-
-		State(const State &) = delete;
-		auto operator=(const State &) -> State & = delete;
-		State(State &&) = default;
-		auto operator=(State &&) -> State & = default;
-
-		~State();
+		Event lastAdded = Event::getInit();
 	};
 
 	/** Details for an error to be reported */
@@ -148,61 +163,18 @@ public:
 		bool shouldHalt = true;
 	};
 
-private:
-	/* Represents the execution at a given point */
-	struct Execution {
-		Execution() = delete;
-		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&cm);
-
-		Execution(const Execution &) = delete;
-		auto operator=(const Execution &) -> Execution & = delete;
-		Execution(Execution &&) = default;
-		auto operator=(Execution &&) -> Execution & = default;
-
-		/* Returns a reference to the current graph */
-		ExecutionGraph &getGraph() { return *graph; }
-		const ExecutionGraph &getGraph() const { return *graph; }
-
-		LocalQueueT &getWorkqueue() { return workqueue; }
-		const LocalQueueT &getWorkqueue() const { return workqueue; }
-
-		ChoiceMap &getChoiceMap() { return choices; }
-		const ChoiceMap &getChoiceMap() const { return choices; }
-
-		void restrict(Stamp stamp);
-
-		~Execution();
-
-	private:
-		/* Removes all items with stamp >= STAMP from the list */
-		void restrictWorklist(Stamp stamp);
-		void restrictGraph(Stamp stamp);
-		void restrictChoices(Stamp stamp);
-
-		std::unique_ptr<ExecutionGraph> graph;
-		ChoiceMap choices;
-		LocalQueueT workqueue;
-	};
-
-	static bool isInvalidAccessError(VerificationError s)
-	{
-		return VerificationError::VE_InvalidAccessBegin <= s &&
-		       s <= VerificationError::VE_InvalidAccessEnd;
-	};
-
-public:
-	template <typename... Ts> static std::unique_ptr<GenMCDriver> create(Ts &&...params)
+	template <typename... Ts> static auto create(Ts &&...params) -> std::unique_ptr<GenMCDriver>
 	{
 		return std::unique_ptr<GenMCDriver>(new GenMCDriver(std::forward<Ts>(params)...));
 	}
 
 	/* Creates driver instance(s) and starts verification for the given module. */
-	static Result verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-			     std::unique_ptr<ModuleInfo> modInfo);
+	static auto verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+			   std::unique_ptr<ModuleInfo> modInfo) -> Result;
 
-	static Result estimate(std::shared_ptr<const Config> conf,
-			       const std::unique_ptr<llvm::Module> &mod,
-			       const std::unique_ptr<ModuleInfo> &modInfo);
+	static auto estimate(std::shared_ptr<const Config> conf,
+			     const std::unique_ptr<llvm::Module> &mod,
+			     const std::unique_ptr<ModuleInfo> &modInfo) -> Result;
 
 	/**** Generic actions ***/
 
@@ -307,24 +279,16 @@ protected:
 	llvm::Interpreter *getEE() const { return EE.get(); }
 
 	/* Returns a reference to the current execution */
-	Execution &getExecution() { return execStack.back(); }
-	const Execution &getExecution() const { return execStack.back(); }
+	Execution &getExec() { return execStack.back(); }
+	const Execution &getExec() const { return execStack.back(); }
 
-	/* Returns a reference to the current graph */
-	ExecutionGraph &getGraph() { return getExecution().getGraph(); }
-	const ExecutionGraph &getGraph() const { return getExecution().getGraph(); }
-
-	LocalQueueT &getWorkqueue() { return getExecution().getWorkqueue(); }
-	const LocalQueueT &getWorkqueue() const { return getExecution().getWorkqueue(); }
-
-	ChoiceMap &getChoiceMap() { return getExecution().getChoiceMap(); }
-	const ChoiceMap &getChoiceMap() const { return getExecution().getChoiceMap(); }
-
+	/* Returns a reference to the set consistency checker */
 	ConsistencyChecker &getConsChecker() { return *consChecker; }
 	const ConsistencyChecker &getConsChecker() const { return *consChecker; }
 
-	const SAddrAllocator &getAddrAllocator() const { return alloctor; }
-	SAddrAllocator &getAddrAllocator() { return alloctor; }
+	/* Returns a reference to the symmetry checker */
+	SymmetryChecker &getSymmChecker() { return *symmChecker; }
+	const SymmetryChecker &getSymmChecker() const { return *symmChecker; }
 
 	/* Stops the verification procedure when an error is found */
 	void halt(VerificationError status);
@@ -342,34 +306,23 @@ protected:
 	void setThreadPool(ThreadPool *tp) { pool = tp; }
 
 	/* Initializes the exploration from a given state */
-	void initFromState(std::unique_ptr<State> s);
+	void initFromState(std::unique_ptr<Execution> s);
 
 	/* Extracts the current driver state.
 	 * The driver is left in an inconsistent form */
-	std::unique_ptr<State> extractState();
+	std::unique_ptr<Execution> extractState();
 
 	/* Returns a fresh address for a new allocation */
 	SAddr getFreshAddr(const MallocLabel *aLab);
 
 	/* Returns all values read leading up to POS */
-	std::pair<std::vector<SVal>, Event> extractValPrefix(Event pos);
+	std::pair<std::vector<SVal>, std::vector<Event>> extractValPrefix(Event pos);
 
 	/* Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
 	 * interpreter. */
 	std::optional<SVal> getReadRetValue(const ReadLabel *rLab);
 	SVal getRecReadRetValue(const ReadLabel *rLab);
-
-	int getSymmPredTid(int tid) const;
-	int getSymmSuccTid(int tid) const;
-	bool isEcoBefore(const EventLabel *lab, int tid) const;
-	bool isEcoSymmetric(const EventLabel *lab, int tid) const;
-	bool isPredSymmetryOK(const EventLabel *lab, int tid);
-	bool isPredSymmetryOK(const EventLabel *lab);
-	bool isSuccSymmetryOK(const EventLabel *lab, int tid);
-	bool isSuccSymmetryOK(const EventLabel *lab);
-	bool isSymmetryOK(const EventLabel *lab);
-	void updatePrefixWithSymmetriesSR(EventLabel *lab);
 
 	/* Pers: Returns true if we are currently running the recovery routine */
 	bool inRecoveryMode() const;
@@ -392,15 +345,6 @@ protected:
 	}
 
 private:
-	/*** Worklist-related ***/
-
-	/* Adds an appropriate entry to the worklist */
-	void addToWorklist(Stamp stamp, WorkSet::ItemT item);
-
-	/* Fetches the next backtrack option.
-	 * A default-constructed item means that the list is empty */
-	std::pair<Stamp, WorkSet::ItemT> getNextItem();
-
 	/*** Exploration-related ***/
 
 	/* The workhorse for run().
@@ -520,16 +464,16 @@ private:
 	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
 
 	/* Est: Picks (and sets) a random RF among some possible options */
-	Event pickRandomRf(ReadLabel *rLab, std::vector<Event> &stores);
+	EventLabel *pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *> &stores);
 
 	/* Est: Picks (and sets) a random CO among some possible options */
-	void pickRandomCo(WriteLabel *sLab, std::vector<Event> &cos);
+	void pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos);
 
 	/* BAM: Tries to optimize barrier-related revisits */
-	bool tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab, std::vector<Event> &loads);
+	bool tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab, std::vector<ReadLabel *> &loads);
 
 	/* IPR: Tries to revisit blocked reads in-place */
-	void tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &loads);
+	void tryOptimizeIPRs(const WriteLabel *sLab, std::vector<ReadLabel *> &loads);
 
 	/* IPR: Removes a CAS that blocks when reading from SLAB.
 	 * Returns whether if the label was removed
@@ -537,14 +481,14 @@ private:
 	bool removeCASReadIfBlocks(const ReadLabel *rLab, const EventLabel *sLab);
 
 	/* Helper: Optimizes revisits of reads that will lead to a failed speculation */
-	void optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads);
+	void optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<ReadLabel *> &loads);
 
 	/* Helper: Optimize the revisit in case SLAB is a RevBlocker */
-	bool tryOptimizeRevBlockerAddition(const WriteLabel *sLab, std::vector<Event> &loads);
+	bool tryOptimizeRevBlockerAddition(const WriteLabel *sLab, std::vector<ReadLabel *> &loads);
 
 	/* Opt: Tries to optimize revisiting from LAB. It may modify
 	 * LOADS, and returns whether we can skip revisiting altogether */
-	bool tryOptimizeRevisits(WriteLabel *lab, std::vector<Event> &loads);
+	bool tryOptimizeRevisits(WriteLabel *lab, std::vector<ReadLabel *> &loads);
 
 	/* Constructs a BackwardRevisit representing RLAB <- SLAB */
 	std::unique_ptr<BackwardRevisit> constructBackwardRevisit(const ReadLabel *rLab,
@@ -586,11 +530,11 @@ private:
 
 	/* Helper: Checks whether the execution should continue upon SLAB revisited LOADS.
 	 * Returns true if yes, and false (+moot) otherwise  */
-	bool checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<Event> &loads);
+	bool checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<ReadLabel *> &loads);
 
 	/* Calculates all possible coherence placings for SLAB and
 	 * pushes them to the worklist. */
-	void calcCoOrderings(WriteLabel *sLab, const std::vector<Event> &cos);
+	void calcCoOrderings(WriteLabel *sLab, const std::vector<EventLabel *> &cos);
 
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
@@ -614,7 +558,7 @@ private:
 
 	/* Adjusts the graph and the worklist according to the backtracking option S.
 	 * Returns true if the resulting graph should be explored */
-	bool restrictAndRevisit(Stamp st, const WorkSet::ItemT &s);
+	bool restrictAndRevisit(const WorkList::ItemT &s);
 
 	/* If rLab is the read part of an RMW operation that now became
 	 * successful, this function adds the corresponding write part.
@@ -626,20 +570,20 @@ private:
 	 * May modify V but will not execute BR in the copy. */
 	std::unique_ptr<ExecutionGraph> copyGraph(const BackwardRevisit *br, VectorClock *v) const;
 
-	ChoiceMap createChoiceMapForCopy(const ExecutionGraph &og) const;
-
 	/* Given a list of stores that it is consistent to read-from,
 	 * filters out options that can be skipped (according to the conf),
 	 * and determines the order in which these options should be explored */
-	void filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores);
+	void filterOptimizeRfs(const ReadLabel *lab, std::vector<EventLabel *> &stores);
 
 	bool isExecutionValid(const EventLabel *lab);
 
 	/* Removes rfs from RFS until a consistent option for RLAB is found */
-	std::optional<Event> findConsistentRf(ReadLabel *rLab, std::vector<Event> &rfs);
+	std::optional<EventLabel *> findConsistentRf(ReadLabel *rLab,
+						     std::vector<EventLabel *> &rfs);
 
 	/* Remove cos from COS until a consistent option for WLAB is found */
-	std::optional<Event> findConsistentCo(WriteLabel *wLab, std::vector<Event> &cos);
+	std::optional<EventLabel *> findConsistentCo(WriteLabel *wLab,
+						     std::vector<EventLabel *> &cos);
 
 	/* Checks whether the addition of WLAB creates an atomicity violation.
 	 * If so, returns false and moots the execution if possible. */
@@ -660,10 +604,10 @@ private:
 	bool areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab);
 
 	/* BAM: Filters out unnecessary rfs for LAB when BAM is enabled */
-	void filterConflictingBarriers(const ReadLabel *lab, std::vector<Event> &stores);
+	void filterConflictingBarriers(const ReadLabel *lab, std::vector<EventLabel *> &stores);
 
 	/* Estimation: Filters outs stores read by RMW loads */
-	void filterAtomicityViolations(const ReadLabel *lab, std::vector<Event> &stores);
+	void filterAtomicityViolations(const ReadLabel *lab, std::vector<EventLabel *> &stores);
 
 	/* IPR: Performs BR in-place */
 	void revisitInPlace(const BackwardRevisit &br);
@@ -696,27 +640,14 @@ private:
 	/* SR: Returns the (greatest) ID of a thread that is symmetric to PARENT/INFO */
 	int getSymmetricTidSR(const ThreadCreateLabel *tcLab, const ThreadInfo &info) const;
 
-	int calcLargestSymmPrefixBeforeSR(int tid, Event pos) const;
-
-	/* SR: Returns true if TID has the same prefix up to POS.INDEX as POS.THREAD */
-	bool sharePrefixSR(int tid, Event pos) const;
-
 	/* SR: Filter stores that will lead to a symmetric execution */
-	void filterSymmetricStoresSR(const ReadLabel *rLab, std::vector<Event> &stores) const;
+	void filterSymmetricStoresSR(const ReadLabel *rLab,
+				     std::vector<EventLabel *> &stores) const;
 
 	/* SAVer: Filters stores that will lead to an assume-blocked execution */
-	void filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<Event> &stores);
+	void filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<EventLabel *> &stores);
 
 	/*** Estimation-related ***/
-
-	/* Registers that RLAB can read from all stores in STORES */
-	void updateStSpaceChoices(const ReadLabel *rLab, const std::vector<Event> &stores);
-
-	/* Registers that each L in LOADS can read from SLAB */
-	void updateStSpaceChoices(const std::vector<Event> &loads, const WriteLabel *sLab);
-
-	/* Registers that SLAB can be after each S in STORES */
-	void updateStSpaceChoices(const WriteLabel *sLab, const std::vector<Event> &stores);
 
 	/* Makes an estimation about the state space and updates the current one.
 	 * Has to run at the end of an execution */
@@ -766,11 +697,11 @@ private:
 
 	/* Returns an approximation of consistent rfs for RLAB.
 	 * The rfs are ordered according to CO */
-	virtual std::vector<Event> getRfsApproximation(const ReadLabel *rLab);
+	virtual std::vector<EventLabel *> getRfsApproximation(ReadLabel *rLab);
 
 	/* Returns an approximation of the reads that SLAB can revisit.
 	 * The reads are ordered in reverse-addition order */
-	virtual std::vector<Event> getRevisitableApproximation(const WriteLabel *sLab);
+	virtual std::vector<ReadLabel *> getRevisitableApproximation(WriteLabel *sLab);
 
 	/* Returns a vector clock representing the prefix of e.
 	 * Depending on whether dependencies are tracked, the prefix can be
@@ -803,8 +734,8 @@ private:
 	/* Consistency checker (mm-specific) */
 	std::unique_ptr<ConsistencyChecker> consChecker;
 
-	/* An allocator for fresh addresses */
-	SAddrAllocator alloctor;
+	/* Symmetry checker) */
+	std::unique_ptr<SymmetryChecker> symmChecker;
 
 	/* Opt: Cached labels for optimized scheduling */
 	ValuePrefixT seenPrefixes;
@@ -821,9 +752,6 @@ private:
 
 	/* Opt: Whether a particular read needs to be repaired during rescheduling */
 	Event readToReschedule = Event::getInit();
-
-	/* Opt: Keeps track of the last event added for scheduling opt */
-	Event lastAdded = Event::getInit();
 
 	/* Verification result to be returned to caller */
 	Result result{};

@@ -43,7 +43,7 @@
 class GlobalWorkQueue {
 
 public:
-	using ItemT = std::unique_ptr<GenMCDriver::State>;
+	using ItemT = std::unique_ptr<GenMCDriver::Execution>;
 	using QueueT = std::vector<ItemT>;
 
 	/*** Constructors ***/

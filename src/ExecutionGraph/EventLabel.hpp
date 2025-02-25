@@ -337,30 +337,35 @@ private:
 class ThreadStartLabel : public EventLabel {
 
 protected:
-	ThreadStartLabel(EventLabelKind kind, Event pos, Event pc)
+	ThreadStartLabel(EventLabelKind kind, Event pos, Event parent)
 		: EventLabel(kind, pos, llvm::AtomicOrdering::Acquire, EventDeps()),
-		  parentCreate(pc), threadInfo()
+		  parentCreate(parent)
 	{}
 
 public:
-	ThreadStartLabel(Event pos, llvm::AtomicOrdering ord, Event pc, ThreadInfo tinfo,
-			 int symm = -1)
-		: EventLabel(ThreadStart, pos, ord, EventDeps()), parentCreate(pc),
-		  threadInfo(tinfo), symmetricTid(symm)
+	ThreadStartLabel(Event pos, llvm::AtomicOrdering ord, Event parent, ThreadInfo tinfo,
+			 int symmPred = -1)
+		: EventLabel(ThreadStart, pos, ord, EventDeps()), parentCreate(parent),
+		  threadInfo(tinfo), symmPredTid(symmPred)
 	{}
-	ThreadStartLabel(Event pos, Event pc, ThreadInfo tinfo, int symm = -1)
-		: ThreadStartLabel(pos, llvm::AtomicOrdering::Acquire, pc, tinfo, symm)
+	ThreadStartLabel(Event pos, Event parent, ThreadInfo tinfo, int symmPred = -1)
+		: ThreadStartLabel(pos, llvm::AtomicOrdering::Acquire, parent, tinfo, symmPred)
 	{}
 
 	/* Returns the position of the corresponding create operation */
-	Event getParentCreate() const { return parentCreate; }
+	auto getParentCreate() const -> Event { return parentCreate; }
 
 	/* Getters for the thread's info */
-	const ThreadInfo &getThreadInfo() const { return threadInfo; }
-	ThreadInfo &getThreadInfo() { return threadInfo; }
+	auto getThreadInfo() const -> const ThreadInfo & { return threadInfo; }
+	auto getThreadInfo() -> ThreadInfo & { return threadInfo; }
 
-	/* SR: Returns the id of a symmetric thread, or -1 if no symmetric thread exists  */
-	int getSymmetricTid() const { return symmetricTid; }
+	/* SR: Returns the tid of the symmetric predecessor (-1 if it doesn't exist)  */
+	auto getSymmPredTid() const -> int { return symmPredTid; }
+	void setSymmPredTid(int tid) { symmPredTid = tid; }
+
+	/* SR: Returns the tid of the symmetric successor (-1 if it doesn't exist) */
+	auto getSymmSuccTid() const -> int { return symmSuccTid; }
+	void setSymmSuccTid(int tid) { symmSuccTid = tid; }
 
 	DEFINE_CREATE_CLONE(ThreadStart)
 
@@ -380,8 +385,11 @@ private:
 	/* Information about this thread */
 	ThreadInfo threadInfo;
 
-	/* SR: The tid a symmetric thread (currently: minimum among all) */
-	int symmetricTid = -1;
+	/* SR: The tid of the symmetric predecessor */
+	int symmPredTid = -1;
+
+	/* SR: The tid of the symmetric successor */
+	int symmSuccTid = -1;
 };
 
 /*******************************************************************************
@@ -731,7 +739,8 @@ public:
 	/* Convenience function that returns whether reading a value will create an RMW */
 	bool valueMakesRMWSucceed(const SVal &val) const;
 
-	/* Convenience function that returns whether reading a value makes the assume succeed */
+	/* Convenience function that returns whether reading a value makes the assume
+	 * succeed */
 	bool valueMakesAssumeSucceed(const SVal &val) const;
 
 	/* Sets the IPR status for this read */
@@ -1020,8 +1029,8 @@ private:
 		{}                                                                                 \
 		name##Label(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,           \
 			    AType type, SVal exp, SVal swap, const EventDeps &deps = EventDeps())  \
-			: name                                                                     \
-			  ##Label(pos, ord, addr, size, type, exp, swap, WriteAttr::None, deps)    \
+			: name##Label(pos, ord, addr, size, type, exp, swap, WriteAttr::None,      \
+				      deps)                                                        \
 		{}                                                                                 \
                                                                                                    \
 		DEFINE_STANDARD_MEMBERS(name)                                                      \
@@ -1222,8 +1231,8 @@ private:
 		{}                                                                                 \
 		_class_kind##Label(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,     \
 				   AType type, SVal val, const EventDeps &deps = EventDeps())      \
-			: _class_kind                                                              \
-			  ##Label(pos, ord, loc, size, type, val, WriteAttr::None, deps)           \
+			: _class_kind##Label(pos, ord, loc, size, type, val, WriteAttr::None,      \
+					     deps)                                                 \
 		{}                                                                                 \
                                                                                                    \
 		DEFINE_STANDARD_MEMBERS(_class_kind)                                               \

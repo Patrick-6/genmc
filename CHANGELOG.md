@@ -7,6 +7,28 @@ released.
 
 ## [Unreleased]
 
+## [0.10.3] - 2025.02.25
+### Added
+
+- Support for LLVM 19
+
+### Changes
+
+- Internal model for dynamic addresses
+
+### Fixes
+
+- Fix compilation warnings (thanks to mingodad)
+
+### Deprecated
+
+- Support for LLVM-{10,11,12}
+
+### Removed
+
+- Support for LLVM-{7,8,9}
+
+
 ## [0.10.2] - 2024.09.11
 ### Added
 

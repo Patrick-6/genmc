@@ -119,6 +119,15 @@ public:
 	auto thr_ids() const { return std::views::iota(0, (int)getNumThreads()); }
 	auto thr_ids() { return std::views::iota(0, (int)getNumThreads()); }
 
+	auto po(int tid) const
+	{
+		return std::views::all(events[tid]) | std::ranges::views::transform(indirect);
+	}
+	auto po(int tid)
+	{
+		return std::views::all(events[tid]) | std::ranges::views::transform(indirect);
+	}
+
 	auto po_succs(const EventLabel *lab) const
 	{
 		const auto &thr = events[lab->getThread()];
@@ -147,29 +156,33 @@ public:
 
 	/* Returns the label in the previous position of E.
 	 * Returns nullptr if E is the first event of a thread */
-	const EventLabel *getPreviousLabel(const EventLabel *lab) const
+	auto po_imm_pred(const EventLabel *lab) const -> const EventLabel *
 	{
 		return lab->getIndex() == 0 ? nullptr
 					    : events[lab->getThread()][lab->getIndex() - 1].get();
 	}
-	EventLabel *getPreviousLabel(EventLabel *lab)
+	auto po_imm_pred(EventLabel *lab) -> EventLabel *
 	{
+		// NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
 		return const_cast<EventLabel *>(
-			static_cast<const ExecutionGraph &>(*this).getPreviousLabel(lab));
+			static_cast<const ExecutionGraph &>(*this).po_imm_pred(lab));
+		// NOLINTEND(cppcoreguidelines-pro-type-const-cast)
 	}
 
 	/* Returns the label in the next position of E.
 	 * Returns nullptr if E is the last event of a thread */
-	const EventLabel *getNextLabel(const EventLabel *lab) const
+	auto po_imm_succ(const EventLabel *lab) const -> const EventLabel *
 	{
 		return lab->getIndex() == getThreadSize(lab->getThread()) - 1
 			       ? nullptr
 			       : events[lab->getThread()][lab->getIndex() + 1].get();
 	}
-	EventLabel *getNextLabel(EventLabel *lab)
+	auto po_imm_succ(EventLabel *lab) -> EventLabel *
 	{
+		// NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
 		return const_cast<EventLabel *>(
-			static_cast<const ExecutionGraph &>(*this).getNextLabel(lab));
+			static_cast<const ExecutionGraph &>(*this).po_imm_succ(lab));
+		// NOLINTEND(cppcoreguidelines-pro-type-const-cast)
 	}
 
 	loc_iterator loc_begin() { return coherence.begin(); }
@@ -226,7 +239,7 @@ public:
 	{
 		return ++const_reverse_co_iterator(lab);
 	}
-	const_reverse_co_iterator co_pred_end(WriteLabel *lab) { return co_rend(lab->getAddr()); }
+	reverse_co_iterator co_pred_end(WriteLabel *lab) { return co_rend(lab->getAddr()); }
 	const_reverse_co_iterator co_pred_end(const WriteLabel *lab) const
 	{
 		return co_rend(lab->getAddr());
@@ -302,15 +315,15 @@ public:
 	/* Thread-related methods */
 
 	/* Creates a new thread in the execution graph */
-	inline void addNewThread() { events.push_back({}); };
+	void addNewThread() { events.push_back({}); };
 
 	/* Pers: Add/remove a thread for the recovery procedure */
-	inline void addRecoveryThread()
+	void addRecoveryThread()
 	{
 		recoveryTID = events.size();
 		events.push_back({});
 	};
-	inline void delRecoveryThread()
+	void delRecoveryThread()
 	{
 		events.pop_back();
 		recoveryTID = -1;
@@ -318,16 +331,16 @@ public:
 
 	/* Returns the tid of the recovery routine.
 	 * If not in recovery mode, returns -1 */
-	inline int getRecoveryRoutineId() const { return recoveryTID; };
+	int getRecoveryRoutineId() const { return recoveryTID; };
 
 	/* Returns the number of threads currently in the graph */
-	inline unsigned int getNumThreads() const { return events.size(); };
+	unsigned int getNumThreads() const { return events.size(); };
 
 	/* Returns the size of the thread tid */
-	inline unsigned int getThreadSize(int tid) const { return events[tid].size(); };
+	unsigned int getThreadSize(int tid) const { return events[tid].size(); };
 
 	/* Returns true if the thread tid is empty */
-	inline bool isThreadEmpty(int tid) const { return getThreadSize(tid) == 0; };
+	bool isThreadEmpty(int tid) const { return getThreadSize(tid) == 0; };
 
 	/* Event addition/removal methods */
 
@@ -442,8 +455,7 @@ public:
 	Event getPendingRMW(const WriteLabel *sLab) const;
 
 	/* Returns a list of loads that can be revisited */
-	virtual std::vector<Event> getRevisitable(const WriteLabel *sLab,
-						  const VectorClock &pporf) const;
+	virtual std::vector<ReadLabel *> getRevisitable(WriteLabel *sLab, const VectorClock &pporf);
 
 	/* Boolean helper functions */
 
@@ -506,9 +518,6 @@ public:
 
 	/* Cuts a graph so that it only contains events with stamp <= st */
 	virtual void cutToStamp(Stamp st);
-
-	/* Tries to recompress all stamps after ST */
-	void compressStampsAfter(Stamp st);
 
 	/* FIXME: Use value ptrs? (less error-prone than using explicit copy fun) */
 	/* Or maybe simply consolidate the copying procedure:

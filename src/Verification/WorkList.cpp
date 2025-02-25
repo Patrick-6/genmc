@@ -18,13 +18,13 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
-#include "WorkSet.hpp"
+#include "WorkList.hpp"
 
-llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const WorkSet &wset)
+auto operator<<(llvm::raw_ostream &s, const WorkList &wset) -> llvm::raw_ostream &
 {
 	s << "[ ";
-	for (auto it = wset.cbegin(), ie = wset.cend(); it != ie; ++it)
-		s << **it << " ";
+	for (const auto &item : wset.wlist_)
+		s << *item << " ";
 	s << "]";
 	return s;
 }

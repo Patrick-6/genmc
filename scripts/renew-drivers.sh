@@ -31,7 +31,7 @@ fi
 
 # used variables
 IN_DIR="${IN_DIR:-${KATER%/*}/../kat}"
-OUT_DIR="${OUT_DIR:-$DIR/../src/Verification/Consistency}"
+OUT_DIR="${OUT_DIR:-$DIR/../src/ExecutionGraph/Consistency}"
 DRIVERS="${DRIVERS:-rc11 imm sc tso ra}"
 
 for driver in ${DRIVERS} # break lines
