@@ -7,7 +7,9 @@ released.
 
 ## [Unreleased]
 
-## [0.10.3] - 2025.02.25
+- Merge of Relinche [POPL'25] into mainline GenMC
+
+## [0.10.3] - 2025.02.26
 ### Added
 
 - Support for LLVM 19
@@ -15,6 +17,7 @@ released.
 ### Changes
 
 - Internal model for dynamic addresses
+- Code structure refactoring
 
 ### Fixes
 
