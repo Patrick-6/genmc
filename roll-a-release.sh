@@ -33,6 +33,20 @@ then
     echo "Do not release from a dumb terminal. Merging might be required."
     exit 1
 fi
+# internal and external repo should exist
+if [ ! -d "${EXTERNAL_PATH}" ]; then
+    echo "Github directory does not exist."
+    exit 1
+fi
+if [ ! -d "${INTERNAL_PATH}" ]; then
+    echo "Internal directory does not exist."
+    exit 1
+fi
+# we should only run this from *dev*
+if [[ "$(git rev-parse --abbrev-ref HEAD)" != "dev" ]]; then
+  echo 'This script should be run from dev.';
+  exit 1;
+fi
 
 # update local github mirror
 cd "${INTERNAL_PATH}"

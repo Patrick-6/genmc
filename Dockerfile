@@ -10,8 +10,8 @@ RUN apt-get update
 RUN apt-get install -y -qq wget gnupg gnupg2 \
     autoconf make automake libffi-dev zlib1g-dev libedit-dev \
     libxml2-dev xz-utils g++ clang git util-linux
-RUN apt-get install -y -qq clang-15 llvm-15 llvm-15-dev
+RUN apt-get install -y -qq clang-18 llvm-18 llvm-18-dev
 
 # clone and build
 RUN git clone -v https://github.com/MPI-SWS/genmc.git
-RUN cd genmc && autoreconf --install && ./configure --with-llvm=/usr/lib/llvm-15 && make && make install
+RUN cd genmc && autoreconf --install && ./configure --with-llvm=/usr/lib/llvm-18 && make && make install
