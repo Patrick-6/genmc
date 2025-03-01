@@ -19,9 +19,9 @@
  */
 
 #include "ExecutionGraph.hpp"
-#include "ExecutionGraph/GraphIterators.hpp"
-#include "Support/Parser.hpp"
 #include <llvm/IR/DebugInfo.h>
+
+#include <memory>
 
 /************************************************************
  ** Basic getter methods
@@ -57,7 +57,7 @@ auto ExecutionGraph::getRevisitable(WriteLabel *sLab, const VectorClock &before)
  **                       Label addition methods
  ******************************************************************************/
 
-EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
+auto ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab) -> EventLabel *
 {
 	lab->setParent(this);
 
@@ -149,13 +149,13 @@ void ExecutionGraph::addAlloc(MallocLabel *aLab, MemAccessLabel *mLab)
  * we can obtain a view of the graph, given a timestamp. This function
  * returns such a view.
  */
-std::unique_ptr<VectorClock> ExecutionGraph::getViewFromStamp(Stamp stamp) const
+auto ExecutionGraph::getViewFromStamp(Stamp stamp) const -> std::unique_ptr<VectorClock>
 {
 	auto preds = std::make_unique<View>();
 
-	for (auto i = 0u; i < getNumThreads(); i++) {
+	for (auto i = 0U; i < getNumThreads(); i++) {
 		for (auto j = (int)getThreadSize(i) - 1; j >= 0; j--) {
-			auto *lab = getEventLabel(Event(i, j));
+			const auto *lab = getEventLabel(Event(i, j));
 			if (lab->getStamp() <= stamp) {
 				preds->setMax(Event(i, j));
 				break;
@@ -170,8 +170,8 @@ void ExecutionGraph::removeAfter(const VectorClock &preds)
 	VSet<SAddr> keep;
 
 	/* Check which locations should be kept */
-	for (auto i = 0u; i < preds.size(); i++) {
-		for (auto j = 0u; j <= preds.getMax(i); j++) {
+	for (auto i = 0U; i < preds.size(); i++) {
+		for (auto j = 0U; j <= preds.getMax(i); j++) {
 			auto *lab = getEventLabel(Event(i, j));
 			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab))
 				keep.insert(mLab->getAddr());
@@ -430,9 +430,9 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 	}
 }
 
-std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v) const
+auto ExecutionGraph::getCopyUpTo(const VectorClock &v) const -> std::unique_ptr<ExecutionGraph>
 {
-	auto og = std::unique_ptr<ExecutionGraph>(new ExecutionGraph(this->initValGetter_));
+	auto og = std::make_unique<ExecutionGraph>(this->initValGetter_);
 	copyGraphUpTo(*og, v);
 	return og;
 }
@@ -441,7 +441,7 @@ std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v
  ** Debugging methods
  ***********************************************************/
 
-void ExecutionGraph::validate(void)
+void ExecutionGraph::validate()
 {
 	for (auto &lab : labels()) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab)) {
@@ -504,23 +504,22 @@ void ExecutionGraph::validate(void)
 			}
 		}
 	}
-	return;
 }
 
 /*******************************************************************************
  **                           Overloaded operators
  ******************************************************************************/
 
-llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
+auto operator<<(llvm::raw_ostream &s, const ExecutionGraph &g) -> llvm::raw_ostream &
 {
-	for (auto i = 0u; i < g.getNumThreads(); i++) {
+	for (auto i = 0U; i < g.getNumThreads(); i++) {
 		s << "Thread " << i << ":\n";
 		for (const auto &lab : g.po(i)) {
 			s << "\t" << lab.getStamp() << " @ " << lab << "\n";
 		}
 	}
 	s << "Thread sizes:\n\t";
-	for (auto i = 0u; i < g.getNumThreads(); i++)
+	for (auto i = 0U; i < g.getNumThreads(); i++)
 		s << g.getThreadSize(i) << " ";
 	s << "\n";
 
