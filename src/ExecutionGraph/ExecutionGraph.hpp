@@ -88,6 +88,8 @@ public:
 
 	using label_iterator = llvm::simple_ilist<EventLabel>::iterator;
 	using const_label_iterator = llvm::simple_ilist<EventLabel>::const_iterator;
+	using reverse_label_iterator = llvm::simple_ilist<EventLabel>::reverse_iterator;
+	using const_reverse_label_iterator = llvm::simple_ilist<EventLabel>::const_reverse_iterator;
 
 	using co_iterator = StoreList::iterator;
 	using const_co_iterator = StoreList::const_iterator;
@@ -461,7 +463,7 @@ public:
 	}
 
 	/* Returns a list of loads that can be revisited */
-	virtual auto getRevisitable(WriteLabel *sLab, const VectorClock &before)
+	auto getRevisitable(WriteLabel *sLab, const VectorClock &before)
 		-> std::vector<ReadLabel *>;
 
 	/* Boolean helper functions */

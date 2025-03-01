@@ -21,37 +21,6 @@
 #include "DepExecutionGraph.hpp"
 #include "config.h"
 
-auto findPendingRMW(WriteLabel *sLab) -> ReadLabel *;
-
-auto DepExecutionGraph::getRevisitable(WriteLabel *sLab, const VectorClock &pporf)
-	-> std::vector<ReadLabel *>
-{
-	auto &g = *sLab->getParent();
-	auto *confLab = findPendingRMW(sLab);
-	std::vector<ReadLabel *> loads;
-
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		if (sLab->getThread() == i)
-			continue;
-		for (auto j = 1u; j < getThreadSize(i); j++) {
-			auto *lab = getEventLabel(Event(i, j));
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				if (rLab->getAddr() == sLab->getAddr() &&
-				    !pporf.contains(rLab->getPos()) && rLab->isRevisitable() &&
-				    rLab->wasAddedMax())
-					loads.push_back(rLab);
-			}
-		}
-	}
-	if (confLab)
-		loads.erase(std::remove_if(loads.begin(), loads.end(),
-					   [&](auto &eLab) {
-						   return eLab->getStamp() > confLab->getStamp();
-					   }),
-			    loads.end());
-	return loads;
-}
-
 std::unique_ptr<VectorClock> DepExecutionGraph::getViewFromStamp(Stamp stamp) const
 {
 	auto preds = std::make_unique<DepView>();

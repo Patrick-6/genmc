@@ -41,9 +41,6 @@ public:
 		getEventLabel(Event::getInit())->setPrefixView(std::make_unique<DepView>());
 	}
 
-	auto getRevisitable(WriteLabel *sLab, const VectorClock &pporf)
-		-> std::vector<ReadLabel *> override;
-
 	std::unique_ptr<VectorClock> getViewFromStamp(Stamp) const override;
 
 	void cutToStamp(Stamp st) override;
