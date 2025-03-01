@@ -1175,6 +1175,12 @@ public:
 	/* Whether this write is (externally) observable */
 	bool isObservable() const;
 
+	/* Adds the store co-after LAB */
+	void addCo(EventLabel *lab);
+
+	/* Moves the store co-after LAB (has to already exist in co) */
+	void moveCo(EventLabel *lab);
+
 	/* Iterators for readers */
 	using ReaderList = CopyableIList<ReadLabel>;
 	using rf_iterator = ReaderList::iterator;

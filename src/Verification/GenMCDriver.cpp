@@ -1516,7 +1516,7 @@ std::optional<EventLabel *> GenMCDriver::findConsistentCo(WriteLabel *wLab,
 	auto &g = getExec().getGraph();
 
 	/* Similarly to the read case: rely on extensibility */
-	g.addStoreToCOAfter(wLab, cos.back());
+	wLab->addCo(cos.back());
 	if (!getConf()->bound.has_value())
 		return {cos.back()};
 
@@ -1524,7 +1524,7 @@ std::optional<EventLabel *> GenMCDriver::findConsistentCo(WriteLabel *wLab,
 	 * the consistent choice might not satisfy atomicity, but we should
 	 * keep it around to try revisits */
 	while (!cos.empty()) {
-		g.moveStoreCOAfter(wLab, cos.back());
+		wLab->moveCo(cos.back());
 		if (isExecutionValid(wLab))
 			return {cos.back()};
 		cos.erase(cos.end() - 1);
@@ -1959,10 +1959,10 @@ void GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos)
 {
 	auto &g = getExec().getGraph();
 
-	g.addStoreToCOAfter(sLab, cos.back());
+	sLab->addCo(cos.back());
 	cos.erase(std::remove_if(cos.begin(), cos.end(),
 				 [&](auto &wLab) {
-					 g.moveStoreCOAfter(sLab, wLab);
+					 sLab->moveCo(wLab);
 					 return !isExecutionValid(sLab);
 				 }),
 		  cos.end());
@@ -1978,7 +1978,7 @@ void GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos)
 
 	MyDist dist(0, cos.size() - 1);
 	auto random = dist(estRng);
-	g.moveStoreCOAfter(sLab, cos[random]);
+	sLab->moveCo(cos[random]);
 }
 
 void GenMCDriver::calcCoOrderings(WriteLabel *lab, const std::vector<EventLabel *> &cos)
@@ -2852,7 +2852,7 @@ WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	BUG_ON(!wLab);
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 	BUG_ON(!rLab->getRf());
-	g.addStoreToCOAfter(lab, rLab->getRf());
+	lab->addCo(rLab->getRf());
 	return lab;
 }
 
@@ -2862,7 +2862,7 @@ bool GenMCDriver::revisitWrite(const WriteForwardRevisit &ri)
 	auto *wLab = g.getWriteLabel(ri.getPos());
 	BUG_ON(!wLab);
 
-	g.moveStoreCOAfter(wLab, g.getEventLabel(ri.getPred()));
+	wLab->moveCo(g.getEventLabel(ri.getPred()));
 	wLab->setAddedMax(false);
 	return calcRevisits(wLab);
 }

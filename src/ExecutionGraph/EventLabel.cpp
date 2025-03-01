@@ -197,6 +197,21 @@ void ReadLabel::setRf(EventLabel *rfLab)
 		BUG();
 }
 
+void WriteLabel::addCo(EventLabel *predLab)
+{
+	auto &g = *getParent();
+	auto *predLabW = llvm::dyn_cast<WriteLabel>(predLab);
+	g.coherence[getAddr()].insert(
+		predLabW ? ++ExecutionGraph::co_iterator(*predLabW) : g.co_begin(getAddr()), *this);
+}
+
+void WriteLabel::moveCo(EventLabel *predLab)
+{
+	auto &g = *getParent();
+	g.coherence[getAddr()].remove(*this);
+	addCo(predLab);
+}
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabelKind k)
 {
 	switch (k) {
