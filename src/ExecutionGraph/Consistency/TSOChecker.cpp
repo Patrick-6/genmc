@@ -31,115 +31,102 @@
 #include "ExecutionGraph/GraphUtils.hpp"
 #include "Verification/VerificationError.hpp"
 
-bool TSOChecker::isDepTracking() const
-{
-	return 0;
-}
+bool TSOChecker::isDepTracking() const { return 0; }
 
-bool TSOChecker::visitCalc62_0(const EventLabel *lab, View &calcRes) const 
+bool TSOChecker::visitCalc62_0(const EventLabel *lab, View &calcRes) const
 {
 	auto &g = *lab->getParent();
-
-
-
 
 	return true;
 }
 
-bool TSOChecker::visitCalc62_1(const EventLabel *lab, View &calcRes) const 
+bool TSOChecker::visitCalc62_1(const EventLabel *lab, View &calcRes) const
 {
 	auto &g = *lab->getParent();
 
-
-	if (auto pLab = lab; true)if (calcRes.update(pLab->view(0)); true) {
-			if (!visitCalc62_0(pLab, calcRes)){
+	if (auto pLab = lab; true)
+		if (calcRes.update(pLab->view(0)); true) {
+			if (!visitCalc62_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
 
 	return true;
 }
 
-bool TSOChecker::visitCalc62_2(const EventLabel *lab, View &calcRes) const 
+bool TSOChecker::visitCalc62_2(const EventLabel *lab, View &calcRes) const
 {
 	auto &g = *lab->getParent();
 
-
-	if (auto pLab = tc_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc62_0(pLab, calcRes)){
+	if (auto pLab = tc_pred(g, lab); pLab)
+		if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc62_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
-	if (auto pLab = tj_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc62_0(pLab, calcRes)){
+	if (auto pLab = tj_pred(g, lab); pLab)
+		if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc62_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
-	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc62_0(pLab, calcRes)){
+	for (auto &tmp : lin_preds(g, lab))
+		if (auto *pLab = &tmp; true)
+			if (calcRes.updateIdx(pLab->getPos()); true) {
+				if (!visitCalc62_0(pLab, calcRes)) {
+					return false;
+				}
+			}
+	if (auto pLab = rf_pred(g, lab); pLab)
+		if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc62_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
-	if (auto pLab = rf_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc62_0(pLab, calcRes)){
-				return false;
-		}
-		
-	}
 	if (auto pLab = tc_pred(g, lab); pLab) {
-			if (!visitCalc62_1(pLab, calcRes)){
-				return false;
+		if (!visitCalc62_1(pLab, calcRes)) {
+			return false;
 		}
-		
 	}
 	if (auto pLab = tj_pred(g, lab); pLab) {
-			if (!visitCalc62_1(pLab, calcRes)){
-				return false;
+		if (!visitCalc62_1(pLab, calcRes)) {
+			return false;
 		}
-		
 	}
-	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
-			if (!visitCalc62_1(pLab, calcRes)){
+	for (auto &tmp : lin_preds(g, lab))
+		if (auto *pLab = &tmp; true) {
+			if (!visitCalc62_1(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
 	if (auto pLab = rf_pred(g, lab); pLab) {
-			if (!visitCalc62_1(pLab, calcRes)){
-				return false;
+		if (!visitCalc62_1(pLab, calcRes)) {
+			return false;
 		}
-		
 	}
 
 	return true;
 }
 
-bool TSOChecker::visitCalc62_3(const EventLabel *lab, View &calcRes) const 
+bool TSOChecker::visitCalc62_3(const EventLabel *lab, View &calcRes) const
 {
 	auto &g = *lab->getParent();
 
-
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc62_0(pLab, calcRes)){
+	if (auto pLab = po_imm_pred(g, lab); pLab)
+		if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc62_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		if (!visitCalc62_1(pLab, calcRes)) {
+			return false;
+		}
 	}
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCalc62_1(pLab, calcRes)){
-				return false;
+		if (!visitCalc62_2(pLab, calcRes)) {
+			return false;
 		}
-		
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCalc62_2(pLab, calcRes)){
-				return false;
-		}
-		
 	}
 
 	return true;
@@ -150,7 +137,6 @@ View TSOChecker::visitCalc62(const EventLabel *lab) const
 	auto &g = *lab->getParent();
 	View calcRes;
 
-
 	visitCalc62_3(lab, calcRes);
 	return calcRes;
 }
@@ -160,111 +146,101 @@ auto TSOChecker::checkCalc62(const EventLabel *lab) const
 
 	return visitCalc62(lab);
 }
-bool TSOChecker::visitCalc63_0(const EventLabel *lab, View &calcRes) const 
+bool TSOChecker::visitCalc63_0(const EventLabel *lab, View &calcRes) const
 {
 	auto &g = *lab->getParent();
-
-
-
 
 	return true;
 }
 
-bool TSOChecker::visitCalc63_1(const EventLabel *lab, View &calcRes) const 
+bool TSOChecker::visitCalc63_1(const EventLabel *lab, View &calcRes) const
 {
 	auto &g = *lab->getParent();
 
-
-	if (auto pLab = lab; true)if (calcRes.update(pLab->view(0)); true) {
-			if (!visitCalc63_0(pLab, calcRes)){
+	if (auto pLab = lab; true)
+		if (calcRes.update(pLab->view(0)); true) {
+			if (!visitCalc63_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
 
 	return true;
 }
 
-bool TSOChecker::visitCalc63_2(const EventLabel *lab, View &calcRes) const 
+bool TSOChecker::visitCalc63_2(const EventLabel *lab, View &calcRes) const
 {
 	auto &g = *lab->getParent();
-
 
 	if (auto pLab = tc_pred(g, lab); pLab) {
-			if (!visitCalc63_1(pLab, calcRes)){
-				return false;
+		if (!visitCalc63_1(pLab, calcRes)) {
+			return false;
 		}
-		
 	}
 	if (auto pLab = tj_pred(g, lab); pLab) {
-			if (!visitCalc63_1(pLab, calcRes)){
-				return false;
+		if (!visitCalc63_1(pLab, calcRes)) {
+			return false;
 		}
-		
 	}
-	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
-			if (!visitCalc63_1(pLab, calcRes)){
+	for (auto &tmp : lin_preds(g, lab))
+		if (auto *pLab = &tmp; true) {
+			if (!visitCalc63_1(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
 	if (auto pLab = rf_pred(g, lab); pLab) {
-			if (!visitCalc63_1(pLab, calcRes)){
-				return false;
+		if (!visitCalc63_1(pLab, calcRes)) {
+			return false;
 		}
-		
 	}
-	if (auto pLab = tc_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc63_0(pLab, calcRes)){
+	if (auto pLab = tc_pred(g, lab); pLab)
+		if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc63_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
-	if (auto pLab = tj_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc63_0(pLab, calcRes)){
+	if (auto pLab = tj_pred(g, lab); pLab)
+		if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc63_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
-	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc63_0(pLab, calcRes)){
+	for (auto &tmp : lin_preds(g, lab))
+		if (auto *pLab = &tmp; true)
+			if (calcRes.updateIdx(pLab->getPos()); true) {
+				if (!visitCalc63_0(pLab, calcRes)) {
+					return false;
+				}
+			}
+	if (auto pLab = rf_pred(g, lab); pLab)
+		if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc63_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
-	if (auto pLab = rf_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc63_0(pLab, calcRes)){
-				return false;
-		}
-		
-	}
 
 	return true;
 }
 
-bool TSOChecker::visitCalc63_3(const EventLabel *lab, View &calcRes) const 
+bool TSOChecker::visitCalc63_3(const EventLabel *lab, View &calcRes) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCalc63_1(pLab, calcRes)){
-				return false;
+		if (!visitCalc63_1(pLab, calcRes)) {
+			return false;
 		}
-		
 	}
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCalc63_2(pLab, calcRes)){
-				return false;
+		if (!visitCalc63_2(pLab, calcRes)) {
+			return false;
 		}
-		
 	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc63_0(pLab, calcRes)){
+	if (auto pLab = po_imm_pred(g, lab); pLab)
+		if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc63_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
 
 	return true;
 }
@@ -273,7 +249,6 @@ View TSOChecker::visitCalc63(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 	View calcRes;
-
 
 	visitCalc63_3(lab, calcRes);
 	return calcRes;
@@ -284,125 +259,114 @@ auto TSOChecker::checkCalc63(const EventLabel *lab) const
 
 	return visitCalc63(lab);
 }
-bool TSOChecker::visitCalc64_0(const EventLabel *lab, View &calcRes) const 
+bool TSOChecker::visitCalc64_0(const EventLabel *lab, View &calcRes) const
 {
 	auto &g = *lab->getParent();
-
-
-
 
 	return true;
 }
 
-bool TSOChecker::visitCalc64_1(const EventLabel *lab, View &calcRes) const 
+bool TSOChecker::visitCalc64_1(const EventLabel *lab, View &calcRes) const
 {
 	auto &g = *lab->getParent();
 
-
-	if (auto pLab = lab; true)if (calcRes.update(pLab->view(2)); true) {
-			if (!visitCalc64_0(pLab, calcRes)){
+	if (auto pLab = lab; true)
+		if (calcRes.update(pLab->view(2)); true) {
+			if (!visitCalc64_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
 
 	return true;
 }
 
-bool TSOChecker::visitCalc64_2(const EventLabel *lab, View &calcRes) const 
+bool TSOChecker::visitCalc64_2(const EventLabel *lab, View &calcRes) const
 {
 	auto &g = *lab->getParent();
-
 
 	if (auto pLab = tc_pred(g, lab); pLab) {
-			if (!visitCalc64_1(pLab, calcRes)){
-				return false;
+		if (!visitCalc64_1(pLab, calcRes)) {
+			return false;
 		}
-		
 	}
 	if (auto pLab = tj_pred(g, lab); pLab) {
-			if (!visitCalc64_1(pLab, calcRes)){
-				return false;
+		if (!visitCalc64_1(pLab, calcRes)) {
+			return false;
 		}
-		
 	}
-	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
-			if (!visitCalc64_1(pLab, calcRes)){
+	for (auto &tmp : lin_preds(g, lab))
+		if (auto *pLab = &tmp; true) {
+			if (!visitCalc64_1(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
-	if (auto pLab = tc_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc64_0(pLab, calcRes)){
+	if (auto pLab = tc_pred(g, lab); pLab)
+		if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc64_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
-	if (auto pLab = tj_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc64_0(pLab, calcRes)){
+	if (auto pLab = tj_pred(g, lab); pLab)
+		if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc64_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
-	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc64_0(pLab, calcRes)){
-				return false;
-		}
-		
-	}
+	for (auto &tmp : lin_preds(g, lab))
+		if (auto *pLab = &tmp; true)
+			if (calcRes.updateIdx(pLab->getPos()); true) {
+				if (!visitCalc64_0(pLab, calcRes)) {
+					return false;
+				}
+			}
 
 	return true;
 }
 
-bool TSOChecker::visitCalc64_3(const EventLabel *lab, View &calcRes) const 
+bool TSOChecker::visitCalc64_3(const EventLabel *lab, View &calcRes) const
 {
 	auto &g = *lab->getParent();
-
 
 	if (auto pLab = rf_pred(g, lab); pLab) {
-			if (!visitCalc64_1(pLab, calcRes)){
-				return false;
+		if (!visitCalc64_1(pLab, calcRes)) {
+			return false;
 		}
-		
 	}
-	if (auto pLab = rf_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc64_0(pLab, calcRes)){
+	if (auto pLab = rf_pred(g, lab); pLab)
+		if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc64_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
 
 	return true;
 }
 
-bool TSOChecker::visitCalc64_4(const EventLabel *lab, View &calcRes) const 
+bool TSOChecker::visitCalc64_4(const EventLabel *lab, View &calcRes) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCalc64_1(pLab, calcRes)){
-				return false;
+		if (!visitCalc64_1(pLab, calcRes)) {
+			return false;
 		}
-		
 	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc64_0(pLab, calcRes)){
+	if (auto pLab = po_imm_pred(g, lab); pLab)
+		if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc64_0(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && !(llvm::isa<AbstractLockCasReadLabel>(pLab))) {
-			if (!visitCalc64_3(pLab, calcRes)){
+	if (auto pLab = po_imm_pred(g, lab); pLab)
+		if (true && !(llvm::isa<AbstractLockCasReadLabel>(pLab))) {
+			if (!visitCalc64_3(pLab, calcRes)) {
 				return false;
+			}
 		}
-		
-	}
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCalc64_2(pLab, calcRes)){
-				return false;
+		if (!visitCalc64_2(pLab, calcRes)) {
+			return false;
 		}
-		
 	}
 
 	return true;
@@ -413,7 +377,6 @@ View TSOChecker::visitCalc64(const EventLabel *lab) const
 	auto &g = *lab->getParent();
 	View calcRes;
 
-
 	visitCalc64_4(lab, calcRes);
 	return calcRes;
 }
@@ -423,9 +386,7 @@ auto TSOChecker::checkCalc64(const EventLabel *lab) const
 
 	return visitCalc64(lab);
 }
-void TSOChecker::calculateSaved(EventLabel *lab)
-{
-}
+void TSOChecker::calculateSaved(EventLabel *lab) {}
 
 void TSOChecker::calculateViews(EventLabel *lab)
 {
@@ -433,8 +394,10 @@ void TSOChecker::calculateViews(EventLabel *lab)
 	lab->addView(checkCalc62(lab));
 
 	lab->addView(checkCalc63(lab));
-if (!getConf()->collectLinSpec && !getConf()->checkLinSpec) lab->addView({}); else
-	lab->addView(checkCalc64(lab));
+	if (!getConf()->collectLinSpec && !getConf()->checkLinSpec)
+		lab->addView({});
+	else
+		lab->addView(checkCalc64(lab));
 }
 
 void TSOChecker::updateMMViews(EventLabel *lab)
@@ -444,11 +407,7 @@ void TSOChecker::updateMMViews(EventLabel *lab)
 	lab->setPrefixView(calculatePrefixView(lab));
 }
 
-const View &TSOChecker::getHbView(const EventLabel *lab) const
-{
-	return lab->view(1);
-}
-
+const View &TSOChecker::getHbView(const EventLabel *lab) const { return lab->view(1); }
 
 static auto isWriteRfBefore(const WriteLabel *wLab, const EventLabel *lab) -> bool
 {
@@ -527,9 +486,7 @@ auto TSOChecker::getCoherentStores(ReadLabel *rLab) -> std::vector<EventLabel *>
 	 * store, or some read that reads from a store.
 	 */
 	auto endIt = (isDepTracking()) ? splitLocMOAfterHb(rLab) : g.co_end(rLab->getAddr());
-	std::transform(begIt, endIt, std::back_inserter(stores), [&](auto &lab){
-		return &lab;
-	});
+	std::transform(begIt, endIt, std::back_inserter(stores), [&](auto &lab) { return &lab; });
 	return stores;
 }
 
@@ -574,7 +531,7 @@ static auto getRevisitableFrom(WriteLabel *sLab, const VectorClock &pporf, Write
 	-> std::vector<ReadLabel *>
 {
 	auto &g = *sLab->getParent();
-	const auto *pendingRMW = g.getPendingRMW(sLab);
+	auto *confLab = findPendingRMW(sLab);
 	std::vector<ReadLabel *> loads;
 
 	for (auto &rLab : coPred->readers()) {
@@ -582,10 +539,10 @@ static auto getRevisitableFrom(WriteLabel *sLab, const VectorClock &pporf, Write
 		    rLab.isRevisitable() && rLab.wasAddedMax())
 			loads.push_back(&rLab);
 	}
-	if (!pendingRMW->getPos().isInitializer())
+	if (confLab)
 		loads.erase(std::remove_if(loads.begin(), loads.end(),
 					   [&](auto &eLab) {
-						   return eLab->getStamp() > pendingRMW->getStamp();
+						   return eLab->getStamp() > confLab->getStamp();
 					   }),
 			    loads.end());
 	return loads;
@@ -652,8 +609,7 @@ auto TSOChecker::getCoherentRevisits(WriteLabel *sLab, const VectorClock &pporf)
 	return ls;
 }
 
-auto TSOChecker::getCoherentPlacings(WriteLabel *wLab)
-	-> std::vector<EventLabel *>
+auto TSOChecker::getCoherentPlacings(WriteLabel *wLab) -> std::vector<EventLabel *>
 {
 	auto &g = *wLab->getParent();
 	std::vector<EventLabel *> result;
@@ -685,39 +641,38 @@ auto TSOChecker::getCoherentPlacings(WriteLabel *wLab)
 					    : (EventLabel *)g.co_imm_pred(&*rangeEnd)));
 	return result;
 }
-bool TSOChecker::visitCoherence_0(const EventLabel *lab, const EventLabel *initLab) const 
+bool TSOChecker::visitCoherence_0(const EventLabel *lab, const EventLabel *initLab) const
 {
 	auto &g = *lab->getParent();
 
-
-if (lab == initLab) return false;
+	if (lab == initLab)
+		return false;
 
 	return true;
 }
 
-bool TSOChecker::visitCoherence_1(const EventLabel *lab, const EventLabel *initLab) const 
+bool TSOChecker::visitCoherence_1(const EventLabel *lab, const EventLabel *initLab) const
 {
 	auto &g = *lab->getParent();
 
+	for (auto &tmp : lin_preds(g, lab))
+		if (auto *pLab = &tmp; true) {
+			auto status = visitedCoherence_5[pLab->getStamp().get()];
+			if (status == NodeStatus::unseen) {
+				if (!visitCoherence_5(pLab, initLab)) {
+					return false;
+				}
 
-	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
-		auto status = visitedCoherence_5[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_5(pLab, initLab)){
-return false;
+			} else if (status == NodeStatus::entered) {
+
+			} else if (status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (status == NodeStatus::entered) {
-
-		} else if (status == NodeStatus::left) {
-
-		}
-	}
 
 	return true;
 }
 
-bool TSOChecker::visitCoherence_2(const EventLabel *lab, const EventLabel *initLab) const 
+bool TSOChecker::visitCoherence_2(const EventLabel *lab, const EventLabel *initLab) const
 {
 	auto &g = *lab->getParent();
 
@@ -728,119 +683,109 @@ bool TSOChecker::visitCoherence_2(const EventLabel *lab, const EventLabel *initL
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
 		auto status = visitedCoherence_2[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_2(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_2(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCoherence_3(pLab, initLab)){
-return false;
+		if (!visitCoherence_3(pLab, initLab)) {
+			return false;
 		}
-		
 	}
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCoherence_0(pLab, initLab)){
-return false;
+		if (!visitCoherence_0(pLab, initLab)) {
+			return false;
 		}
-		
 	}
 
 	visitedCoherence_2[lab->getStamp().get()] = NodeStatus::left;
 	return true;
 }
 
-bool TSOChecker::visitCoherence_3(const EventLabel *lab, const EventLabel *initLab) const 
+bool TSOChecker::visitCoherence_3(const EventLabel *lab, const EventLabel *initLab) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto status = visitedCoherence_2[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_2(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_2(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
 	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto status = visitedCoherence_2[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_2(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_2(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
-	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
-		auto status = visitedCoherence_2[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_2(pLab, initLab)){
-return false;
-		}
-		
-		} else if (status == NodeStatus::entered) {
+	for (auto &tmp : lin_preds(g, lab))
+		if (auto *pLab = &tmp; true) {
+			auto status = visitedCoherence_2[pLab->getStamp().get()];
+			if (status == NodeStatus::unseen) {
+				if (!visitCoherence_2(pLab, initLab)) {
+					return false;
+				}
 
-		} else if (status == NodeStatus::left) {
+			} else if (status == NodeStatus::entered) {
 
+			} else if (status == NodeStatus::left) {
+			}
 		}
-	}
 	if (auto pLab = rf_pred(g, lab); pLab) {
 		auto status = visitedCoherence_2[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_2(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_2(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
 	if (auto pLab = tc_pred(g, lab); pLab) {
-			if (!visitCoherence_0(pLab, initLab)){
-return false;
+		if (!visitCoherence_0(pLab, initLab)) {
+			return false;
 		}
-		
 	}
 	if (auto pLab = tj_pred(g, lab); pLab) {
-			if (!visitCoherence_0(pLab, initLab)){
-return false;
+		if (!visitCoherence_0(pLab, initLab)) {
+			return false;
 		}
-		
 	}
-	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
-			if (!visitCoherence_0(pLab, initLab)){
-return false;
+	for (auto &tmp : lin_preds(g, lab))
+		if (auto *pLab = &tmp; true) {
+			if (!visitCoherence_0(pLab, initLab)) {
+				return false;
+			}
 		}
-		
-	}
 	if (auto pLab = rf_pred(g, lab); pLab) {
-			if (!visitCoherence_0(pLab, initLab)){
-return false;
+		if (!visitCoherence_0(pLab, initLab)) {
+			return false;
 		}
-		
 	}
 
 	return true;
 }
 
-bool TSOChecker::visitCoherence_4(const EventLabel *lab, const EventLabel *initLab) const 
+bool TSOChecker::visitCoherence_4(const EventLabel *lab, const EventLabel *initLab) const
 {
 	auto &g = *lab->getParent();
 
@@ -851,87 +796,83 @@ bool TSOChecker::visitCoherence_4(const EventLabel *lab, const EventLabel *initL
 	if (auto pLab = rf_pred(g, lab); pLab) {
 		auto status = visitedCoherence_2[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_2(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_2(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
 	if (auto pLab = co_imm_pred(g, lab); pLab) {
 		auto status = visitedCoherence_2[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_2(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_2(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
-	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
-		auto status = visitedCoherence_2[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_2(pLab, initLab)){
-return false;
-		}
-		
-		} else if (status == NodeStatus::entered) {
+	for (auto &tmp : fr_imm_preds(g, lab))
+		if (auto *pLab = &tmp; true) {
+			auto status = visitedCoherence_2[pLab->getStamp().get()];
+			if (status == NodeStatus::unseen) {
+				if (!visitCoherence_2(pLab, initLab)) {
+					return false;
+				}
 
-		} else if (status == NodeStatus::left) {
+			} else if (status == NodeStatus::entered) {
 
+			} else if (status == NodeStatus::left) {
+			}
 		}
-	}
 	if (auto pLab = rf_pred(g, lab); pLab) {
 		auto status = visitedCoherence_4[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_4(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_4(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
 	if (auto pLab = co_imm_pred(g, lab); pLab) {
 		auto status = visitedCoherence_4[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_4(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_4(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
-	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
-		auto status = visitedCoherence_4[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_4(pLab, initLab)){
-return false;
-		}
-		
-		} else if (status == NodeStatus::entered) {
+	for (auto &tmp : fr_imm_preds(g, lab))
+		if (auto *pLab = &tmp; true) {
+			auto status = visitedCoherence_4[pLab->getStamp().get()];
+			if (status == NodeStatus::unseen) {
+				if (!visitCoherence_4(pLab, initLab)) {
+					return false;
+				}
 
-		} else if (status == NodeStatus::left) {
+			} else if (status == NodeStatus::entered) {
 
+			} else if (status == NodeStatus::left) {
+			}
 		}
-	}
 
 	visitedCoherence_4[lab->getStamp().get()] = NodeStatus::left;
 	return true;
 }
 
-bool TSOChecker::visitCoherence_5(const EventLabel *lab, const EventLabel *initLab) const 
+bool TSOChecker::visitCoherence_5(const EventLabel *lab, const EventLabel *initLab) const
 {
 	auto &g = *lab->getParent();
 
@@ -942,134 +883,125 @@ bool TSOChecker::visitCoherence_5(const EventLabel *lab, const EventLabel *initL
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
 		auto status = visitedCoherence_4[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_4(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_4(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
 		auto status = visitedCoherence_5[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_5(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_5(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCoherence_6(pLab, initLab)){
-return false;
+		if (!visitCoherence_6(pLab, initLab)) {
+			return false;
 		}
-		
 	}
 
 	visitedCoherence_5[lab->getStamp().get()] = NodeStatus::left;
 	return true;
 }
 
-bool TSOChecker::visitCoherence_6(const EventLabel *lab, const EventLabel *initLab) const 
+bool TSOChecker::visitCoherence_6(const EventLabel *lab, const EventLabel *initLab) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto status = visitedCoherence_4[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_4(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_4(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
 	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto status = visitedCoherence_4[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_4(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_4(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
-	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
-		auto status = visitedCoherence_4[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_4(pLab, initLab)){
-return false;
-		}
-		
-		} else if (status == NodeStatus::entered) {
+	for (auto &tmp : lin_preds(g, lab))
+		if (auto *pLab = &tmp; true) {
+			auto status = visitedCoherence_4[pLab->getStamp().get()];
+			if (status == NodeStatus::unseen) {
+				if (!visitCoherence_4(pLab, initLab)) {
+					return false;
+				}
 
-		} else if (status == NodeStatus::left) {
+			} else if (status == NodeStatus::entered) {
 
+			} else if (status == NodeStatus::left) {
+			}
 		}
-	}
 	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto status = visitedCoherence_5[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_5(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_5(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
 	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto status = visitedCoherence_5[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_5(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_5(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
-	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
-		auto status = visitedCoherence_5[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_5(pLab, initLab)){
-return false;
-		}
-		
-		} else if (status == NodeStatus::entered) {
+	for (auto &tmp : lin_preds(g, lab))
+		if (auto *pLab = &tmp; true) {
+			auto status = visitedCoherence_5[pLab->getStamp().get()];
+			if (status == NodeStatus::unseen) {
+				if (!visitCoherence_5(pLab, initLab)) {
+					return false;
+				}
 
-		} else if (status == NodeStatus::left) {
+			} else if (status == NodeStatus::entered) {
 
+			} else if (status == NodeStatus::left) {
+			}
 		}
-	}
 	if (auto pLab = rf_pred(g, lab); pLab) {
 		auto status = visitedCoherence_5[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen) {
-			if (!visitCoherence_5(pLab, initLab)){
-return false;
-		}
-		
+			if (!visitCoherence_5(pLab, initLab)) {
+				return false;
+			}
+
 		} else if (status == NodeStatus::entered) {
 
 		} else if (status == NodeStatus::left) {
-
 		}
 	}
 
@@ -1079,7 +1011,8 @@ return false;
 bool TSOChecker::visitCoherenceRelinche(const ExecutionGraph &g) const
 {
 	for (auto &lab : g.labels()) {
-		if (!llvm::isa<MethodBeginLabel>(&lab)) continue;
+		if (!llvm::isa<MethodBeginLabel>(&lab))
+			continue;
 		visitedCoherence_2.clear();
 		visitedCoherence_2.resize(g.getMaxStamp().get() + 1);
 		visitedCoherence_4.clear();
@@ -1092,497 +1025,532 @@ bool TSOChecker::visitCoherenceRelinche(const ExecutionGraph &g) const
 	return true;
 }
 
-bool TSOChecker::visitConsAcyclic1_0(const EventLabel *lab) const 
+bool TSOChecker::visitConsAcyclic1_0(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-	visitedConsAcyclic1_0[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+	visitedConsAcyclic1_0[lab->getStamp().get()] = {visitedConsAcyclic1Accepting,
+							NodeStatus::entered};
 
 	if (auto pLab = po_imm_succ(g, lab); pLab) {
 		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
+			if (!visitConsAcyclic1_3(pLab)) {
 				return false;
-		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+			}
+
+		} else if (node.status == NodeStatus::entered &&
+			   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
 			return false;
 		} else if (node.status == NodeStatus::left) {
-
 		}
 	}
 	if (auto pLab = po_imm_succ(g, lab); pLab) {
 		auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_0(pLab)){
+			if (!visitConsAcyclic1_0(pLab)) {
 				return false;
-		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+			}
+
+		} else if (node.status == NodeStatus::entered &&
+			   (visitedConsAcyclic1Accepting > node.count || 0)) {
 
 			return false;
 		} else if (node.status == NodeStatus::left) {
-
 		}
 	}
-	visitedConsAcyclic1_0[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	visitedConsAcyclic1_0[lab->getStamp().get()] = {visitedConsAcyclic1Accepting,
+							NodeStatus::left};
 
 	return true;
 }
 
-bool TSOChecker::visitConsAcyclic1_1(const EventLabel *lab) const 
+bool TSOChecker::visitConsAcyclic1_1(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-	visitedConsAcyclic1_1[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+	visitedConsAcyclic1_1[lab->getStamp().get()] = {visitedConsAcyclic1Accepting,
+							NodeStatus::entered};
 
 	if (auto pLab = po_imm_succ(g, lab); pLab) {
 		auto &node = visitedConsAcyclic1_1[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_1(pLab)){
+			if (!visitConsAcyclic1_1(pLab)) {
 				return false;
-		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+			}
+
+		} else if (node.status == NodeStatus::entered &&
+			   (visitedConsAcyclic1Accepting > node.count || 0)) {
 
 			return false;
 		} else if (node.status == NodeStatus::left) {
-
 		}
 	}
-	if (auto pLab = po_imm_succ(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab)) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
+	if (auto pLab = po_imm_succ(g, lab); pLab)
+		if (true && llvm::isa<WriteLabel>(pLab)) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
+
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
+
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (auto pLab = po_imm_succ(g, lab); pLab)
+		if (true && llvm::isa<FenceLabel>(pLab)) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
-		}
-	}
-	if (auto pLab = po_imm_succ(g, lab); pLab)if (true && llvm::isa<FenceLabel>(pLab)) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (auto pLab = po_imm_succ(g, lab); pLab)
+		if (true && llvm::isa<ThreadCreateLabel>(pLab)) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
-		}
-	}
-	if (auto pLab = po_imm_succ(g, lab); pLab)if (true && llvm::isa<ThreadCreateLabel>(pLab)) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (auto pLab = po_imm_succ(g, lab); pLab)
+		if (true && llvm::isa<ThreadFinishLabel>(pLab)) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
-		}
-	}
-	if (auto pLab = po_imm_succ(g, lab); pLab)if (true && llvm::isa<ThreadFinishLabel>(pLab)) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
-
-			return false;
-		} else if (node.status == NodeStatus::left) {
-
-		}
-	}
-	visitedConsAcyclic1_1[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	visitedConsAcyclic1_1[lab->getStamp().get()] = {visitedConsAcyclic1Accepting,
+							NodeStatus::left};
 
 	return true;
 }
 
-bool TSOChecker::visitConsAcyclic1_2(const EventLabel *lab) const 
+bool TSOChecker::visitConsAcyclic1_2(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-	visitedConsAcyclic1_2[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
+	visitedConsAcyclic1_2[lab->getStamp().get()] = {visitedConsAcyclic1Accepting,
+							NodeStatus::entered};
 
-	if (auto pLab = po_imm_succ(g, lab); pLab)if (true && pLab->isSC() && llvm::isa<ReadLabel>(pLab)) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
+	if (auto pLab = po_imm_succ(g, lab); pLab)
+		if (true && pLab->isSC() && llvm::isa<ReadLabel>(pLab)) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
+
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
+
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
-
-			return false;
-		} else if (node.status == NodeStatus::left) {
-
-		}
-	}
 	if (auto pLab = po_imm_succ(g, lab); pLab) {
 		auto &node = visitedConsAcyclic1_2[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_2(pLab)){
+			if (!visitConsAcyclic1_2(pLab)) {
 				return false;
-		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+			}
+
+		} else if (node.status == NodeStatus::entered &&
+			   (visitedConsAcyclic1Accepting > node.count || 0)) {
 
 			return false;
 		} else if (node.status == NodeStatus::left) {
-
 		}
 	}
-	visitedConsAcyclic1_2[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	visitedConsAcyclic1_2[lab->getStamp().get()] = {visitedConsAcyclic1Accepting,
+							NodeStatus::left};
 
 	return true;
 }
 
-bool TSOChecker::visitConsAcyclic1_3(const EventLabel *lab) const 
+bool TSOChecker::visitConsAcyclic1_3(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
 	++visitedConsAcyclic1Accepting;
-	visitedConsAcyclic1_3[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::entered };
-
+	visitedConsAcyclic1_3[lab->getStamp().get()] = {visitedConsAcyclic1Accepting,
+							NodeStatus::entered};
 
 	if (auto pLab = po_imm_succ(g, lab); pLab) {
 		auto &node = visitedConsAcyclic1_1[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_1(pLab)){
+			if (!visitConsAcyclic1_1(pLab)) {
 				return false;
-		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+			}
+
+		} else if (node.status == NodeStatus::entered &&
+			   (visitedConsAcyclic1Accepting > node.count || 0)) {
 
 			return false;
 		} else if (node.status == NodeStatus::left) {
-
 		}
 	}
 	if (auto pLab = tc_succ(g, lab); pLab) {
 		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
+			if (!visitConsAcyclic1_3(pLab)) {
 				return false;
-		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+			}
+
+		} else if (node.status == NodeStatus::entered &&
+			   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
 			return false;
 		} else if (node.status == NodeStatus::left) {
-
 		}
 	}
 	if (auto pLab = tj_succ(g, lab); pLab) {
 		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
+			if (!visitConsAcyclic1_3(pLab)) {
 				return false;
-		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+			}
+
+		} else if (node.status == NodeStatus::entered &&
+			   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
 			return false;
 		} else if (node.status == NodeStatus::left) {
-
 		}
 	}
-	for (auto &tmp : lin_succs(g, lab)) if (auto *pLab = &tmp; true) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
+	for (auto &tmp : lin_succs(g, lab))
+		if (auto *pLab = &tmp; true) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
+
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
+
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
-
-			return false;
-		} else if (node.status == NodeStatus::left) {
-
-		}
-	}
 	if (auto pLab = co_imm_succ(g, lab); pLab) {
 		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
+			if (!visitConsAcyclic1_3(pLab)) {
 				return false;
-		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+			}
+
+		} else if (node.status == NodeStatus::entered &&
+			   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
 			return false;
 		} else if (node.status == NodeStatus::left) {
-
 		}
 	}
 	if (auto pLab = fr_imm_succ(g, lab); pLab) {
 		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
+			if (!visitConsAcyclic1_3(pLab)) {
 				return false;
-		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+			}
+
+		} else if (node.status == NodeStatus::entered &&
+			   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
 			return false;
 		} else if (node.status == NodeStatus::left) {
-
 		}
 	}
-	for (auto &tmp : rfe_succs(g, lab)) if (auto *pLab = &tmp; true) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
+	for (auto &tmp : rfe_succs(g, lab))
+		if (auto *pLab = &tmp; true) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
+
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
+
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (auto pLab = po_imm_succ(g, lab); pLab)
+		if (true && llvm::isa<WriteLabel>(pLab)) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
-		}
-	}
-	if (auto pLab = po_imm_succ(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab)) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (auto pLab = po_imm_succ(g, lab); pLab)
+		if (true && llvm::isa<FenceLabel>(pLab)) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
-		}
-	}
-	if (auto pLab = po_imm_succ(g, lab); pLab)if (true && llvm::isa<FenceLabel>(pLab)) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (auto pLab = po_imm_succ(g, lab); pLab)
+		if (true && llvm::isa<ThreadCreateLabel>(pLab)) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
-		}
-	}
-	if (auto pLab = po_imm_succ(g, lab); pLab)if (true && llvm::isa<ThreadCreateLabel>(pLab)) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (auto pLab = po_imm_succ(g, lab); pLab)
+		if (true && llvm::isa<ThreadFinishLabel>(pLab)) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
-		}
-	}
-	if (auto pLab = po_imm_succ(g, lab); pLab)if (true && llvm::isa<ThreadFinishLabel>(pLab)) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (true && lab->isSC() && llvm::isa<WriteLabel>(lab))
+		if (auto pLab = po_imm_succ(g, lab); pLab)
+			if (true && pLab->isSC() && llvm::isa<ReadLabel>(pLab)) {
+				auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+				if (node.status == NodeStatus::unseen) {
+					if (!visitConsAcyclic1_3(pLab)) {
+						return false;
+					}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+				} else if (node.status == NodeStatus::entered &&
+					   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
-		}
-	}
-	if (true && lab->isSC() && llvm::isa<WriteLabel>(lab))if (auto pLab = po_imm_succ(g, lab); pLab)if (true && pLab->isSC() && llvm::isa<ReadLabel>(pLab)) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
+					return false;
+				} else if (node.status == NodeStatus::left) {
+				}
+			}
+	if (true && llvm::isa<WriteLabel>(lab) &&
+	    ((llvm::isa<ReadLabel>(lab) && llvm::dyn_cast<ReadLabel>(lab)->isRMW()) ||
+	     (llvm::isa<WriteLabel>(lab) && llvm::dyn_cast<WriteLabel>(lab)->isRMW())))
+		if (auto pLab = po_imm_succ(g, lab); pLab) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
+
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
+
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (true && llvm::isa<ReadLabel>(lab))
+		if (auto pLab = po_imm_succ(g, lab); pLab) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
-		}
-	}
-	if (true && llvm::isa<WriteLabel>(lab) && ((llvm::isa<ReadLabel>(lab) && llvm::dyn_cast<ReadLabel>(lab)->isRMW()) || (llvm::isa<WriteLabel>(lab) && llvm::dyn_cast<WriteLabel>(lab)->isRMW())))if (auto pLab = po_imm_succ(g, lab); pLab) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (true && llvm::isa<FenceLabel>(lab))
+		if (auto pLab = po_imm_succ(g, lab); pLab) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
-		}
-	}
-	if (true && llvm::isa<ReadLabel>(lab))if (auto pLab = po_imm_succ(g, lab); pLab) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (true && llvm::isa<ThreadJoinLabel>(lab))
+		if (auto pLab = po_imm_succ(g, lab); pLab) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
-		}
-	}
-	if (true && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_succ(g, lab); pLab) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (true && llvm::isa<ThreadStartLabel>(lab))
+		if (auto pLab = po_imm_succ(g, lab); pLab) {
+			auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_3(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 1)) {
 
-		}
-	}
-	if (true && llvm::isa<ThreadJoinLabel>(lab))if (auto pLab = po_imm_succ(g, lab); pLab) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (true && lab->isSC() && llvm::isa<WriteLabel>(lab))
+		if (auto pLab = po_imm_succ(g, lab); pLab) {
+			auto &node = visitedConsAcyclic1_2[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_2(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 0)) {
 
-		}
-	}
-	if (true && llvm::isa<ThreadStartLabel>(lab))if (auto pLab = po_imm_succ(g, lab); pLab) {
-		auto &node = visitedConsAcyclic1_3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_3(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+	if (true && llvm::isa<WriteLabel>(lab) &&
+	    ((llvm::isa<ReadLabel>(lab) && llvm::dyn_cast<ReadLabel>(lab)->isRMW()) ||
+	     (llvm::isa<WriteLabel>(lab) && llvm::dyn_cast<WriteLabel>(lab)->isRMW())))
+		if (auto pLab = po_imm_succ(g, lab); pLab) {
+			auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_0(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 0)) {
 
-		}
-	}
-	if (true && lab->isSC() && llvm::isa<WriteLabel>(lab))if (auto pLab = po_imm_succ(g, lab); pLab) {
-		auto &node = visitedConsAcyclic1_2[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_2(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+	if (true && llvm::isa<ReadLabel>(lab))
+		if (auto pLab = po_imm_succ(g, lab); pLab) {
+			auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_0(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 0)) {
 
-		}
-	}
-	if (true && llvm::isa<WriteLabel>(lab) && ((llvm::isa<ReadLabel>(lab) && llvm::dyn_cast<ReadLabel>(lab)->isRMW()) || (llvm::isa<WriteLabel>(lab) && llvm::dyn_cast<WriteLabel>(lab)->isRMW())))if (auto pLab = po_imm_succ(g, lab); pLab) {
-		auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_0(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+	if (true && llvm::isa<FenceLabel>(lab))
+		if (auto pLab = po_imm_succ(g, lab); pLab) {
+			auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_0(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 0)) {
 
-		}
-	}
-	if (true && llvm::isa<ReadLabel>(lab))if (auto pLab = po_imm_succ(g, lab); pLab) {
-		auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_0(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+	if (true && llvm::isa<ThreadJoinLabel>(lab))
+		if (auto pLab = po_imm_succ(g, lab); pLab) {
+			auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_0(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 0)) {
 
-		}
-	}
-	if (true && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_succ(g, lab); pLab) {
-		auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_0(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
+	if (true && llvm::isa<ThreadStartLabel>(lab))
+		if (auto pLab = po_imm_succ(g, lab); pLab) {
+			auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
+			if (node.status == NodeStatus::unseen) {
+				if (!visitConsAcyclic1_0(pLab)) {
+					return false;
+				}
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+			} else if (node.status == NodeStatus::entered &&
+				   (visitedConsAcyclic1Accepting > node.count || 0)) {
 
-		}
-	}
-	if (true && llvm::isa<ThreadJoinLabel>(lab))if (auto pLab = po_imm_succ(g, lab); pLab) {
-		auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_0(pLab)){
 				return false;
+			} else if (node.status == NodeStatus::left) {
+			}
 		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
-
-			return false;
-		} else if (node.status == NodeStatus::left) {
-
-		}
-	}
-	if (true && llvm::isa<ThreadStartLabel>(lab))if (auto pLab = po_imm_succ(g, lab); pLab) {
-		auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitConsAcyclic1_0(pLab)){
-				return false;
-		}
-		
-		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 0)) {
-
-			return false;
-		} else if (node.status == NodeStatus::left) {
-
-		}
-	}
 	--visitedConsAcyclic1Accepting;
-	visitedConsAcyclic1_3[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+	visitedConsAcyclic1_3[lab->getStamp().get()] = {visitedConsAcyclic1Accepting,
+							NodeStatus::left};
 
 	return true;
 }
@@ -1600,8 +1568,8 @@ bool TSOChecker::visitConsAcyclic1(const EventLabel *lab) const
 	visitedConsAcyclic1_2.resize(g.getMaxStamp().get() + 1);
 	visitedConsAcyclic1_3.clear();
 	visitedConsAcyclic1_3.resize(g.getMaxStamp().get() + 1);
-	return true
-		&& (visitedConsAcyclic1_3[lab->getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_3(lab));
+	return true && (visitedConsAcyclic1_3[lab->getStamp().get()].status != NodeStatus::unseen ||
+			visitConsAcyclic1_3(lab));
 }
 
 bool TSOChecker::visitConsAcyclic1Full(const ExecutionGraph &g) const
@@ -1615,14 +1583,16 @@ bool TSOChecker::visitConsAcyclic1Full(const ExecutionGraph &g) const
 	visitedConsAcyclic1_2.resize(g.getMaxStamp().get() + 1);
 	visitedConsAcyclic1_3.clear();
 	visitedConsAcyclic1_3.resize(g.getMaxStamp().get() + 1);
-	return true
-		&& std::ranges::all_of(g.labels(), [&](auto &lab){ return visitedConsAcyclic1_3[lab.getStamp().get()].status != NodeStatus::unseen || visitConsAcyclic1_3(&lab); });
+	return true && std::ranges::all_of(g.labels(), [&](auto &lab) {
+		       return visitedConsAcyclic1_3[lab.getStamp().get()].status !=
+				      NodeStatus::unseen ||
+			      visitConsAcyclic1_3(&lab);
+	       });
 }
 
 bool TSOChecker::checkConsAcyclic1(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
-
 
 	return visitConsAcyclic1(lab);
 }
@@ -1630,35 +1600,28 @@ bool TSOChecker::checkConsAcyclic1(const ExecutionGraph &g) const
 {
 	return visitConsAcyclic1Full(g);
 }
-bool TSOChecker::visitError2(const EventLabel *lab) const
-{
-	return false;
-}
+bool TSOChecker::visitError2(const EventLabel *lab) const { return false; }
 
-bool TSOChecker::visitLHSUnlessError2_0(const EventLabel *lab, const View &v) const 
+bool TSOChecker::visitLHSUnlessError2_0(const EventLabel *lab, const View &v) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (!v.contains(lab->getPos())) {
-cexLab = lab;
+		cexLab = lab;
 		return false;
 	}
-
 
 	return true;
 }
 
-bool TSOChecker::visitLHSUnlessError2_1(const EventLabel *lab, const View &v) const 
+bool TSOChecker::visitLHSUnlessError2_1(const EventLabel *lab, const View &v) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (auto pLab = alloc_pred(g, lab); pLab) {
-			if (!visitLHSUnlessError2_0(pLab, v)){
+		if (!visitLHSUnlessError2_0(pLab, v)) {
 			return false;
 		}
-		
 	}
 
 	return true;
@@ -1669,68 +1632,70 @@ bool TSOChecker::visitUnlessError2(const EventLabel *lab) const
 	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError2Accepting.clear();
- 	visitedLHSUnlessError2Accepting.resize(g.getMaxStamp().get() + 1, false);
+	visitedLHSUnlessError2Accepting.resize(g.getMaxStamp().get() + 1, false);
 	auto &v = lab->view(0);
 
-	return true
-		&& visitLHSUnlessError2_1(lab, v);
+	return true && visitLHSUnlessError2_1(lab, v);
 }
 
 bool TSOChecker::checkError2(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (visitUnlessError2(lab))
 		return true;
 
 	return visitError2(lab);
 }
-bool TSOChecker::visitError3(const EventLabel *lab) const
-{
-	return false;
-}
+bool TSOChecker::visitError3(const EventLabel *lab) const { return false; }
 
-bool TSOChecker::visitLHSUnlessError3_0(const EventLabel *lab) const 
+bool TSOChecker::visitLHSUnlessError3_0(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
 	return false;
-
 
 	return true;
 }
 
-bool TSOChecker::visitLHSUnlessError3_1(const EventLabel *lab) const 
+bool TSOChecker::visitLHSUnlessError3_1(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
-	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<FreeLabel>(pLab) && !llvm::isa<HpRetireLabel>(pLab)) {
-			if (!visitLHSUnlessError3_0(pLab)){
-			return false;
-		}
-		
-	}
-	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<HpRetireLabel>(pLab)) {
-			if (!visitLHSUnlessError3_0(pLab)){
-			return false;
-		}
-		
-	}
-	if (true && llvm::isa<HpRetireLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<FreeLabel>(pLab) && !llvm::isa<HpRetireLabel>(pLab)) {
-			if (!visitLHSUnlessError3_0(pLab)){
-			return false;
-		}
-		
-	}
-	if (true && llvm::isa<HpRetireLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<HpRetireLabel>(pLab)) {
-			if (!visitLHSUnlessError3_0(pLab)){
-			return false;
-		}
-		
-	}
+	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))
+		for (auto &tmp : samelocs(g, lab))
+			if (auto *pLab = &tmp; true)
+				if (true && llvm::isa<FreeLabel>(pLab) &&
+				    !llvm::isa<HpRetireLabel>(pLab)) {
+					if (!visitLHSUnlessError3_0(pLab)) {
+						return false;
+					}
+				}
+	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))
+		for (auto &tmp : samelocs(g, lab))
+			if (auto *pLab = &tmp; true)
+				if (true && llvm::isa<HpRetireLabel>(pLab)) {
+					if (!visitLHSUnlessError3_0(pLab)) {
+						return false;
+					}
+				}
+	if (true && llvm::isa<HpRetireLabel>(lab))
+		for (auto &tmp : samelocs(g, lab))
+			if (auto *pLab = &tmp; true)
+				if (true && llvm::isa<FreeLabel>(pLab) &&
+				    !llvm::isa<HpRetireLabel>(pLab)) {
+					if (!visitLHSUnlessError3_0(pLab)) {
+						return false;
+					}
+				}
+	if (true && llvm::isa<HpRetireLabel>(lab))
+		for (auto &tmp : samelocs(g, lab))
+			if (auto *pLab = &tmp; true)
+				if (true && llvm::isa<HpRetireLabel>(pLab)) {
+					if (!visitLHSUnlessError3_0(pLab)) {
+						return false;
+					}
+				}
 
 	return true;
 }
@@ -1740,7 +1705,7 @@ bool TSOChecker::visitUnlessError3(const EventLabel *lab) const
 	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError3Accepting.clear();
- 	visitedLHSUnlessError3Accepting.resize(g.getMaxStamp().get() + 1, false);
+	visitedLHSUnlessError3Accepting.resize(g.getMaxStamp().get() + 1, false);
 	visitedRHSUnlessError3Accepting.clear();
 	visitedRHSUnlessError3Accepting.resize(g.getMaxStamp().get() + 1, false);
 
@@ -1748,7 +1713,8 @@ bool TSOChecker::visitUnlessError3(const EventLabel *lab) const
 		return false;
 	for (auto i = 0u; i < visitedLHSUnlessError3Accepting.size(); i++) {
 		if (visitedLHSUnlessError3Accepting[i] && !visitedRHSUnlessError3Accepting[i]) {
-			cexLab = &*std::find_if(g.label_begin(), g.label_end(), [&](auto &lab){ return lab.getStamp() == i; });
+			cexLab = &*std::find_if(g.label_begin(), g.label_end(),
+						[&](auto &lab) { return lab.getStamp() == i; });
 			return false;
 		}
 	}
@@ -1759,63 +1725,55 @@ bool TSOChecker::checkError3(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (visitUnlessError3(lab))
 		return true;
 
 	return visitError3(lab);
 }
-bool TSOChecker::visitError4(const EventLabel *lab) const
-{
-	return false;
-}
+bool TSOChecker::visitError4(const EventLabel *lab) const { return false; }
 
-bool TSOChecker::visitLHSUnlessError4_0(const EventLabel *lab, const View &v) const 
+bool TSOChecker::visitLHSUnlessError4_0(const EventLabel *lab, const View &v) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (!v.contains(lab->getPos())) {
-cexLab = lab;
+		cexLab = lab;
 		return false;
 	}
 
+	return true;
+}
+
+bool TSOChecker::visitLHSUnlessError4_1(const EventLabel *lab, const View &v) const
+{
+	auto &g = *lab->getParent();
+
+	for (auto &tmp : alloc_succs(g, lab))
+		if (auto *pLab = &tmp; true) {
+			if (!visitLHSUnlessError4_0(pLab, v)) {
+				return false;
+			}
+		}
 
 	return true;
 }
 
-bool TSOChecker::visitLHSUnlessError4_1(const EventLabel *lab, const View &v) const 
+bool TSOChecker::visitLHSUnlessError4_2(const EventLabel *lab, const View &v) const
 {
 	auto &g = *lab->getParent();
 
-
-	for (auto &tmp : alloc_succs(g, lab)) if (auto *pLab = &tmp; true) {
-			if (!visitLHSUnlessError4_0(pLab, v)){
-			return false;
+	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))
+		if (auto pLab = free_pred(g, lab); pLab) {
+			if (!visitLHSUnlessError4_1(pLab, v)) {
+				return false;
+			}
 		}
-		
-	}
-
-	return true;
-}
-
-bool TSOChecker::visitLHSUnlessError4_2(const EventLabel *lab, const View &v) const 
-{
-	auto &g = *lab->getParent();
-
-
-	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
-			if (!visitLHSUnlessError4_1(pLab, v)){
-			return false;
+	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))
+		if (auto pLab = free_pred(g, lab); pLab) {
+			if (!visitLHSUnlessError4_0(pLab, v)) {
+				return false;
+			}
 		}
-		
-	}
-	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
-			if (!visitLHSUnlessError4_0(pLab, v)){
-			return false;
-		}
-		
-	}
 
 	return true;
 }
@@ -1825,64 +1783,54 @@ bool TSOChecker::visitUnlessError4(const EventLabel *lab) const
 	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError4Accepting.clear();
- 	visitedLHSUnlessError4Accepting.resize(g.getMaxStamp().get() + 1, false);
+	visitedLHSUnlessError4Accepting.resize(g.getMaxStamp().get() + 1, false);
 	auto &v = lab->view(0);
 
-	return true
-		&& visitLHSUnlessError4_2(lab, v);
+	return true && visitLHSUnlessError4_2(lab, v);
 }
 
 bool TSOChecker::checkError4(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (visitUnlessError4(lab))
 		return true;
 
 	return visitError4(lab);
 }
-bool TSOChecker::visitError5(const EventLabel *lab) const
-{
-	return false;
-}
+bool TSOChecker::visitError5(const EventLabel *lab) const { return false; }
 
-bool TSOChecker::visitLHSUnlessError5_0(const EventLabel *lab) const 
+bool TSOChecker::visitLHSUnlessError5_0(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
 	return false;
-
 
 	return true;
 }
 
-bool TSOChecker::visitLHSUnlessError5_1(const EventLabel *lab) const 
+bool TSOChecker::visitLHSUnlessError5_1(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
-	if (auto pLab = free_succ(g, lab); pLab)if (true && llvm::isa<FreeLabel>(pLab) && !llvm::isa<HpRetireLabel>(pLab)) {
-			if (!visitLHSUnlessError5_0(pLab)){
-			return false;
+	if (auto pLab = free_succ(g, lab); pLab)
+		if (true && llvm::isa<FreeLabel>(pLab) && !llvm::isa<HpRetireLabel>(pLab)) {
+			if (!visitLHSUnlessError5_0(pLab)) {
+				return false;
+			}
 		}
-		
-	}
 
 	return true;
 }
 
-bool TSOChecker::visitLHSUnlessError5_2(const EventLabel *lab) const 
+bool TSOChecker::visitLHSUnlessError5_2(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
-
 
 	if (auto pLab = alloc_pred(g, lab); pLab) {
-			if (!visitLHSUnlessError5_1(pLab)){
+		if (!visitLHSUnlessError5_1(pLab)) {
 			return false;
 		}
-		
 	}
 
 	return true;
@@ -1893,7 +1841,7 @@ bool TSOChecker::visitUnlessError5(const EventLabel *lab) const
 	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError5Accepting.clear();
- 	visitedLHSUnlessError5Accepting.resize(g.getMaxStamp().get() + 1, false);
+	visitedLHSUnlessError5Accepting.resize(g.getMaxStamp().get() + 1, false);
 	visitedRHSUnlessError5Accepting.clear();
 	visitedRHSUnlessError5Accepting.resize(g.getMaxStamp().get() + 1, false);
 
@@ -1901,7 +1849,8 @@ bool TSOChecker::visitUnlessError5(const EventLabel *lab) const
 		return false;
 	for (auto i = 0u; i < visitedLHSUnlessError5Accepting.size(); i++) {
 		if (visitedLHSUnlessError5Accepting[i] && !visitedRHSUnlessError5Accepting[i]) {
-			cexLab = &*std::find_if(g.label_begin(), g.label_end(), [&](auto &lab){ return lab.getStamp() == i; });
+			cexLab = &*std::find_if(g.label_begin(), g.label_end(),
+						[&](auto &lab) { return lab.getStamp() == i; });
 			return false;
 		}
 	}
@@ -1912,63 +1861,61 @@ bool TSOChecker::checkError5(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (visitUnlessError5(lab))
 		return true;
 
 	return visitError5(lab);
 }
-bool TSOChecker::visitError6(const EventLabel *lab) const
-{
-	return false;
-}
+bool TSOChecker::visitError6(const EventLabel *lab) const { return false; }
 
-bool TSOChecker::visitLHSUnlessError6_0(const EventLabel *lab, const View &v) const 
+bool TSOChecker::visitLHSUnlessError6_0(const EventLabel *lab, const View &v) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (!v.contains(lab->getPos())) {
-cexLab = lab;
+		cexLab = lab;
 		return false;
 	}
 
+	return true;
+}
+
+bool TSOChecker::visitLHSUnlessError6_1(const EventLabel *lab, const View &v) const
+{
+	auto &g = *lab->getParent();
+
+	for (auto &tmp : alloc_succs(g, lab))
+		if (auto *pLab = &tmp; true)
+			if (true && llvm::isa<MemAccessLabel>(pLab) &&
+			    llvm::dyn_cast<MemAccessLabel>(pLab)->getAddr().isDynamic() &&
+			    !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(pLab))) {
+				if (!visitLHSUnlessError6_0(pLab, v)) {
+					return false;
+				}
+			}
 
 	return true;
 }
 
-bool TSOChecker::visitLHSUnlessError6_1(const EventLabel *lab, const View &v) const 
+bool TSOChecker::visitLHSUnlessError6_2(const EventLabel *lab, const View &v) const
 {
 	auto &g = *lab->getParent();
 
-
-	for (auto &tmp : alloc_succs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<MemAccessLabel>(pLab) && llvm::dyn_cast<MemAccessLabel>(pLab)->getAddr().isDynamic() && !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(pLab))) {
-			if (!visitLHSUnlessError6_0(pLab, v)){
-			return false;
+	if (true && llvm::isa<HpRetireLabel>(lab))
+		if (auto pLab = free_pred(g, lab); pLab) {
+			if (!visitLHSUnlessError6_1(pLab, v)) {
+				return false;
+			}
 		}
-		
-	}
-
-	return true;
-}
-
-bool TSOChecker::visitLHSUnlessError6_2(const EventLabel *lab, const View &v) const 
-{
-	auto &g = *lab->getParent();
-
-
-	if (true && llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
-			if (!visitLHSUnlessError6_1(pLab, v)){
-			return false;
-		}
-		
-	}
-	if (true && llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab)if (true && llvm::isa<MemAccessLabel>(pLab) && llvm::dyn_cast<MemAccessLabel>(pLab)->getAddr().isDynamic() && !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(pLab))) {
-			if (!visitLHSUnlessError6_0(pLab, v)){
-			return false;
-		}
-		
-	}
+	if (true && llvm::isa<HpRetireLabel>(lab))
+		if (auto pLab = free_pred(g, lab); pLab)
+			if (true && llvm::isa<MemAccessLabel>(pLab) &&
+			    llvm::dyn_cast<MemAccessLabel>(pLab)->getAddr().isDynamic() &&
+			    !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(pLab))) {
+				if (!visitLHSUnlessError6_0(pLab, v)) {
+					return false;
+				}
+			}
 
 	return true;
 }
@@ -1978,65 +1925,58 @@ bool TSOChecker::visitUnlessError6(const EventLabel *lab) const
 	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError6Accepting.clear();
- 	visitedLHSUnlessError6Accepting.resize(g.getMaxStamp().get() + 1, false);
+	visitedLHSUnlessError6Accepting.resize(g.getMaxStamp().get() + 1, false);
 	auto &v = lab->view(0);
 
-	return true
-		&& visitLHSUnlessError6_2(lab, v);
+	return true && visitLHSUnlessError6_2(lab, v);
 }
 
 bool TSOChecker::checkError6(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (visitUnlessError6(lab))
 		return true;
 
 	return visitError6(lab);
 }
-bool TSOChecker::visitError7(const EventLabel *lab) const
-{
-	return false;
-}
+bool TSOChecker::visitError7(const EventLabel *lab) const { return false; }
 
-bool TSOChecker::visitLHSUnlessError7_0(const EventLabel *lab) const 
+bool TSOChecker::visitLHSUnlessError7_0(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
 	return false;
-
 
 	return true;
 }
 
-bool TSOChecker::visitLHSUnlessError7_1(const EventLabel *lab) const 
+bool TSOChecker::visitLHSUnlessError7_1(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
-	if (auto pLab = free_succ(g, lab); pLab)if (true && llvm::isa<HpRetireLabel>(pLab)) {
-			if (!visitLHSUnlessError7_0(pLab)){
-			return false;
+	if (auto pLab = free_succ(g, lab); pLab)
+		if (true && llvm::isa<HpRetireLabel>(pLab)) {
+			if (!visitLHSUnlessError7_0(pLab)) {
+				return false;
+			}
 		}
-		
-	}
 
 	return true;
 }
 
-bool TSOChecker::visitLHSUnlessError7_2(const EventLabel *lab) const 
+bool TSOChecker::visitLHSUnlessError7_2(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
-	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDynamic() && !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(lab)))if (auto pLab = alloc_pred(g, lab); pLab) {
-			if (!visitLHSUnlessError7_1(pLab)){
-			return false;
+	if (true && llvm::isa<MemAccessLabel>(lab) &&
+	    llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDynamic() &&
+	    !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(lab)))
+		if (auto pLab = alloc_pred(g, lab); pLab) {
+			if (!visitLHSUnlessError7_1(pLab)) {
+				return false;
+			}
 		}
-		
-	}
 
 	return true;
 }
@@ -2046,7 +1986,7 @@ bool TSOChecker::visitUnlessError7(const EventLabel *lab) const
 	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError7Accepting.clear();
- 	visitedLHSUnlessError7Accepting.resize(g.getMaxStamp().get() + 1, false);
+	visitedLHSUnlessError7Accepting.resize(g.getMaxStamp().get() + 1, false);
 	visitedRHSUnlessError7Accepting.clear();
 	visitedRHSUnlessError7Accepting.resize(g.getMaxStamp().get() + 1, false);
 
@@ -2054,7 +1994,8 @@ bool TSOChecker::visitUnlessError7(const EventLabel *lab) const
 		return false;
 	for (auto i = 0u; i < visitedLHSUnlessError7Accepting.size(); i++) {
 		if (visitedLHSUnlessError7Accepting[i] && !visitedRHSUnlessError7Accepting[i]) {
-			cexLab = &*std::find_if(g.label_begin(), g.label_end(), [&](auto &lab){ return lab.getStamp() == i; });
+			cexLab = &*std::find_if(g.label_begin(), g.label_end(),
+						[&](auto &lab) { return lab.getStamp() == i; });
 			return false;
 		}
 	}
@@ -2065,72 +2006,77 @@ bool TSOChecker::checkError7(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (visitUnlessError7(lab))
 		return true;
 
 	return visitError7(lab);
 }
-bool TSOChecker::visitError8(const EventLabel *lab) const
-{
-	return false;
-}
+bool TSOChecker::visitError8(const EventLabel *lab) const { return false; }
 
-bool TSOChecker::visitLHSUnlessError8_0(const EventLabel *lab, const View &v) const 
+bool TSOChecker::visitLHSUnlessError8_0(const EventLabel *lab, const View &v) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (!v.contains(lab->getPos())) {
-cexLab = lab;
+		cexLab = lab;
 		return false;
 	}
-
 
 	return true;
 }
 
-bool TSOChecker::visitLHSUnlessError8_1(const EventLabel *lab, const View &v) const 
+bool TSOChecker::visitLHSUnlessError8_1(const EventLabel *lab, const View &v) const
 {
 	auto &g = *lab->getParent();
 
-
-	if (true && lab->isNotAtomic() && llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<WriteLabel>(pLab)) {
-			if (!visitLHSUnlessError8_0(pLab, v)){
-			return false;
-		}
-		
-	}
-	if (true && lab->isNotAtomic() && llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<ReadLabel>(pLab)) {
-			if (!visitLHSUnlessError8_0(pLab, v)){
-			return false;
-		}
-		
-	}
-	if (true && lab->isNotAtomic() && llvm::isa<ReadLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<WriteLabel>(pLab)) {
-			if (!visitLHSUnlessError8_0(pLab, v)){
-			return false;
-		}
-		
-	}
-	if (true && llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && pLab->isNotAtomic() && llvm::isa<WriteLabel>(pLab)) {
-			if (!visitLHSUnlessError8_0(pLab, v)){
-			return false;
-		}
-		
-	}
-	if (true && llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && pLab->isNotAtomic() && llvm::isa<ReadLabel>(pLab)) {
-			if (!visitLHSUnlessError8_0(pLab, v)){
-			return false;
-		}
-		
-	}
-	if (true && llvm::isa<ReadLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && pLab->isNotAtomic() && llvm::isa<WriteLabel>(pLab)) {
-			if (!visitLHSUnlessError8_0(pLab, v)){
-			return false;
-		}
-		
-	}
+	if (true && lab->isNotAtomic() && llvm::isa<WriteLabel>(lab))
+		for (auto &tmp : samelocs(g, lab))
+			if (auto *pLab = &tmp; true)
+				if (true && llvm::isa<WriteLabel>(pLab)) {
+					if (!visitLHSUnlessError8_0(pLab, v)) {
+						return false;
+					}
+				}
+	if (true && lab->isNotAtomic() && llvm::isa<WriteLabel>(lab))
+		for (auto &tmp : samelocs(g, lab))
+			if (auto *pLab = &tmp; true)
+				if (true && llvm::isa<ReadLabel>(pLab)) {
+					if (!visitLHSUnlessError8_0(pLab, v)) {
+						return false;
+					}
+				}
+	if (true && lab->isNotAtomic() && llvm::isa<ReadLabel>(lab))
+		for (auto &tmp : samelocs(g, lab))
+			if (auto *pLab = &tmp; true)
+				if (true && llvm::isa<WriteLabel>(pLab)) {
+					if (!visitLHSUnlessError8_0(pLab, v)) {
+						return false;
+					}
+				}
+	if (true && llvm::isa<WriteLabel>(lab))
+		for (auto &tmp : samelocs(g, lab))
+			if (auto *pLab = &tmp; true)
+				if (true && pLab->isNotAtomic() && llvm::isa<WriteLabel>(pLab)) {
+					if (!visitLHSUnlessError8_0(pLab, v)) {
+						return false;
+					}
+				}
+	if (true && llvm::isa<WriteLabel>(lab))
+		for (auto &tmp : samelocs(g, lab))
+			if (auto *pLab = &tmp; true)
+				if (true && pLab->isNotAtomic() && llvm::isa<ReadLabel>(pLab)) {
+					if (!visitLHSUnlessError8_0(pLab, v)) {
+						return false;
+					}
+				}
+	if (true && llvm::isa<ReadLabel>(lab))
+		for (auto &tmp : samelocs(g, lab))
+			if (auto *pLab = &tmp; true)
+				if (true && pLab->isNotAtomic() && llvm::isa<WriteLabel>(pLab)) {
+					if (!visitLHSUnlessError8_0(pLab, v)) {
+						return false;
+					}
+				}
 
 	return true;
 }
@@ -2140,53 +2086,47 @@ bool TSOChecker::visitUnlessError8(const EventLabel *lab) const
 	auto &g = *lab->getParent();
 
 	visitedLHSUnlessError8Accepting.clear();
- 	visitedLHSUnlessError8Accepting.resize(g.getMaxStamp().get() + 1, false);
+	visitedLHSUnlessError8Accepting.resize(g.getMaxStamp().get() + 1, false);
 	auto &v = lab->view(0);
 
-	return true
-		&& visitLHSUnlessError8_1(lab, v);
+	return true && visitLHSUnlessError8_1(lab, v);
 }
 
 bool TSOChecker::checkError8(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (visitUnlessError8(lab))
 		return true;
 
 	return visitError8(lab);
 }
-bool TSOChecker::visitWarning9(const EventLabel *lab) const
-{
-	return false;
-}
+bool TSOChecker::visitWarning9(const EventLabel *lab) const { return false; }
 
-bool TSOChecker::visitLHSUnlessWarning9_0(const EventLabel *lab, const View &v) const 
+bool TSOChecker::visitLHSUnlessWarning9_0(const EventLabel *lab, const View &v) const
 {
 	auto &g = *lab->getParent();
 
-
 	if (!v.contains(lab->getPos())) {
-cexLab = lab;
+		cexLab = lab;
 		return false;
 	}
-
 
 	return true;
 }
 
-bool TSOChecker::visitLHSUnlessWarning9_1(const EventLabel *lab, const View &v) const 
+bool TSOChecker::visitLHSUnlessWarning9_1(const EventLabel *lab, const View &v) const
 {
 	auto &g = *lab->getParent();
 
-
-	if (true && llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<WriteLabel>(pLab)) {
-			if (!visitLHSUnlessWarning9_0(pLab, v)){
-			return false;
-		}
-		
-	}
+	if (true && llvm::isa<WriteLabel>(lab))
+		for (auto &tmp : samelocs(g, lab))
+			if (auto *pLab = &tmp; true)
+				if (true && llvm::isa<WriteLabel>(pLab)) {
+					if (!visitLHSUnlessWarning9_0(pLab, v)) {
+						return false;
+					}
+				}
 
 	return true;
 }
@@ -2196,17 +2136,15 @@ bool TSOChecker::visitUnlessWarning9(const EventLabel *lab) const
 	auto &g = *lab->getParent();
 
 	visitedLHSUnlessWarning9Accepting.clear();
- 	visitedLHSUnlessWarning9Accepting.resize(g.getMaxStamp().get() + 1, false);
+	visitedLHSUnlessWarning9Accepting.resize(g.getMaxStamp().get() + 1, false);
 	auto &v = lab->view(0);
 
-	return true
-		&& visitLHSUnlessWarning9_1(lab, v);
+	return true && visitLHSUnlessWarning9_1(lab, v);
 }
 
 bool TSOChecker::checkWarning9(const EventLabel *lab) const
 {
 	auto &g = *lab->getParent();
-
 
 	if (visitUnlessWarning9(lab))
 		return true;
@@ -2253,7 +2191,9 @@ VerificationError TSOChecker::checkErrors(const EventLabel *lab, const EventLabe
 	return VerificationError::VE_OK;
 }
 
-std::vector<VerificationError> TSOChecker::checkWarnings(const EventLabel *lab, const VSet<VerificationError> &seenWarnings, std::vector<const EventLabel *> &racyLabs) const
+std::vector<VerificationError>
+TSOChecker::checkWarnings(const EventLabel *lab, const VSet<VerificationError> &seenWarnings,
+			  std::vector<const EventLabel *> &racyLabs) const
 {
 	std::vector<VerificationError> result;
 
@@ -2268,22 +2208,19 @@ std::vector<VerificationError> TSOChecker::checkWarnings(const EventLabel *lab, 
 bool TSOChecker::isConsistent(const EventLabel *lab) const
 {
 
-	return true
-		&& checkConsAcyclic1(lab);
+	return true && checkConsAcyclic1(lab);
 }
 
 bool TSOChecker::isConsistent(const ExecutionGraph &g) const
 {
 
-	return true
-		&& checkConsAcyclic1(g);
+	return true && checkConsAcyclic1(g);
 }
 
 bool TSOChecker::isCoherentRelinche(const ExecutionGraph &g) const
 {
 
-	return true
-		&& visitCoherenceRelinche(g);
+	return true && visitCoherenceRelinche(g);
 }
 
 View TSOChecker::calcPPoRfBefore(const EventLabel *lab) const
@@ -2311,4 +2248,3 @@ std::unique_ptr<VectorClock> TSOChecker::calculatePrefixView(const EventLabel *l
 {
 	return std::make_unique<View>(calcPPoRfBefore(lab));
 }
-

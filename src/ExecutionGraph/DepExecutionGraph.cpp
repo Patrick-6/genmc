@@ -21,11 +21,13 @@
 #include "DepExecutionGraph.hpp"
 #include "config.h"
 
+auto findPendingRMW(WriteLabel *sLab) -> ReadLabel *;
+
 auto DepExecutionGraph::getRevisitable(WriteLabel *sLab, const VectorClock &pporf)
 	-> std::vector<ReadLabel *>
 {
 	auto &g = *sLab->getParent();
-	const auto *pendingRMW = getPendingRMW(sLab);
+	auto *confLab = findPendingRMW(sLab);
 	std::vector<ReadLabel *> loads;
 
 	for (auto i = 0u; i < getNumThreads(); i++) {
@@ -41,10 +43,10 @@ auto DepExecutionGraph::getRevisitable(WriteLabel *sLab, const VectorClock &ppor
 			}
 		}
 	}
-	if (!pendingRMW->getPos().isInitializer())
+	if (confLab)
 		loads.erase(std::remove_if(loads.begin(), loads.end(),
 					   [&](auto &eLab) {
-						   return eLab->getStamp() > pendingRMW->getStamp();
+						   return eLab->getStamp() > confLab->getStamp();
 					   }),
 			    loads.end());
 	return loads;

@@ -1479,7 +1479,7 @@ bool GenMCDriver::checkHelpingCasCondition(const HelpingCasLabel *hLab)
 
 bool GenMCDriver::checkAtomicity(const WriteLabel *wLab)
 {
-	if (getExec().getGraph().violatesAtomicity(wLab)) {
+	if (violatesAtomicity(wLab)) {
 		moot();
 		return false;
 	}
@@ -2340,18 +2340,18 @@ void GenMCDriver::tryOptimizeIPRs(const WriteLabel *sLab, std::vector<ReadLabel 
 		revisitInPlace(*constructBackwardRevisit(rLab, sLab));
 
 	/* We also have to filter out some regular revisits */
-	const auto *pending = g.getPendingRMW(sLab);
-	if (!pending->getPos().isInitializer()) {
-		loads.erase(std::remove_if(loads.begin(), loads.end(),
-					   [&](auto *rLab) {
-						   auto *rfLab = rLab->getRf();
-						   return rLab->getAnnot() && // must be like that
-							  rfLab->getStamp() > rLab->getStamp() &&
-							  !getPrefixView(sLab).contains(
-								  rfLab->getPos());
-					   }),
-			    loads.end());
-	}
+	auto *confLab = findPendingRMW(sLab);
+	if (!confLab)
+		return;
+
+	loads.erase(std::remove_if(loads.begin(), loads.end(),
+				   [&](auto *rLab) {
+					   auto *rfLab = rLab->getRf();
+					   return rLab->getAnnot() && // must be like that
+						  rfLab->getStamp() > rLab->getStamp() &&
+						  !getPrefixView(sLab).contains(rfLab->getPos());
+				   }),
+		    loads.end());
 }
 
 bool GenMCDriver::removeCASReadIfBlocks(const ReadLabel *rLab, const EventLabel *sLab)
@@ -2559,21 +2559,16 @@ auto GenMCDriver::constructBackwardRevisit(const ReadLabel *rLab, const WriteLab
 	const auto &g = getExec().getGraph();
 
 	/* Check whether there is a conflicting RevBlocker */
-	const auto *pending = g.getPendingRMW(sLab);
-	const auto *pLab = llvm::dyn_cast_or_null<WriteLabel>(g.po_imm_succ(pending));
-	pending = (!pending->getPos().isInitializer() && pLab->hasAttr(WriteAttr::RevBlocker))
-			  ? g.po_imm_succ(pending)
-			  : g.getInitLabel();
+	const auto *confLab = findPendingRMW(sLab);
+	confLab = (confLab && confLab->hasAttr(WriteAttr::RevBlocker)) ? confLab : nullptr;
 
 	/* If there is, do an optimized backward revisit */
-	const auto &prefix = getPrefixView(sLab);
-	if (!pending->getPos().isInitializer() &&
-	    !getPrefixView(pending).contains(rLab->getPos()) &&
-	    rLab->getStamp() < pending->getStamp() && !prefix.contains(pending))
-		return std::make_unique<BackwardRevisitHELPER>(
-			rLab->getPos(), sLab->getPos(),
-			getRevisitView(rLab, sLab, llvm::dyn_cast<WriteLabel>(pending)),
-			pending->getPos());
+	auto &prefix = getPrefixView(sLab);
+	if (confLab && !getPrefixView(confLab).contains(rLab->getPos()) &&
+	    rLab->getStamp() < confLab->getStamp() && !prefix.contains(confLab))
+		return std::make_unique<BackwardRevisitHELPER>(rLab->getPos(), sLab->getPos(),
+							       getRevisitView(rLab, sLab, confLab),
+							       confLab->getPos());
 	return std::make_unique<BackwardRevisit>(rLab, sLab, getRevisitView(rLab, sLab));
 }
 

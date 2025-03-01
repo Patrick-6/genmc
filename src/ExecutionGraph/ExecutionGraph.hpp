@@ -451,12 +451,6 @@ public:
 			static_cast<const ExecutionGraph &>(*this).getLastThreadLabel(thread));
 	}
 
-	/* Given a write label sLab that is part of an RMW, returns
-	 * another RMW that reads from the same write. If no such event
-	 * exists, it returns INIT. If there are multiple such events,
-	 * returns the one with the smallest stamp */
-	const EventLabel *getPendingRMW(const WriteLabel *sLab) const;
-
 	/* Returns a list of loads that can be revisited */
 	virtual std::vector<ReadLabel *> getRevisitable(WriteLabel *sLab, const VectorClock &pporf);
 
@@ -489,12 +483,6 @@ public:
 	bool containsPosNonEmpty(const Event &e) const
 	{
 		return containsPos(e) && !llvm::isa<EmptyLabel>(getEventLabel(e));
-	}
-
-	/* Returns true if the addition of SLAB violates atomicity in the graph */
-	bool violatesAtomicity(const WriteLabel *sLab)
-	{
-		return sLab->isRMW() && !getPendingRMW(sLab)->getPos().isInitializer();
 	}
 
 	/* Debugging methods */

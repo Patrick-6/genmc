@@ -27,50 +27,12 @@
  ** Basic getter methods
  ***********************************************************/
 
-auto ExecutionGraph::getMinimumStampEvent(const std::vector<const EventLabel *> &es) const
-	-> const EventLabel *
-{
-	if (es.empty())
-		return getInitLabel();
-	return (*std::min_element(es.begin(), es.end(),
-				  [&](const EventLabel *e1, const EventLabel *e2) {
-					  return e1->getStamp() < e2->getStamp();
-				  }));
-}
-
-auto ExecutionGraph::getPendingRMW(const WriteLabel *sLab) const -> const EventLabel *
-{
-	/* If this is _not_ an RMW event, return an empty vector */
-	if (!sLab->isRMW())
-		return getInitLabel();
-
-	/* Otherwise, scan for other RMWs that successfully read the same val */
-	const auto *pLab = llvm::dyn_cast<ReadLabel>(po_imm_pred(sLab));
-	BUG_ON(!pLab->getRf());
-	std::vector<const EventLabel *> pending;
-
-	/* Fastpath: non-init rf */
-	if (auto *wLab = llvm::dyn_cast<WriteLabel>(pLab->getRf())) {
-		std::for_each(wLab->readers_begin(), wLab->readers_end(), [&](auto &rLab) {
-			if (rLab.isRMW() && &rLab != pLab)
-				pending.push_back(&rLab);
-		});
-		return getMinimumStampEvent(pending);
-	}
-
-	/* Slowpath: scan init rfs */
-	std::for_each(init_rf_begin(pLab->getAddr()), init_rf_end(pLab->getAddr()),
-		      [&](auto &rLab) {
-			      if (rLab.getRf() == pLab->getRf() && &rLab != pLab && rLab.isRMW())
-				      pending.push_back(&rLab);
-		      });
-	return getMinimumStampEvent(pending);
-}
+auto findPendingRMW(WriteLabel *sLab) -> ReadLabel *;
 
 auto ExecutionGraph::getRevisitable(WriteLabel *sLab, const VectorClock &before)
 	-> std::vector<ReadLabel *>
 {
-	const auto *pendingRMW = getPendingRMW(sLab);
+	auto *confLab = findPendingRMW(sLab);
 	std::vector<ReadLabel *> loads;
 
 	for (auto &lab : labels()) {
@@ -82,10 +44,10 @@ auto ExecutionGraph::getRevisitable(WriteLabel *sLab, const VectorClock &before)
 				loads.push_back(rLab);
 		}
 	}
-	if (!pendingRMW->getPos().isInitializer())
+	if (confLab)
 		loads.erase(std::remove_if(loads.begin(), loads.end(),
 					   [&](auto &eLab) {
-						   return eLab->getStamp() > pendingRMW->getStamp();
+						   return eLab->getStamp() > confLab->getStamp();
 					   }),
 			    loads.end());
 	return loads;

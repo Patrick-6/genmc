@@ -22,6 +22,7 @@
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "ExecutionGraph/GraphIterators.hpp"
+#include <algorithm>
 #include <llvm/Support/Casting.h>
 #include <ranges>
 
@@ -141,6 +142,46 @@ auto findAllocatingLabel(ExecutionGraph &g, const SAddr &addr) -> MallocLabel *
 		findAllocatingLabel(static_cast<const ExecutionGraph &>(g), addr));
 }
 
+static auto getMinimumStampLabel(const std::vector<const WriteLabel *> &labs) -> const WriteLabel *
+{
+	auto minIt = std::ranges::min_element(
+		labs, [&](auto &lab1, auto &lab2) { return lab1->getStamp() < lab2->getStamp(); });
+	return minIt == std::ranges::end(labs) ? nullptr : *minIt;
+}
+
+auto findPendingRMW(const WriteLabel *sLab) -> const WriteLabel *
+{
+	if (!sLab->isRMW())
+		return nullptr;
+
+	const auto &g = *sLab->getParent();
+	const auto *pLab = llvm::dyn_cast<ReadLabel>(g.po_imm_pred(sLab));
+	BUG_ON(!pLab->getRf());
+	std::vector<const WriteLabel *> pending;
+
+	/* Fastpath: non-init rf */
+	if (auto *wLab = llvm::dyn_cast<WriteLabel>(pLab->getRf())) {
+		for (auto &rLab : wLab->readers()) {
+			if (rLab.isRMW() && &rLab != pLab)
+				pending.push_back(llvm::dyn_cast<WriteLabel>(g.po_imm_succ(&rLab)));
+		}
+		return getMinimumStampLabel(pending);
+	}
+
+	/* Slowpath: scan init rfs */
+	std::for_each(
+		g.init_rf_begin(pLab->getAddr()), g.init_rf_end(pLab->getAddr()), [&](auto &rLab) {
+			if (rLab.getRf() == pLab->getRf() && &rLab != pLab && rLab.isRMW())
+				pending.push_back(llvm::dyn_cast<WriteLabel>(g.po_imm_succ(&rLab)));
+		});
+	return getMinimumStampLabel(pending);
+}
+
+auto findPendingRMW(WriteLabel *sLab) -> WriteLabel *
+{
+	return const_cast<WriteLabel *>(findPendingRMW(static_cast<const WriteLabel *>(sLab)));
+}
+
 auto findBarrierInitValue(const ExecutionGraph &g, const AAccess &access) -> SVal
 {
 	auto sIt = std::find_if(g.co_begin(access.getAddr()), g.co_end(access.getAddr()),
@@ -153,4 +194,9 @@ auto findBarrierInitValue(const ExecutionGraph &g, const AAccess &access) -> SVa
 	/* All errors pertinent to initialization should be captured elsewhere */
 	BUG_ON(sIt == g.co_end(access.getAddr()));
 	return sIt->getAccessValue(access);
+}
+
+auto violatesAtomicity(const WriteLabel *sLab) -> bool
+{
+	return sLab->isRMW() && findPendingRMW(sLab);
 }
