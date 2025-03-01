@@ -373,10 +373,6 @@ public:
 	 * (Maintains well-formedness for read removals.) */
 	auto addLabelToGraph(std::unique_ptr<EventLabel> lab) -> EventLabel *;
 
-	void addStoreToCOBefore(WriteLabel *wLab, WriteLabel *succLab)
-	{
-		coherence[wLab->getAddr()].insert(co_iterator(succLab), *wLab);
-	}
 	void addStoreToCOAfter(WriteLabel *wLab, EventLabel *predLab)
 	{
 		auto *predLabW = llvm::dyn_cast<WriteLabel>(predLab);
@@ -385,12 +381,6 @@ public:
 	}
 
 	void removeStoreFromCO(WriteLabel *wLab) { coherence[wLab->getAddr()].remove(*wLab); }
-
-	void moveStoreCOBefore(WriteLabel *wLab, WriteLabel *succLab)
-	{
-		removeStoreFromCO(wLab);
-		addStoreToCOBefore(wLab, succLab);
-	}
 
 	void moveStoreCOAfter(WriteLabel *wLab, EventLabel *predLab)
 	{
