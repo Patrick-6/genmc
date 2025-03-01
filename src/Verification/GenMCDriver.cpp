@@ -910,7 +910,6 @@ void GenMCDriver::explore()
 					continue;
 				return;
 			}
-			auto pos = item->getPos();
 			validExecution = restrictAndRevisit(item) && isRevisitValid(*item);
 		}
 	}
