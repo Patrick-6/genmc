@@ -997,45 +997,13 @@ static auto getMOInvOptRfAfter(WriteLabel *sLab) -> std::vector<EventLabel *>
 	return after;
 }
 
-static auto getRevisitableFrom(WriteLabel *sLab, const VectorClock &pporf, WriteLabel *coPred)
-	-> std::vector<ReadLabel *>
+void IMMChecker::filterCoherentRevisits(WriteLabel *sLab, std::vector<ReadLabel *> &ls)
 {
 	auto &g = *sLab->getParent();
-	auto *confLab = findPendingRMW(sLab);
-	std::vector<ReadLabel *> loads;
-
-	for (auto &rLab : coPred->readers()) {
-		if (!pporf.contains(rLab.getPos()) && rLab.getAddr() == sLab->getAddr() &&
-		    rLab.isRevisitable() && rLab.wasAddedMax())
-			loads.push_back(&rLab);
-	}
-	if (confLab)
-		loads.erase(std::remove_if(loads.begin(), loads.end(),
-					   [&](auto &eLab) {
-						   return eLab->getStamp() > confLab->getStamp();
-					   }),
-			    loads.end());
-	return loads;
-}
-
-auto IMMChecker::getCoherentRevisits(WriteLabel *sLab, const VectorClock &pporf)
-	-> std::vector<ReadLabel *>
-{
-	auto &g = *sLab->getParent();
-	std::vector<ReadLabel *> ls;
-
-	/* Fastpath: previous co-max is ppo-before SLAB */
-	auto prevCoMaxIt = std::find_if(g.co_rbegin(sLab->getAddr()), g.co_rend(sLab->getAddr()),
-					[&](auto &lab) { return lab.getPos() != sLab->getPos(); });
-	if (prevCoMaxIt != g.co_rend(sLab->getAddr()) && pporf.contains(prevCoMaxIt->getPos())) {
-		ls = getRevisitableFrom(sLab, pporf, &*prevCoMaxIt);
-	} else {
-		ls = g.getRevisitable(sLab, pporf);
-	}
 
 	/* If this store is po- and mo-maximal then we are done */
 	if (!isDepTracking() && sLab == g.co_max(sLab->getAddr()))
-		return ls;
+		return;
 
 	/* First, we have to exclude (mo;rf?;hb?;sb)-after reads */
 	auto optRfs = getMOOptRfAfter(sLab);
@@ -1052,7 +1020,7 @@ auto IMMChecker::getCoherentRevisits(WriteLabel *sLab, const VectorClock &pporf)
 	/* If out-of-order event addition is not supported, then we are done
 	 * due to po-maximality */
 	if (!isDepTracking())
-		return ls;
+		return;
 
 	/* Otherwise, we also have to exclude hb-before loads */
 	ls.erase(std::remove_if(ls.begin(), ls.end(),
@@ -1061,7 +1029,7 @@ auto IMMChecker::getCoherentRevisits(WriteLabel *sLab, const VectorClock &pporf)
 
 	/* ...and also exclude (mo^-1; rf?; (hb^-1)?; sb^-1)-after reads in
 	 * the resulting graph */
-	auto &before = pporf;
+	auto &before = sLab->getPrefixView();
 	auto moInvOptRfs = getMOInvOptRfAfter(sLab);
 	ls.erase(std::remove_if(
 			 ls.begin(), ls.end(),
@@ -1075,8 +1043,6 @@ auto IMMChecker::getCoherentRevisits(WriteLabel *sLab, const VectorClock &pporf)
 					 });
 			 }),
 		 ls.end());
-
-	return ls;
 }
 
 auto IMMChecker::getCoherentPlacings(WriteLabel *wLab) -> std::vector<EventLabel *>

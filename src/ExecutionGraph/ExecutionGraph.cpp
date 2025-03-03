@@ -27,31 +27,6 @@
  ** Basic getter methods
  ***********************************************************/
 
-auto findPendingRMW(WriteLabel *sLab) -> ReadLabel *;
-
-auto ExecutionGraph::getRevisitable(WriteLabel *sLab, const VectorClock &before)
-	-> std::vector<ReadLabel *>
-{
-	std::vector<ReadLabel *> loads;
-
-	for (auto it = ++reverse_label_iterator(sLab); it != reverse_label_iterator(getInitLabel());
-	     ++it) {
-		auto *rLab = llvm::dyn_cast<ReadLabel>(&*it);
-		if (rLab && rLab->getAddr() == sLab->getAddr() && !rLab->isStable() &&
-		    !before.contains(rLab->getPos()))
-			loads.push_back(rLab);
-	}
-
-	auto *confLab = findPendingRMW(sLab);
-	if (confLab)
-		loads.erase(std::remove_if(loads.begin(), loads.end(),
-					   [&](auto &eLab) {
-						   return eLab->getStamp() > confLab->getStamp();
-					   }),
-			    loads.end());
-	return loads;
-}
-
 /*******************************************************************************
  **                       Label addition methods
  ******************************************************************************/

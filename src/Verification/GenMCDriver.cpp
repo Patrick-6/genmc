@@ -1945,13 +1945,56 @@ void GenMCDriver::annotateStoreHELPER(WriteLabel *wLab)
 	wLab->setAttr(WriteAttr::RevBlocker);
 }
 
+static auto getRevisitable(WriteLabel *sLab, const VectorClock &before) -> std::vector<ReadLabel *>
+{
+	auto &g = *sLab->getParent();
+	std::vector<ReadLabel *> loads;
+
+	/* Helper function to erase loads in between conflicting RMWs */
+	auto eraseConflictingLoads = [](auto &sLab, auto &loads) {
+		auto *confLab = findPendingRMW(sLab);
+		if (!confLab)
+			return;
+		loads.erase(std::remove_if(loads.begin(), loads.end(),
+					   [&](auto &eLab) {
+						   return eLab->getStamp() > confLab->getStamp();
+					   }),
+			    loads.end());
+	};
+
+	/* Fastpath: previous co-max is ppo-before SLAB */
+	auto prevCoMaxIt = std::find_if(g.co_rbegin(sLab->getAddr()), g.co_rend(sLab->getAddr()),
+					[&](auto &lab) { return lab.getPos() != sLab->getPos(); });
+	if (prevCoMaxIt != g.co_rend(sLab->getAddr()) && before.contains(prevCoMaxIt->getPos())) {
+		for (auto &rLab : prevCoMaxIt->readers()) {
+			if (!rLab.isStable() && !before.contains(rLab.getPos()))
+				loads.push_back(&rLab);
+		}
+		eraseConflictingLoads(sLab, loads);
+		return loads;
+	}
+
+	/* Slowpath: iterate over all same-location reads */
+	for (auto it = ++ExecutionGraph::reverse_label_iterator(sLab);
+	     it != ExecutionGraph::reverse_label_iterator(g.getInitLabel()); ++it) {
+		auto *rLab = llvm::dyn_cast<ReadLabel>(&*it);
+		if (rLab && rLab->getAddr() == sLab->getAddr() && !rLab->isStable() &&
+		    !before.contains(rLab->getPos()))
+			loads.push_back(rLab);
+	}
+	eraseConflictingLoads(sLab, loads);
+	return loads;
+}
+
 std::vector<ReadLabel *> GenMCDriver::getRevisitableApproximation(WriteLabel *sLab)
 {
 	auto &g = getExec().getGraph();
-	auto &prefix = getPrefixView(sLab);
-	auto loads = getConsChecker().getCoherentRevisits(sLab, prefix);
-	std::sort(loads.begin(), loads.end(),
-		  [&g](auto &lab1, auto &lab2) { return lab1->getStamp() > lab2->getStamp(); });
+	const auto &prefix = getPrefixView(sLab);
+	auto loads = getRevisitable(sLab, prefix);
+	getConsChecker().filterCoherentRevisits(sLab, loads);
+	std::ranges::sort(loads, [&g](auto &lab1, auto &lab2) {
+		return lab1->getStamp() > lab2->getStamp();
+	});
 	return loads;
 }
 

@@ -78,8 +78,7 @@ public:
 				   std::vector<const EventLabel *> &races) const
 		-> std::vector<VerificationError> = 0;
 
-	virtual auto getCoherentRevisits(WriteLabel *sLab, const VectorClock &pporf)
-		-> std::vector<ReadLabel *> = 0;
+	virtual void filterCoherentRevisits(WriteLabel *sLab, std::vector<ReadLabel *> &ls) = 0;
 
 	virtual auto getCoherentStores(ReadLabel *rLab) -> std::vector<EventLabel *> = 0;
 

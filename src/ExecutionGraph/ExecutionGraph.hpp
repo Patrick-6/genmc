@@ -437,10 +437,6 @@ public:
 			static_cast<const ExecutionGraph &>(*this).getLastThreadLabel(thread));
 	}
 
-	/* Returns a list of loads that can be revisited */
-	auto getRevisitable(WriteLabel *sLab, const VectorClock &before)
-		-> std::vector<ReadLabel *>;
-
 	/* Boolean helper functions */
 
 	auto getInitVal(const AAccess &access) const -> SVal { return initValGetter_(access); }
