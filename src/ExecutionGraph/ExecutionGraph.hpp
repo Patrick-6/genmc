@@ -501,7 +501,7 @@ public:
 
 	/* Prefix saving and restoring */
 
-	/* Returns a vector clock representing the events added before e */
+	/* Returns a vector clock representing the events added up to and including e */
 	auto getPredsView(Event e) const -> std::unique_ptr<VectorClock>
 	{
 		auto stamp = getEventLabel(e)->getStamp();
