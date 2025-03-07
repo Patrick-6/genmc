@@ -2039,12 +2039,11 @@ bool GenMCDriver::isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLab
 
 	auto &g = getExec().getGraph();
 	auto &v = r.getViewNoRel();
-	auto w = llvm::isa<ReadLabel>(mLab) ? llvm::dyn_cast<ReadLabel>(mLab)->getRf()->getPos()
-					    : mLab->getPos();
-	auto succIt = g.getWriteLabel(w) ? g.co_succ_begin(g.getWriteLabel(w))
-					 : g.co_begin(mLab->getAddr());
-	auto succE = g.getWriteLabel(w) ? g.co_succ_end(g.getWriteLabel(w))
-					: g.co_end(mLab->getAddr());
+	auto rLab = llvm::dyn_cast<ReadLabel>(mLab);
+	auto wLab = g.getWriteLabel(rLab ? rLab->getRf()->getPos() : mLab->getPos());
+
+	auto succIt = wLab ? g.co_succ_begin(wLab) : g.co_begin(mLab->getAddr());
+	auto succE = wLab ? g.co_succ_end(wLab) : g.co_end(mLab->getAddr());
 	return any_of(succIt, succE, [&](auto &sLab) {
 		return v->contains(sLab.getPos()) &&
 		       (!getConf()->isDepTrackingModel ||
