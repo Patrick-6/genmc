@@ -567,7 +567,6 @@ void GenMCDriver::updateLabelViews(EventLabel *lab)
 	if (!getConf()->symmetryReduction)
 		return;
 
-	auto &v = lab->getPrefixView(); // FIXME: called for sideeffects
 	getSymmChecker().updatePrefixWithSymmetries(lab);
 }
 
