@@ -139,7 +139,7 @@ public:
 
 	/** Things to do when an execution starts/ends */
 	void handleExecutionStart();
-	void handleExecutionEnd();
+	void handleExecutionEnd(std::span<Action> runnable);
 
 	/** Whether there are more executions to be explored */
 	bool done();
@@ -161,7 +161,8 @@ public:
 
 	/** Returns the value this load reads */
 	template <EventLabel::EventLabelKind k, typename... Ts>
-	HandleResult<SVal> handleLoad(Event pos, Ts &&...params)
+	HandleResult<SVal> handleLoad(std::function<void(SAddr)> oldValSetter, Event pos,
+				      Ts &&...params)
 	{
 		auto &g = getExec().getGraph();
 		if (isExecutionDrivenByGraph(pos)) {
@@ -169,7 +170,8 @@ public:
 		}
 #define HANDLE_LABEL(NAME)                                                                         \
 	if constexpr (k == EventLabel::EventLabelKind::NAME) {                                     \
-		return handleLoad(NAME##Label::create(pos, std::forward<Ts>(params)...));          \
+		return handleLoad(oldValSetter,                                                    \
+				  NAME##Label::create(pos, std::forward<Ts>(params)...));          \
 	} else
 #include "ExecutionGraph/EventLabel.def"
 		static_assert(false, "Unhandled load label kind");
@@ -177,13 +179,14 @@ public:
 
 	/** A store has been interpreted, nothing for the interpreter */
 	template <EventLabel::EventLabelKind k, typename... Ts>
-	HandleResult<std::monostate> handleStore(Event pos, Ts &&...params)
+	HandleResult<std::monostate> handleStore(std::function<void(SAddr)> oldValSetter, Event pos, Ts &&...params)
 	{
 		if (isExecutionDrivenByGraph(pos))
 			return {};
 #define HANDLE_LABEL(NAME)                                                                         \
 	if constexpr (k == EventLabel::EventLabelKind::NAME) {                                     \
-		return handleStore(NAME##Label::create(pos, std::forward<Ts>(params)...));         \
+		return handleStore(oldValSetter,                                                   \
+				   NAME##Label::create(pos, std::forward<Ts>(params)...));         \
 	} else
 #include "ExecutionGraph/EventLabel.def"
 		static_assert(false, "Unhandled store label kind");
@@ -249,6 +252,9 @@ public:
 
 	virtual ~GenMCDriver();
 
+	// TODO GENMC: for debugging:
+	void debugPrintGraph() { printGraph(); }
+
 protected:
 	friend class Scheduler;
 	friend class ArbitraryScheduler;
@@ -272,11 +278,21 @@ protected:
 	/** Returns a pointer to the user configuration */
 	const Config *getConf() const { return userConf.get(); }
 
+	auto hasExec() const -> bool { return !execStack.empty(); }
+
 	/** Returns a pointer to the interpreter */
-	llvm::Interpreter *getEE() const { return EE; }
+	llvm::Interpreter *getEE() const
+	{
+		BUG() /* NOT SUPPORTED ANYMORE */;
+		return EE;
+	}
 
 	/** Sets pointer to the interpreter */
-	void setEE(llvm::Interpreter *interp) { EE = interp; }
+	void setEE(llvm::Interpreter *interp)
+	{
+		BUG() /* NOT SUPPORTED ANYMORE */;
+		EE = interp;
+	}
 
 	/** Returns a reference to the current execution */
 	Execution &getExec() { return execStack.back(); }
@@ -313,7 +329,8 @@ protected:
 	void setThreadPool(ThreadPool *tp) { pool = tp; }
 
 	/** Initializes the exploration from a given state */
-	void initFromState(std::unique_ptr<Execution> s);
+	void initFromState(std::unique_ptr<Execution> exec,
+			   ExecutionGraph::InitValGetter initValGetter);
 
 	/** Extracts the current driver state.
 	 * The driver is left in an inconsistent form */
@@ -348,8 +365,10 @@ private:
 	void handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab);
 	void handleThreadKill(std::unique_ptr<ThreadKillLabel> lab);
 	void handleBlock(std::unique_ptr<BlockLabel> bLab);
-	HandleResult<SVal> handleLoad(std::unique_ptr<ReadLabel> rLab);
-	HandleResult<std::monostate> handleStore(std::unique_ptr<WriteLabel> wLab);
+	HandleResult<SVal> handleLoad(std::function<void(SAddr)> oldValSetter,
+				      std::unique_ptr<ReadLabel> rLab);
+	HandleResult<std::monostate> handleStore(std::function<void(SAddr)> oldValSetter,
+						 std::unique_ptr<WriteLabel> wLa);
 	void handleFence(std::unique_ptr<FenceLabel> fLab);
 	SVal handleMalloc(std::unique_ptr<MallocLabel> aLab);
 	void handleFree(std::unique_ptr<FreeLabel> dLab);
@@ -382,7 +401,7 @@ private:
 	void blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab);
 
 	/** Returns whether the current execution is blocked */
-	bool isExecutionBlocked() const;
+	auto isExecutionBlocked(std::span<Action> runnable) const -> bool;
 
 	/** If LAB accesses a valid location, reports an error  */
 	std::optional<VerificationError> checkAccessValidity(const MemAccessLabel *lab);
@@ -658,7 +677,7 @@ private:
 	std::shared_ptr<const Config> userConf;
 
 	/** The interpreter used by the driver */
-	llvm::Interpreter *EE{};
+	llvm::Interpreter *EE{}; // TODO GENMC(LLI): remove this
 
 	/** Execution stack */
 	std::vector<Execution> execStack;

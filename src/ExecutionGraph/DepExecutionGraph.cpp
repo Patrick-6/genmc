@@ -13,6 +13,8 @@
 
 #include "DepExecutionGraph.hpp"
 
+#include "ExecutionGraph/EventLabel.hpp"
+
 std::unique_ptr<VectorClock> DepExecutionGraph::getViewFromStamp(Stamp stamp) const
 {
 	auto preds = std::make_unique<DepView>();

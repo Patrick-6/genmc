@@ -18,6 +18,7 @@ compile_commands.json
 
 *.ll
 *.out
+*.log
 
 doc/doxygen
 doc/Doxyfile

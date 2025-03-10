@@ -31,8 +31,9 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> driver,
 				break;
 
 			/* Prepare the driver and start the exploration */
-			driver->initFromState(std::move(taskUP));
-			threadFun(&*driver, &*EE);
+			BUG();
+			// driver->initFromState(std::move(taskUP));
+			// threadFun(&*driver, &*EE);
 
 			/* If that was the last task, notify everyone */
 			std::lock_guard<std::mutex> lock(stateMtx_);
