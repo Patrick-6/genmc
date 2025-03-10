@@ -49,13 +49,13 @@ public:
 
 	void visitReadLabel(const ReadLabel &lab)
 	{
-		driver->handleLoad(std::unique_ptr<ReadLabel>(
+		driver->handleLoad({}, std::unique_ptr<ReadLabel>(
 			static_cast<ReadLabel *>(lab.clone().release())));
 	}
 
 	void visitWriteLabel(const WriteLabel &lab)
 	{
-		driver->handleStore(std::unique_ptr<WriteLabel>(
+		driver->handleStore({}, std::unique_ptr<WriteLabel>(
 			static_cast<WriteLabel *>(lab.clone().release())));
 	}
 

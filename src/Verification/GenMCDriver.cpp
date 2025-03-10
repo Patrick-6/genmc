@@ -647,11 +647,13 @@ std::optional<VerificationError> GenMCDriver::checkInitializedMem(const ReadLabe
 
 	/* Slightly unrelated check, but ensure there are no mixed-size accesses */
 	if (rLab->getRf() && !rLab->getRf()->getPos().isInitializer() &&
-	    llvm::dyn_cast<WriteLabel>(rLab->getRf())->getSize() != rLab->getSize())
+	    llvm::dyn_cast<WriteLabel>(rLab->getRf())->getSize() != rLab->getSize()) {
 		reportError({rLab->getPos(), VerificationError::VE_MixedSize,
 			     "Mixed-size accesses detected: tried to read with a " +
 				     std::to_string(rLab->getSize().get() * 8) + "-bit access!\n" +
 				     "Please check the LLVM-IR.\n"});
+		return {VerificationError::VE_MixedSize};
+	}
 	return {};
 }
 
@@ -1318,7 +1320,8 @@ EventLabel *GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *>
 	return stores[random];
 }
 
-GenMCDriver::HandleResult<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
+GenMCDriver::HandleResult<SVal> GenMCDriver::handleLoad(std::function<void(SAddr)> oldValSetter,
+							std::unique_ptr<ReadLabel> rLab)
 {
 	auto &g = getExec().getGraph();
 
@@ -1333,6 +1336,10 @@ GenMCDriver::HandleResult<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabe
 
 	/* Check whether the load forces us to reconsider some existing event */
 	checkReconsiderFaiSpinloop(lab);
+
+	if (oldValSetter) {
+		oldValSetter(lab->getAddr());
+	}
 
 	/* If a CAS read cannot be added maximally, reschedule */
 	if (!getScheduler().isRescheduledRead(lab->getPos()) &&
@@ -1361,6 +1368,8 @@ GenMCDriver::HandleResult<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabe
 				lab->getPos(), sLab->getPos()));
 		}
 	}
+
+	// TODO GENMC: call oldValSetter here?
 
 	if (!rf) {
 		moot();
@@ -1465,7 +1474,8 @@ void GenMCDriver::calcCoOrderings(WriteLabel *lab, const std::vector<EventLabel 
 	}
 }
 
-GenMCDriver::HandleResult<std::monostate> GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
+GenMCDriver::HandleResult<std::monostate>
+GenMCDriver::handleStore(std::function<void(SAddr)> oldValSetter, std::unique_ptr<WriteLabel> wLab)
 {
 	auto &g = getExec().getGraph();
 
@@ -1485,9 +1495,13 @@ GenMCDriver::HandleResult<std::monostate> GenMCDriver::handleStore(std::unique_p
 	unblockWaitingHelping(lab);
 	checkReconsiderReadOpts(lab);
 
+	if (oldValSetter)
+		oldValSetter(lab->getAddr());
+
 	/* Find all possible placings in coherence for this store, and
 	 * print a WW-race warning if appropriate (if this moots,
 	 * exploration will anyway be cut) */
+
 	auto cos = getConsChecker().getCoherentPlacings(lab);
 	if (cos.size() > 1) {
 		reportWarningOnce(lab->getPos(), VerificationError::VE_WWRace, cos[0]);
@@ -1547,7 +1561,10 @@ void GenMCDriver::handleFree(std::unique_ptr<FreeLabel> dLab)
 	alloc->setFree(llvm::dyn_cast<FreeLabel>(lab));
 
 	/* Check whether there is any memory race */
-	checkForRaces(lab);
+	if (auto &&err = checkForRaces(lab); err) {
+		LOG(VerbosityLevel::Error)
+			<< "TODO GENMC: handleFree found a race, need to handle this somehow\n";
+	}
 }
 
 void GenMCDriver::handleRetire(Event pos, SAddr loc, const EventDeps &deps)
@@ -2561,7 +2578,7 @@ bool shouldPrintLOC(const EventLabel *lab)
 std::string GenMCDriver::getVarName(const SAddr &addr) const
 {
 	if (addr.isStatic())
-		interpreterCallbacks_.getStaticName(addr);
+		return interpreterCallbacks_.getStaticName(addr);
 
 	auto &g = getExec().getGraph();
 	auto *aLab = findAllocatingLabel(g, addr);
@@ -2648,6 +2665,7 @@ void GenMCDriver::printGraph(bool printMetadata /* false */,
 	}
 	s << "\n";
 }
+
 
 void GenMCDriver::dotPrintToFile(const std::string &filename, const EventLabel *errLab,
 				 const EventLabel *confLab, bool printObservation)
