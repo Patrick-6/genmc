@@ -48,6 +48,8 @@ struct Config {
 	unsigned int maxExtSize{};
 	bool dotPrintOnlyClientEvents{};
 	bool replayCompletedThreads{};
+	// TODO GENMC: Document, and maybe expose to other front-ends (not just Miri)
+	bool skipNonAtomicInitializedCheck = false;
 
 	/*** Debugging options ***/
 	unsigned int estimationMax{};

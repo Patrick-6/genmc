@@ -20,16 +20,19 @@
 #include "ExecutionGraph/GraphIterators.hpp"
 #include "ExecutionGraph/GraphUtils.hpp"
 #include "ExecutionGraph/LabelVisitor.hpp"
-#include "Runtime/Interpreter.h"
+#include "GenMCDriver.hpp"
+// #include "Runtime/Interpreter.h" // FIXME: remove interpreter dependency
 #include "Static/LLVMModule.hpp"
 #include "Support/DotPrint.hpp"
 #include "Support/Error.hpp"
 #include "Support/Logger.hpp"
 #include "Support/Parser.hpp"
 #include "Support/SExprVisitor.hpp"
+#include "Support/SVal.hpp"
 #include "Support/ThreadPool.hpp"
 #include "Verification/Config.hpp"
 #include "Verification/DriverHandlerDispatcher.hpp"
+#include "Verification/GenMCDriver.hpp"
 #include "Verification/Relinche/LinearizabilityChecker.hpp"
 #include "Verification/Scheduler.hpp"
 #include "Verification/VerificationResult.hpp"
@@ -40,6 +43,8 @@
 #include <algorithm>
 #include <csignal>
 #include <span>
+#include <sstream>
+#include <utility>
 
 /************************************************************
  ** GENERIC MODEL CHECKING DRIVER
@@ -246,6 +251,8 @@ void GenMCDriver::checkHelpingCasAnnotation()
 			      "Unordered store to helping CAS location!\n");
 
 		/* Special case for the initializer (as above) */
+
+		//    TODO GENMC: pass required info (initial value of access)
 		if (hLab->getAddr().isStatic() &&
 		    hLab->getExpected() == g.getInitVal(hLab->getAccess())) {
 			auto rsView = g.labels() | std::views::filter([hLab](auto &lab) {
@@ -336,10 +343,9 @@ void GenMCDriver::handleExecutionEnd()
 	}
 
 	if (getConf()->warnUnfreedMemory)
-		checkUnfreedMemory();
+		checkUnfreedMemory(); // TODO GENMC (WARNINGS): how to handle warnings?
 	if (getConf()->printExecGraphs)
 		printGraph();
-
 	GENMC_DEBUG(if (getConf()->boundsHistogram && !inEstimationMode()) trackExecutionBound(););
 
 	++result.explored;
@@ -486,7 +492,7 @@ bool GenMCDriver::partialExecutionExceedsBound() const
 	return executionExceedsBound(BoundCalculationStrategy::Slacked);
 }
 
-bool GenMCDriver::inReplay() const
+auto GenMCDriver::inReplay() const -> bool
 {
 	/* HACK: No interpreter means no replay. */
 	if (!getEE())
@@ -507,7 +513,6 @@ EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 	updateLabelViews(addedLab);
 	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(addedLab))
 		g.addAlloc(findAllocatingLabel(g, mLab->getAddr()), mLab);
-
 	getExec().getLastAdded() = addedLab->getPos();
 	if (addedLab->getIndex() >= getConf()->warnOnGraphSize) {
 		LOG_ONCE("large-graph", VerbosityLevel::Tip)
@@ -633,6 +638,15 @@ std::optional<VerificationError> GenMCDriver::checkAccessValidity(const MemAcces
 
 std::optional<VerificationError> GenMCDriver::checkInitializedMem(const ReadLabel *rLab)
 {
+	// TODO GENMC (HACK): disable mixed-size access error for NA accesses:
+	if (getConf()->skipNonAtomicInitializedCheck &&
+	    rLab->getOrdering() == MemOrdering::NotAtomic) {
+		LOG(VerbosityLevel::Warning)
+			<< "TODO GENMC (HACK): WARNING: skipping uninitialized memory check for "
+			   "NA access!!\n";
+		return {};
+	}
+
 	// FIXME: Have label for mutex-destroy and check type instead of val.
 	//        Also for barriers.
 
@@ -657,11 +671,13 @@ std::optional<VerificationError> GenMCDriver::checkInitializedMem(const ReadLabe
 
 	/* Slightly unrelated check, but ensure there are no mixed-size accesses */
 	if (rLab->getRf() && !rLab->getRf()->getPos().isInitializer() &&
-	    llvm::dyn_cast<WriteLabel>(rLab->getRf())->getSize() != rLab->getSize())
+	    llvm::dyn_cast<WriteLabel>(rLab->getRf())->getSize() != rLab->getSize()) {
 		reportError({rLab->getPos(), VerificationError::VE_MixedSize,
 			     "Mixed-size accesses detected: tried to read with a " +
 				     std::to_string(rLab->getSize().get() * 8) + "-bit access!\n" +
 				     "Please check the LLVM-IR.\n"});
+		return {VerificationError::VE_MixedSize};
+	}
 	return {};
 }
 
@@ -1328,7 +1344,8 @@ EventLabel *GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *>
 	return stores[random];
 }
 
-GenMCDriver::HandleResult<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
+GenMCDriver::HandleResult<SVal> GenMCDriver::handleLoad(std::function<void(SAddr)> oldValSetter,
+							std::unique_ptr<ReadLabel> rLab)
 {
 	auto &g = getExec().getGraph();
 
@@ -1343,6 +1360,10 @@ GenMCDriver::HandleResult<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabe
 
 	/* Check whether the load forces us to reconsider some existing event */
 	checkReconsiderFaiSpinloop(lab);
+
+	if (oldValSetter) {
+		oldValSetter(lab->getAddr());
+	}
 
 	/* If a CAS read cannot be added maximally, reschedule */
 	if (!getScheduler().isRescheduledRead(lab->getPos()) &&
@@ -1371,6 +1392,8 @@ GenMCDriver::HandleResult<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabe
 				lab->getPos(), sLab->getPos()));
 		}
 	}
+
+	// TODO GENMC: call oldValSetter here?
 
 	if (!rf) {
 		moot();
@@ -1475,7 +1498,8 @@ void GenMCDriver::calcCoOrderings(WriteLabel *lab, const std::vector<EventLabel 
 	}
 }
 
-GenMCDriver::HandleResult<std::monostate> GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
+GenMCDriver::HandleResult<std::monostate>
+GenMCDriver::handleStore(std::function<void(SAddr)> oldValSetter, std::unique_ptr<WriteLabel> wLab)
 {
 	auto &g = getExec().getGraph();
 
@@ -1495,9 +1519,13 @@ GenMCDriver::HandleResult<std::monostate> GenMCDriver::handleStore(std::unique_p
 	unblockWaitingHelping(lab);
 	checkReconsiderReadOpts(lab);
 
+	if (oldValSetter)
+		oldValSetter(lab->getAddr());
+
 	/* Find all possible placings in coherence for this store, and
 	 * print a WW-race warning if appropriate (if this moots,
 	 * exploration will anyway be cut) */
+
 	auto cos = getConsChecker().getCoherentPlacings(lab);
 	if (cos.size() > 1) {
 		reportWarningOnce(lab->getPos(), VerificationError::VE_WWRace, cos[0]);
@@ -1535,7 +1563,7 @@ SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
 	       oldAddr != aLab->getAllocAddr());
 	if (oldAddr == SAddr())
 		aLab->setAllocAddr(getFreshAddr(&*aLab, getExec().getAllocator()));
-	auto *lab = llvm::dyn_cast<MallocLabel>(addLabelToGraph(std::move(aLab)));
+	const auto *lab = llvm::dyn_cast<MallocLabel>(addLabelToGraph(std::move(aLab)));
 	return SVal(lab->getAllocAddr().get());
 }
 
@@ -1557,7 +1585,10 @@ void GenMCDriver::handleFree(std::unique_ptr<FreeLabel> dLab)
 	alloc->setFree(llvm::dyn_cast<FreeLabel>(lab));
 
 	/* Check whether there is any memory race */
-	checkForRaces(lab);
+	if (auto &&err = checkForRaces(lab); err) {
+		LOG(VerbosityLevel::Error)
+			<< "TODO GENMC: handleFree found a race, need to handle this somehow\n";
+	}
 }
 
 void GenMCDriver::handleRetire(Event pos, SAddr loc, const EventDeps &deps)
@@ -1699,9 +1730,12 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 	/* Print a basic error message and the graph.
 	 * We have to save the interpreter state as replaying will
 	 * destroy the current execution stack */
-	auto iState = getEE()->saveState();
 
-	getEE()->replayExecutionBefore(*getReplayView());
+	LOG(VerbosityLevel::Warning)
+		<< "TODO GENMC: reportError: get EE to save its state and replay an execution\n";
+	// auto iState = getEE()->saveState();
+
+	// getEE()->replayExecutionBefore(*getReplayView());
 
 	/* Refetch ERRLAB in case it's a block label and was replaced during replay.
 	 * (This may happen when replaying assume reads.) */
@@ -1733,7 +1767,9 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 		dotPrintToFile(getConf()->dotFile, errLab, details.racyLab,
 			       getConf()->dotPrintOnlyClientEvents);
 
-	getEE()->restoreState(std::move(iState));
+	// getEE()->restoreState(std::move(iState));
+	LOG(VerbosityLevel::Warning)
+		<< "TODO GENMC: reportError: get EE to restore its state (unimplemented)\n";
 
 	if (details.shouldHalt)
 		halt(details.type);
@@ -2664,6 +2700,7 @@ void GenMCDriver::printGraph(bool printMetadata /* false */,
 	}
 	s << "\n";
 }
+
 
 void GenMCDriver::dotPrintToFile(const std::string &filename, const EventLabel *errLab,
 				 const EventLabel *confLab, bool printObservation)

@@ -799,13 +799,15 @@ void run(GenMCDriver *driver, llvm::Interpreter *EE)
 	do {
 		driver->handleExecutionStart();
 		if (driver->runFromCache()) {
-			driver->handleExecutionEnd();
+			BUG(); // TODO GENMC
+			// driver->handleExecutionEnd();
 			continue;
 		}
 		EE->reset();
 		EE->setExecutionContext(createExecutionContext(driver->getExec().getGraph()));
 		EE->runMain();
-		driver->handleExecutionEnd();
+		BUG(); // TODO GENMC
+		// driver->handleExecutionEnd();
 	} while (!driver->done());
 }
 
