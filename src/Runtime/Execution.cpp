@@ -38,6 +38,7 @@
 #include "Runtime/Interpreter.h"
 #include "Static/LLVMUtils.hpp"
 #include "Support/Error.hpp"
+#include "Support/ResultHandling.hpp"
 #include "Support/SExprVisitor.hpp"
 #include "Verification/GenMCDriver.hpp"
 #include "llvm/ADT/APInt.h"
@@ -1455,7 +1456,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I)
 				  getAddrPoDeps(getCurThr().id), nullptr);
 
 	auto *info = getVarNameInfo(&I, StorageDuration::SD_Automatic, AddressSpace::AS_User);
-	SVal result = CALL_DRIVER(
+	SAddr result = CALL_DRIVER(
 		handleMalloc, MallocLabel::create(currPos(), MemToAlloc,
 #if LLVM_VERSION_MAJOR >= 11
 						  I.getAlign().value(),
@@ -1553,7 +1554,7 @@ void Interpreter::visitLoadInst(LoadInst &I)
 		break;                                                                             \
 	}
 
-	std::optional<SVal> val;
+	LoadResult val;
 	switch (getReadKind(I)) {
 		IMPLEMENT_READ_VISIT(Read);
 		IMPLEMENT_READ_VISIT(SpeculativeRead);
@@ -1562,7 +1563,7 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	default:
 		BUG();
 	}
-	if (!val.has_value())
+	if (!val.error.get())
 		return;
 
 	updateDataDeps(thr.id, &I, currPos());
@@ -1651,7 +1652,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 					     getCurrentAnnotConcretized(), GET_DEPS(lDeps)));      \
 		if (!ret.has_value())                                                              \
 			return;                                                                    \
-		cmpRes = *ret == GV_TO_SVAL(cmpVal, typ);                                          \
+		cmpRes = ret.value() == GV_TO_SVAL(cmpVal, typ);                                   \
 		updateDataDeps(getCurThr().id, &I, currPos());                                     \
 		updateAddrPoDeps(getCurThr().id, I.getPointerOperand());                           \
 		if (cmpRes) {                                                                      \
@@ -1669,7 +1670,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	}
 
 	/* Check whether this is some special CAS; in such cases we also need a snapshot */
-	std::optional<SVal> ret;
+	LoadResult ret;
 	int cmpRes;
 	switch (switchPair(getCasKinds(I))) {
 		IMPLEMENT_CAS_VISIT(CasRead, CasWrite);
@@ -1688,7 +1689,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		BUG();
 	}
 
-	result.AggregateVal.push_back(SVAL_TO_GV(*ret, typ));
+	result.AggregateVal.push_back(SVAL_TO_GV(ret.value(), typ));
 	result.AggregateVal.push_back(INT_TO_GV(Type::getInt1Ty(I.getContext()), cmpRes));
 	SetValue(&I, result, ECStack().back());
 	return;
@@ -1735,7 +1736,8 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 			return;                                                                    \
 		updateDataDeps(getCurThr().id, &I, currPos());                                     \
 		updateAddrPoDeps(getCurThr().id, I.getPointerOperand());                           \
-		auto newVal = executeRMWBinOp(*ret, val, size, fromLLVMBinOp(I.getOperation()));   \
+		auto newVal =                                                                      \
+			executeRMWBinOp(ret.value(), val, size, fromLLVMBinOp(I.getOperation()));  \
 		if (!getCurThr().isBlocked()) {                                                    \
 			CALL_DRIVER(handleStore,                                                   \
 				    nameW##Label::create(                                          \
@@ -1746,7 +1748,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	}
 
 	/* Check whether this is a special FAI */
-	std::optional<SVal> ret;
+	LoadResult ret;
 	switch (switchPair(getFaiKinds(I))) {
 		IMPLEMENT_FAI_VISIT(FaiRead, FaiWrite);
 		IMPLEMENT_FAI_VISIT(NoRetFaiRead, NoRetFaiWrite);
@@ -1755,7 +1757,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		BUG();
 	}
 
-	SetValue(&I, SVAL_TO_GV(*ret, typ), ECStack().back());
+	SetValue(&I, SVAL_TO_GV(ret.value(), typ), ECStack().back());
 	return;
 }
 
@@ -2925,9 +2927,9 @@ void Interpreter::handleLock(SAddr addr, ASize size, const EventDeps *deps)
 		ret = CALL_DRIVER_RESET_IF_NONE(                                                   \
 			handleLoad, nameR##Label::create(currPos(), addr, size, std::move(annot),  \
 							 GET_DEPS(deps)));                         \
-		if (!ret.has_value() || getCurThr().isBlocked())                                   \
+		if (ret.is_read_opt || getCurThr().isBlocked())                                    \
 			return;                                                                    \
-		if (ret == SVal(0)) {                                                              \
+		if (ret.value() == SVal(0)) {                                                      \
 			CALL_DRIVER(handleStore,                                                   \
 				    nameW##Label::create(currPos(), addr, size, GET_DEPS(deps)));  \
 		} else {                                                                           \
@@ -2936,7 +2938,7 @@ void Interpreter::handleLock(SAddr addr, ASize size, const EventDeps *deps)
 		break;                                                                             \
 	}
 
-	std::optional<SVal> ret;
+	LoadResult ret;
 	switch (switchPair(getLockKinds(*I))) {
 		IMPLEMENT_LOCK_VISIT(LockCasRead, LockCasWrite);
 		IMPLEMENT_LOCK_VISIT(AbstractLockCasRead, AbstractLockCasWrite);
@@ -3162,10 +3164,11 @@ void Interpreter::callThreadCreate(Function *F, const std::vector<GenericValue> 
 	int symm = ArgVals.size() > 3 ? ArgVals[3].IntVal.getLimitedValue() : -1;
 	auto info = ThreadInfo(-1, currPos().thread, MI->idInfo.VID.at(calledFun),
 			       SVal((uintptr_t)ArgVals[2].PointerVal), symm);
-	auto tid = CALL_DRIVER(handleThreadCreate,
-			       ThreadCreateLabel::create(currPos(), info, GET_DEPS(deps)));
+	auto createLab = CALL_DRIVER(handleThreadCreate,
+				     ThreadCreateLabel::create(currPos(), info, GET_DEPS(deps)));
 
 	/* Prepare the execution context for the new thread */
+	auto tid = createLab->getChildId();
 	info.id = tid;
 	constructAddThreadFromInfo(info);
 
@@ -3186,7 +3189,7 @@ void Interpreter::callThreadJoin(Function *F, const std::vector<GenericValue> &A
 {
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
-	auto result = CALL_DRIVER_RESET_IF_NONE(
+	LoadResult result = CALL_DRIVER_RESET_IF_NONE(
 		handleThreadJoin,
 		ThreadJoinLabel::create(currPos(), ArgVals[0].IntVal.getLimitedValue(),
 					GET_DEPS(deps)));

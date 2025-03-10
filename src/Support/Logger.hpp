@@ -125,4 +125,7 @@ inline VerbosityLevel logLevel = VerbosityLevel::Tip;
 	else                                                                                       \
 		Logger<out_tag>(level)
 
+// TODO GENMC: for debugging
+#define MIRI_LOG() LOG(VerbosityLevel::Trace)
+
 #endif /* GENMC_LOGGER_HPP */

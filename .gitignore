@@ -53,3 +53,9 @@ Testing/
 
 scripts/*.log
 coverage_report*
+
+scripts/*.log
+scripts/*.trs
+
+.vscode
+*.log

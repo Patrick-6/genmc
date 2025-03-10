@@ -318,67 +318,69 @@ static auto doesPolicySupportSeed(const SchedulePolicy policy) -> bool
 	BUG(); /* Unknown SchedulePolicy */
 }
 
-static void checkConfigOptions()
+void checkConfigOptions(Config &conf, bool ignoreInputFile /* = false */)
 {
 	/* Check exploration options */
-	if (clLAPOR) {
+	if (conf.LAPOR) {
 		ERROR("LAPOR is temporarily disabled.\n");
 	}
-	if (clConfirmation) {
+	if (conf.confirmation) {
 		ERROR("Confirmation is temporarily disabled.\n");
 	}
-	if (clModelType == ModelType::IMM && (!clDisableIPR || !clDisableSymmetryReduction)) {
+	if (conf.model == ModelType::IMM && (conf.ipr || conf.symmetryReduction)) {
 		WARN("In-place revisiting and symmetry reduction have no effect under IMM\n");
-		clDisableSymmetryReduction = true;
-		clDisableIPR = true;
+		conf.symmetryReduction = false;
+		conf.ipr = false;
 	}
 
 	/* Check debugging options */
-	if (!doesPolicySupportSeed(clSchedulePolicy) && clPrintArbitraryScheduleSeed)
+	if (!doesPolicySupportSeed(conf.schedulePolicy) && conf.printRandomScheduleSeed)
 		WARN("--print-schedule-seed used without --schedule-policy={arbitrary,wfr}.\n");
-	if (!doesPolicySupportSeed(clSchedulePolicy) && !clArbitraryScheduleSeed.empty())
+	if (!doesPolicySupportSeed(conf.schedulePolicy) && !conf.randomScheduleSeed.empty())
 		WARN("--schedule-seed used without --schedule-policy={arbitrary,wfr}.\n");
 
 	/* Check bounding options */
-	if (clBound != -1 && clModelType != ModelType::SC) {
+	if (conf.bound.has_value() && conf.model != ModelType::SC) {
 		ERROR("Bounding can only be used with --sc.\n");
 	}
-	GENMC_DEBUG(ERROR_ON(clBound != -1 && clBoundsHistogram,
+	GENMC_DEBUG(ERROR_ON(conf.bound.has_value() && conf.boundsHistogram,
 			     "Bounds histogram cannot be used when bounding.\n"););
-	if (clBound == -1 && clBoundType.getNumOccurrences() > 0) {
+	if (conf.bound.has_value() && conf.boundType != BoundType::none) {
 		WARN("--bound-type used without --bound.\n");
 	}
 
 	/* Sanitize bounding options */
-	bool bounding = (clBound != -1);
-	GENMC_DEBUG(bounding |= clBoundsHistogram;);
-	if (bounding && (clLAPOR || !clDisableBAM || !clDisableSymmetryReduction || !clDisableIPR ||
-			 clSchedulePolicy != SchedulePolicy::LTR)) {
+	bool bounding = conf.bound.has_value();
+	GENMC_DEBUG(bounding |= conf.boundsHistogram;);
+	if (bounding && (conf.LAPOR || !conf.disableBAM || conf.symmetryReduction || conf.ipr ||
+			 conf.schedulePolicy != SchedulePolicy::LTR)) {
 		WARN("LAPOR/BAM/SR/IPR have no effect when --bound is used. Scheduling "
 		     "defaults to LTR.\n");
-		clLAPOR = false;
-		clDisableBAM = clDisableSymmetryReduction = clDisableIPR = true;
-		clSchedulePolicy = SchedulePolicy::LTR;
+		conf.LAPOR = conf.symmetryReduction = conf.ipr = false;
+		conf.disableBAM = true;
+		conf.schedulePolicy = SchedulePolicy::LTR;
 	}
 
 	/* Check Relinche options */
-	if (!clCollectLinSpec.empty() && !clCheckLinSpec.empty()) {
+	if (conf.collectLinSpec.has_value() && !conf.collectLinSpec->empty()) {
 		ERROR("Cannot collect and analyze linearizability specification in a single "
 		      "run.\n");
 	}
 
 	/* Make sure filename is a regular file */
-	if (!llvm::sys::fs::is_regular_file(clInputFile) &&
-	    !llvm::sys::fs::is_directory(clInputFile))
-		ERROR("Input file is neither a regular file, nor a directory!\n");
+	if (!ignoreInputFile) {
+		if (!llvm::sys::fs::is_regular_file(conf.inputFile) &&
+		    !llvm::sys::fs::is_directory(conf.inputFile))
+			ERROR("Input file is neither a regular file, nor a directory!\n");
 
-	/* Make sure -disable-genmc-std-rebuild is used only on Rust builds */
-	InputType langInput = determineLang(clInputFile);
-	InputType langLink = determineLang(clLinkWith);
-	if (langInput != InputType::rust && langInput != InputType::cargo &&
-	    langLink != InputType::rust && langLink != InputType::cargo &&
-	    clDisableGenmcStdRebuild) {
-		ERROR("-disable-genmc-std-rebuild used on a non-Rust input file.\n");
+		/* Make sure -disable-genmc-std-rebuild is used only on Rust builds */
+		InputType langInput = determineLang(conf.inputFile);
+		InputType langLink = determineLang(conf.linkWith);
+		if (langInput != InputType::rust && langInput != InputType::cargo &&
+		    langLink != InputType::rust && langLink != InputType::cargo &&
+		    conf.disableGenmcStdRebuild) {
+			ERROR("-disable-genmc-std-rebuild used on a non-Rust input file.\n");
+		}
 	}
 }
 
@@ -415,7 +417,7 @@ static void saveConfigOptions(Config &conf)
 	conf.isDepTrackingModel = (conf.model == ModelType::IMM);
 	conf.threads = clThreads;
 	conf.bound = clBound >= 0 ? std::optional(clBound.getValue()) : std::nullopt;
-	conf.boundType = clBoundType;
+	conf.boundType = clBoundType.getNumOccurrences() > 0 ? clBoundType : BoundType::none;
 	conf.LAPOR = clLAPOR;
 	conf.symmetryReduction = !clDisableSymmetryReduction;
 	conf.helper = !clDisableHelper;
@@ -487,7 +489,7 @@ void parseConfig(int argc, char **argv, Config &conf)
 					  "Model Checking for C programs");
 
 	/* Sanity-check config options and then appropriately save them */
-	checkConfigOptions();
+	checkConfigOptions(conf);
 	saveConfigOptions(conf);
 
 	/* Set (global) log state */

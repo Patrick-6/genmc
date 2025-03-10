@@ -36,6 +36,11 @@
 class DepExecutionGraph : public ExecutionGraph {
 
 public:
+	DepExecutionGraph() : ExecutionGraph()
+	{
+		getEventLabel(Event::getInit())->setPrefixView(std::make_unique<DepView>());
+	}
+
 	DepExecutionGraph(ExecutionGraph::InitValGetter f) : ExecutionGraph(std::move(f))
 	{
 		getEventLabel(Event::getInit())->setPrefixView(std::make_unique<DepView>());

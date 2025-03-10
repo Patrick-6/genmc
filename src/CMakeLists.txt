@@ -58,6 +58,7 @@ set(SOURCES
   Support/MemOrdering.cpp
   Support/NameInfo.cpp
   Support/Parser.cpp
+  Support/ResultHandling.cpp
   Support/SAddr.cpp
   Support/SAddrAllocator.cpp
   Support/SVal.cpp

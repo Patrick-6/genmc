@@ -40,8 +40,12 @@ public:
 	static constexpr unsigned width = sizeof(Value) * CHAR_BIT;
 
 	/** Constructors/destructors */
-	SVal() : value(0) {}
-	explicit SVal(uint64_t v) : value(v) {}
+	SVal() : value(0), extra(0) {}
+	explicit SVal(uint64_t v) : value(v), extra(0) {}
+	SVal(Value value, Value extra) : value(value), extra(extra) {}
+
+public:
+	static auto fromPtr(Value addr, Value extra) -> SVal { return SVal(addr, extra); }
 
 	/** Returns a (limited) representation of this Value */
 	[[nodiscard]] auto get() const -> uint64_t { return value; }
@@ -53,6 +57,9 @@ public:
 		std::memcpy(&tmp, &value, sizeof(tmp));
 		return tmp;
 	}
+
+	/** TODO GENMC (DOCUMENTATION) */
+	[[nodiscard]] auto getExtra() const -> uint64_t { return extra; }
 
 	/** Returns a pointer representation of this Value */
 	[[nodiscard]] auto getPointer() const -> void * { return (void *)(uintptr_t)value; }
@@ -109,12 +116,13 @@ public:
 		n.value _op## = v.value;                                                           \
 		return n;                                                                          \
 	}                                                                                          \
-	SVal &operator _op##=(const SVal &v)                                                       \
+	SVal &operator _op##=(const SVal & v)                                                      \
 	{                                                                                          \
 		value _op## = v.value;                                                             \
 		return *this;                                                                      \
 	}
 
+	// TODO GENMC: maybe add an assert that RHS is never a pointer?
 	IMPL_BINOP(+);
 	IMPL_BINOP(-);
 	IMPL_BINOP(*);
@@ -152,6 +160,8 @@ private:
 
 	/** The actual value */
 	Value value;
+	/* The second 64 bits for uint128, or provenance info for pointers */
+	Value extra;
 };
 
 /** Comparator for SVal */

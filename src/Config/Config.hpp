@@ -31,7 +31,7 @@
 #include <string>
 
 enum class SchedulePolicy : std::uint8_t { LTR, WF, WFR, Arbitrary };
-enum class BoundType : std::uint8_t { context, round };
+enum class BoundType : std::uint8_t { context, round, none };
 enum class InputType : std::uint8_t { clang, cargo, rust, llvmir };
 
 struct Config {
@@ -66,6 +66,8 @@ struct Config {
 	unsigned int maxExtSize{};
 	bool dotPrintOnlyClientEvents{};
 	bool replayCompletedThreads{};
+	// TODO GENMC: Document, and maybe expose to other front-ends (not just Miri)
+	bool skipNonAtomicInitializedCheck = false;
 
 	/*** Transformation options ***/
 	std::optional<unsigned> unroll;
@@ -109,6 +111,9 @@ struct Config {
 
 /* Parses CLI options and initializes a Config object */
 void parseConfig(int argc, char **argv, Config &conf);
+
+/* Check validity of config options. */
+void checkConfigOptions(Config &conf, bool ignoreInputFile = false);
 
 /* Returns the language of the input file */
 InputType determineLang(std::string inputFile);

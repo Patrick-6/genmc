@@ -1,4 +1,5 @@
-#pragma once
+#ifndef GENMC_TESTS_CORRECT_RELINCHE_HPP
+#define GENMC_TESTS_CORRECT_RELINCHE_HPP
 
 #define CAS(...) atomic_compare_exchange_strong_explicit(__VA_ARGS__)
 #define load(...) atomic_load_explicit(__VA_ARGS__)
@@ -11,3 +12,5 @@
 #define acquire memory_order_acquire
 #define seq_cst memory_order_seq_cst
 #define acq_rel memory_order_acq_rel
+
+#endif /* GENMC_TESTS_CORRECT_RELINCHE_HPP */

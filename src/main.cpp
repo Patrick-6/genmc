@@ -363,15 +363,16 @@ static auto createExecutionContext(const ExecutionGraph &g) -> std::vector<Threa
 void run(GenMCDriver *driver, llvm::Interpreter *EE)
 {
 	do {
-		driver->handleExecutionStart();
-		if (driver->runFromCache()) {
-			driver->handleExecutionEnd();
-			continue;
-		}
-		EE->reset();
-		EE->setExecutionContext(createExecutionContext(driver->getExec().getGraph()));
-		EE->runAsMain(driver->getConf()->programEntryFun);
-		driver->handleExecutionEnd();
+		BUG(); // TODO GENMC: handleExecutionStart needs `runnable`
+		// driver->handleExecutionStart(EE->dynState.globalInstructions);
+		// if (driver->runFromCache()) {
+		// 	driver->handleExecutionEnd();
+		// 	continue;
+		// }
+		// EE->reset();
+		// EE->setExecutionContext(createExecutionContext(driver->getExec().getGraph()));
+		// EE->runAsMain(driver->getConf()->programEntryFun);
+		// driver->handleExecutionEnd();
 	} while (!driver->done());
 }
 

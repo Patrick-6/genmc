@@ -24,6 +24,7 @@
 auto operator<<(llvm::raw_ostream &s, const SVal &v) -> llvm::raw_ostream &
 {
 	s << v.get();
+	// TODO GENMC: how to print the `extra` value?
 	return s;
 }
 

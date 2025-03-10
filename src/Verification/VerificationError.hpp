@@ -44,7 +44,7 @@ enum class SystemError {
 
 /** Different errors that might be encountered during verification.
  * Public to enable the interpreter utilize it */
-enum class VerificationError {
+enum class VerificationError : std::uint8_t {
 	VE_NonErrorBegin,
 	VE_OK,
 	VE_WWRace,

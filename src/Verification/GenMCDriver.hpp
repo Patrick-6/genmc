@@ -26,6 +26,7 @@
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "Support/Hash.hpp"
+#include "Support/ResultHandling.hpp"
 #include "Support/SAddrAllocator.hpp"
 #include "Verification/ChoiceMap.hpp"
 #include "Verification/Relinche/LinearizabilityChecker.hpp"
@@ -139,7 +140,7 @@ public:
 
 	/** Things to do when an execution starts/ends */
 	void handleExecutionStart();
-	void handleExecutionEnd();
+	std::unique_ptr<ModelCheckerError> handleExecutionEnd(std::span<Action> runnable);
 
 	/** Whether there are more executions to be explored */
 	bool done();
@@ -160,25 +161,27 @@ public:
 	void handleBlock(std::unique_ptr<BlockLabel> bLab);
 
 	/** Returns the value this load reads */
-	std::optional<SVal> handleLoad(std::unique_ptr<ReadLabel> rLab);
+	LoadResult handleLoad(std::unique_ptr<ReadLabel> rLab,
+			      std::function<void(SAddr)> oldValSetter = {});
 
 	/** A store has been interpreted, nothing for the interpreter */
-	void handleStore(std::unique_ptr<WriteLabel> wLab);
+	StoreResult handleStore(std::unique_ptr<WriteLabel> wLab,
+				std::function<void(SAddr)> oldValSetter = {});
 
 	/** A fence has been interpreted, nothing for the interpreter */
 	void handleFence(std::unique_ptr<FenceLabel> fLab);
 
 	/** Returns an appropriate result for malloc() */
-	SVal handleMalloc(std::unique_ptr<MallocLabel> aLab);
+	SAddr handleMalloc(std::unique_ptr<MallocLabel> aLab);
 
 	/** A call to free() has been interpreted, nothing for the intepreter */
 	void handleFree(std::unique_ptr<FreeLabel> dLab);
 
 	/** Returns the TID of the newly created thread */
-	int handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab);
+	ThreadCreateLabel *handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab);
 
 	/** Returns an appropriate result for pthread_join() */
-	std::optional<SVal> handleThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab);
+	LoadResult handleThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab);
 
 	/** A helping CAS operation has been interpreter.
 	 * Returns whether the helped CAS is present. */
@@ -210,6 +213,9 @@ public:
 
 	virtual ~GenMCDriver();
 
+	// TODO GENMC: for debugging:
+	void debugPrintGraph() { printGraph(); }
+
 protected:
 	friend class Scheduler;
 	friend class ArbitraryScheduler;
@@ -231,11 +237,21 @@ protected:
 	/** Returns a pointer to the user configuration */
 	const Config *getConf() const { return userConf.get(); }
 
+	auto hasExec() const -> bool { return !execStack.empty(); }
+
 	/** Returns a pointer to the interpreter */
-	llvm::Interpreter *getEE() const { return EE; }
+	llvm::Interpreter *getEE() const
+	{
+		BUG() /* NOT SUPPORTED ANYMORE */;
+		return EE;
+	}
 
 	/** Sets pointer to the interpreter */
-	void setEE(llvm::Interpreter *interp) { EE = interp; }
+	void setEE(llvm::Interpreter *interp)
+	{
+		BUG() /* NOT SUPPORTED ANYMORE */;
+		EE = interp;
+	}
 
 	/** Returns a reference to the current execution */
 	Execution &getExec() { return execStack.back(); }
@@ -272,7 +288,8 @@ protected:
 	void setThreadPool(ThreadPool *tp) { pool = tp; }
 
 	/** Initializes the exploration from a given state */
-	void initFromState(std::unique_ptr<Execution> s);
+	void initFromState(std::unique_ptr<Execution> exec,
+			   ExecutionGraph::InitValGetter initValGetter);
 
 	/** Extracts the current driver state.
 	 * The driver is left in an inconsistent form */
@@ -281,7 +298,7 @@ protected:
 	/** Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
 	 * interpreter. */
-	std::optional<SVal> getReadRetValue(const ReadLabel *rLab);
+	LoadResult getReadRetValue(const ReadLabel *rLab);
 	SVal getRecReadRetValue(const ReadLabel *rLab);
 
 	/** Est: Returns true if we are currently running in estimation mode */
@@ -301,7 +318,29 @@ protected:
 			totalExplored > result.estimationMean);
 	}
 
+	/* Adds LAB to graph (maintains well-formedness).
+	 * If another label exists in the specified position, nothing is done an nullptr is
+	 * returned.
+	 */
+	EventLabel *addNewLabelToGraph(std::unique_ptr<EventLabel> lab)
+	{
+		if (getExec().getGraph().containsLab(lab.get())) {
+			return nullptr;
+		} else {
+			return addLabelToGraph(std::move(lab));
+		}
+	}
+
 private:
+	/*** Worklist-related ***/
+
+	/* Adds an appropriate entry to the worklist */
+	void addToWorklist(/* Stamp stamp,*/ WorkList::ItemT item);
+
+	/* Fetches the next backtrack option.
+	 * A default-constructed item means that the list is empty */
+	std::pair<Stamp, WorkList::ItemT> getNextItem();
+
 	/*** Exploration-related ***/
 
 	/** Returns whether a revisit results to a valid execution
@@ -322,7 +361,7 @@ private:
 	void blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab);
 
 	/** Returns whether the current execution is blocked */
-	bool isExecutionBlocked() const;
+	auto isExecutionBlocked(std::span<Action> runnable) const -> bool;
 
 	/** If LAB accesses a valid location, reports an error  */
 	VerificationError checkAccessValidity(const MemAccessLabel *lab);
@@ -351,7 +390,7 @@ private:
 	bool isExecutionDrivenByGraph(const EventLabel *lab);
 
 	/** Returns true if we are currently replaying a graph */
-	bool inReplay() const;
+	auto inReplay(const Event e) const -> bool;
 
 	/** Opt: Caches LAB to optimize scheduling next time */
 	void cacheEventLabel(const EventLabel *lab);
@@ -433,7 +472,7 @@ private:
 
 	/** Modifies (but not restricts) the graph when we are revisiting a read.
 	 * Returns true if the resulting graph should be explored. */
-	bool revisitRead(const Revisit &s);
+	bool revisitRead(const Revisit &ri);
 
 	bool forwardRevisit(const ForwardRevisit &fr);
 	bool backwardRevisit(const BackwardRevisit &fr);
@@ -598,7 +637,7 @@ private:
 	std::shared_ptr<const Config> userConf;
 
 	/** The interpreter used by the driver */
-	llvm::Interpreter *EE{};
+	llvm::Interpreter *EE{}; // TODO GENMC(LLI): remove this
 
 	/** Execution stack */
 	std::vector<Execution> execStack;

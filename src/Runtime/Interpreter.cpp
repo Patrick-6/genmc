@@ -45,6 +45,8 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Module.h>
 #include <optional>
+#include <string>
+#include <utility>
 
 using namespace llvm;
 

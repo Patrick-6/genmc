@@ -28,6 +28,7 @@ enum class VerbosityLevel {
 	Error,
 	Warning,
 	Tip,
+	Trace, // TODO GENMC: check if this is ok
 #ifdef ENABLE_GENMC_DEBUG
 	Debug1,
 	Debug2,

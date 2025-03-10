@@ -1569,6 +1569,8 @@ private:
 	AccessList accessList;
 
 	/** The size of the requested allocation */
+	// TODO GENMC (TYPES): Miri allows allocations up to isize::MAX bytes, so this might not be
+	// enough:
 	unsigned int allocSize{};
 
 	/** Allocation alignment */
