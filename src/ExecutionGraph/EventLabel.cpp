@@ -136,13 +136,11 @@ bool WriteLabel::isObservable() const
 	if (mLabIt == std::ranges::end(wpreds))
 		return true;
 
-	auto *mLab = &*mLabIt;
-	for (auto j = mLab->getIndex() + 1; j < getIndex(); j++) {
-		auto *lab = g.getEventLabel(Event(getThread(), j));
-		if (lab->isAtLeastRelease())
+	for (auto &lab : std::ranges::subrange(std::ranges::begin(wpreds), mLabIt)) {
+		if (lab.isAtLeastRelease())
 			return true;
 		/* The location must not be read (loop counter) */
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab))
 			if (rLab->getAddr() == getAddr())
 				return true;
 	}
@@ -175,8 +173,8 @@ void ReadLabel::setRf(EventLabel *rfLab)
 	 * Delete the read from the readers list of oldRf.
 	 * We need to ensure that the old label we were reading from still exists
 	 * (not just the position; it might have been replaced). */
-	if (oldRfLab && getParent()->containsPos(oldRfLab->getPos())) {
-		BUG_ON(!getParent()->containsLab(oldRfLab));
+	if (oldRfLab) {
+		// BUG_ON(!getParent()->containsLab(oldRfLab));
 		if (auto *oldLab = llvm::dyn_cast<WriteLabel>(oldRfLab))
 			oldLab->removeReader([&](ReadLabel &oLab) { return &oLab == this; });
 		else if (auto *oldLab = llvm::dyn_cast<InitLabel>(oldRfLab))

@@ -224,7 +224,7 @@ bool GenMCDriver::isSchedulable(int thread) const
 {
 	auto &thr = getEE()->getThrById(thread);
 	auto *lab = getExec().getGraph().getLastThreadLabel(thread);
-	return !thr.ECStack.empty() && !llvm::isa<TerminatorLabel>(lab);
+	return !thr.ECStack.empty() && !llvm::isa_and_nonnull<TerminatorLabel>(lab);
 }
 
 bool GenMCDriver::schedulePrioritized()
@@ -414,11 +414,9 @@ void GenMCDriver::handleExecutionStart()
 		BUG_ON(g.isThreadEmpty(i));
 
 		auto *labFst = g.getFirstThreadLabel(i);
-		auto parent = labFst->getParentCreate();
 
 		/* Skip if parent create does not exist yet (or anymore) */
-		if (!g.containsPos(parent) ||
-		    !llvm::isa<ThreadCreateLabel>(g.getEventLabel(parent)))
+		if (!labFst->getCreate())
 			continue;
 
 		/* Skip finished threads */
@@ -555,7 +553,7 @@ bool GenMCDriver::isExecutionBlocked() const
 			auto &g = getExec().getGraph();
 			if (thr.id >= g.getNumThreads() || g.isThreadEmpty(thr.id)) // think rec
 				return false;
-			return llvm::isa<BlockLabel>(g.getLastThreadLabel(thr.id));
+			return llvm::isa_and_nonnull<BlockLabel>(g.getLastThreadLabel(thr.id));
 		});
 }
 
@@ -779,7 +777,8 @@ void GenMCDriver::blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab)
 {
 	auto pos = bLab->getPos();
 	blockThread(std::move(bLab));
-	mootExecutionIfFullyBlocked(pos);
+	auto *lab = getExec().getGraph().getLastThreadLabel(pos.thread);
+	mootExecutionIfFullyBlocked(lab);
 }
 
 void GenMCDriver::unblockThread(Event pos)
@@ -831,7 +830,7 @@ bool GenMCDriver::rescheduleReads()
 	auto *EE = getEE();
 
 	for (auto i = 0u; i < g.getNumThreads(); ++i) {
-		auto *bLab = llvm::dyn_cast<ReadOptBlockLabel>(g.getLastThreadLabel(i));
+		auto *bLab = llvm::dyn_cast_or_null<ReadOptBlockLabel>(g.getLastThreadLabel(i));
 		if (!bLab)
 			continue;
 
@@ -925,8 +924,8 @@ bool isUninitializedAccess(const SAddr &addr, const Event &pos)
 bool GenMCDriver::isExecutionValid(const EventLabel *lab)
 {
 
-	return getSymmChecker().isSymmetryOK(lab) && getConsChecker().isConsistent(lab) &&
-	       !partialExecutionExceedsBound();
+	return (!getConf()->symmetryReduction || getSymmChecker().isSymmetryOK(lab)) &&
+	       getConsChecker().isConsistent(lab) && !partialExecutionExceedsBound();
 }
 
 bool GenMCDriver::isRevisitValid(const Revisit &revisit)
@@ -1433,7 +1432,7 @@ void GenMCDriver::unblockWaitingHelping(const WriteLabel *lab)
 	/* FIXME: We have to wake up all threads waiting on helping CASes,
 	 * as we don't know which ones are from the same CAS */
 	for (auto i = 0u; i < getExec().getGraph().getNumThreads(); i++) {
-		auto *bLab = llvm::dyn_cast<HelpedCASBlockLabel>(
+		auto *bLab = llvm::dyn_cast_or_null<HelpedCASBlockLabel>(
 			getExec().getGraph().getLastThreadLabel(i));
 		if (bLab)
 			getExec().getGraph().removeLast(bLab->getThread());
@@ -1545,7 +1544,7 @@ void GenMCDriver::handleThreadKill(std::unique_ptr<ThreadKillLabel> kLab)
 bool GenMCDriver::isSymmetricToSR(int candidate, Event parent, const ThreadInfo &info) const
 {
 	auto &g = getExec().getGraph();
-	auto cParent = g.getFirstThreadLabel(candidate)->getParentCreate();
+	auto cParent = g.getFirstThreadLabel(candidate)->getCreateId();
 	auto &cInfo = g.getFirstThreadLabel(candidate)->getThreadInfo();
 
 	/* A tip to print to the user in case two threads look
@@ -1610,9 +1609,9 @@ int GenMCDriver::handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab)
 	int cid = 0;
 	while (cid < (long)g.getNumThreads()) {
 		if (!g.isThreadEmpty(cid)) {
-			auto *bLab = llvm::dyn_cast<ThreadStartLabel>(g.getFirstThreadLabel(cid));
-			BUG_ON(!bLab);
-			if (bLab->getParentCreate() == tcLab->getPos())
+			auto *bLab = llvm::dyn_cast_or_null<ThreadStartLabel>(
+				g.getFirstThreadLabel(cid));
+			if (bLab && bLab->getCreateId() == tcLab->getPos())
 				break;
 		}
 		++cid;
@@ -1636,8 +1635,8 @@ int GenMCDriver::handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab)
 
 	/* Create a label and add it to the graph; is the thread symmetric to another one? */
 	auto symm = getSymmetricTidSR(lab, lab->getChildInfo());
-	auto *tsLab = addLabelToGraph(
-		ThreadStartLabel::create(Event(cid, 0), lab->getPos(), lab->getChildInfo(), symm));
+	auto *tsLab = addLabelToGraph(ThreadStartLabel::create(Event(cid, 0), lab->getPos(), lab,
+							       lab->getChildInfo(), symm));
 	if (symm != -1)
 		g.getFirstThreadLabel(symm)->setSymmSuccTid(cid);
 	return cid;
@@ -1650,7 +1649,7 @@ std::optional<SVal> GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabe
 	if (isExecutionDrivenByGraph(&*lab))
 		return {g.getEventLabel(lab->getPos())->getReturnValue()};
 
-	if (!llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(lab->getChildId()))) {
+	if (!llvm::isa_and_nonnull<ThreadFinishLabel>(g.getLastThreadLabel(lab->getChildId()))) {
 		blockThread(JoinBlockLabel::create(lab->getPos(), lab->getChildId()));
 		return std::nullopt;
 	}
@@ -1687,7 +1686,7 @@ void GenMCDriver::handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab)
 
 	auto *lab = addLabelToGraph(std::move(eLab));
 	for (auto i = 0U; i < g.getNumThreads(); i++) {
-		auto *pLab = llvm::dyn_cast<JoinBlockLabel>(g.getLastThreadLabel(i));
+		auto *pLab = llvm::dyn_cast_or_null<JoinBlockLabel>(g.getLastThreadLabel(i));
 		if (pLab && pLab->getChildId() == lab->getThread()) {
 			/* If parent thread is waiting for me, relieve it */
 			unblockThread(pLab->getPos());
@@ -1712,7 +1711,7 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		/* Is there any thread blocked on a potential spinloop? */
-		auto *eLab = llvm::dyn_cast<FaiZNEBlockLabel>(g.getLastThreadLabel(i));
+		auto *eLab = llvm::dyn_cast_or_null<FaiZNEBlockLabel>(g.getLastThreadLabel(i));
 		if (!eLab)
 			continue;
 
@@ -1934,8 +1933,7 @@ void GenMCDriver::annotateStoreHELPER(WriteLabel *wLab)
 
 	/* Check whether we can mark it as RevBlocker */
 	auto *pLab = g.po_imm_pred(wLab);
-	auto *mLab = llvm::dyn_cast_or_null<MemAccessLabel>(
-		getPreviousVisibleAccessLabel(pLab->getPos()));
+	auto *mLab = llvm::dyn_cast_or_null<MemAccessLabel>(getPreviousVisibleAccessLabel(pLab));
 	auto *rLab = llvm::dyn_cast_or_null<ReadLabel>(mLab);
 	if (!mLab || (mLab->wasAddedMax() && (!rLab || rLab->isRevisitable())))
 		return;
@@ -2087,14 +2085,13 @@ void GenMCDriver::handleFree(std::unique_ptr<FreeLabel> dLab)
 	checkForRaces(lab);
 }
 
-const MemAccessLabel *GenMCDriver::getPreviousVisibleAccessLabel(Event start) const
+const MemAccessLabel *GenMCDriver::getPreviousVisibleAccessLabel(const EventLabel *start) const
 {
 	auto &g = getExec().getGraph();
 	std::vector<Event> finalReads;
 
-	for (auto pos = start.prev(); pos.index > 0; --pos) {
-		auto *lab = g.getEventLabel(pos);
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+	for (const auto &lab : g.po_preds(start)) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab)) {
 			if (getConf()->helper && rLab->isConfirming())
 				continue;
 			if (rLab->getRf()) {
@@ -2116,18 +2113,18 @@ const MemAccessLabel *GenMCDriver::getPreviousVisibleAccessLabel(Event start) co
 			}
 			return rLab;
 		}
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab))
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(&lab))
 			if (!wLab->isFinal() && !wLab->isLocal())
 				return wLab;
 	}
 	return nullptr; /* none found */
 }
 
-void GenMCDriver::mootExecutionIfFullyBlocked(Event pos)
+void GenMCDriver::mootExecutionIfFullyBlocked(EventLabel *bLab)
 {
 	auto &g = getExec().getGraph();
 
-	auto *lab = getPreviousVisibleAccessLabel(pos);
+	auto *lab = getPreviousVisibleAccessLabel(bLab);
 	if (auto *rLab = llvm::dyn_cast_or_null<ReadLabel>(lab))
 		if (!rLab->isRevisitable() || !rLab->wasAddedMax())
 			moot();
@@ -2344,8 +2341,8 @@ void GenMCDriver::tryOptimizeIPRs(const WriteLabel *sLab, std::vector<ReadLabel 
 		revisitInPlace(*constructBackwardRevisit(rLab, sLab));
 
 	/* We also have to filter out some regular revisits */
-	auto pending = g.getPendingRMW(sLab);
-	if (!pending.isInitializer()) {
+	const auto *pending = g.getPendingRMW(sLab);
+	if (!pending->getPos().isInitializer()) {
 		loads.erase(std::remove_if(loads.begin(), loads.end(),
 					   [&](auto *rLab) {
 						   auto *rfLab = rLab->getRf();
@@ -2381,7 +2378,7 @@ void GenMCDriver::checkReconsiderReadOpts(const WriteLabel *sLab)
 {
 	auto &g = getExec().getGraph();
 	for (auto i = 0U; i < g.getNumThreads(); i++) {
-		auto *bLab = llvm::dyn_cast<ReadOptBlockLabel>(g.getLastThreadLabel(i));
+		auto *bLab = llvm::dyn_cast_or_null<ReadOptBlockLabel>(g.getLastThreadLabel(i));
 		if (!bLab || bLab->getAddr() != sLab->getAddr())
 			continue;
 		unblockThread(bLab->getPos());
@@ -2448,7 +2445,9 @@ bool GenMCDriver::tryOptimizeRevBlockerAddition(const WriteLabel *sLab,
 		return false;
 
 	auto &g = getExec().getGraph();
-	auto *pLab = getPreviousVisibleAccessLabel(sLab->getPos().prev());
+	auto *pLab = g.po_imm_pred(sLab);
+	if (pLab)
+		pLab = getPreviousVisibleAccessLabel(pLab);
 	if (std::find_if(g.co_begin(sLab->getAddr()), g.co_end(sLab->getAddr()),
 			 [this, pLab, sLab](auto &lab) {
 				 return isConflictingNonRevBlocker(pLab, sLab, lab.getPos());
@@ -2552,29 +2551,30 @@ GenMCDriver::getRevisitView(const ReadLabel *rLab, const WriteLabel *sLab,
 	return preds;
 }
 
-std::unique_ptr<BackwardRevisit> GenMCDriver::constructBackwardRevisit(const ReadLabel *rLab,
-								       const WriteLabel *sLab) const
+auto GenMCDriver::constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *sLab) const
+	-> std::unique_ptr<BackwardRevisit>
 {
 	if (!getConf()->helper)
 		return std::make_unique<BackwardRevisit>(rLab, sLab, getRevisitView(rLab, sLab));
 
-	auto &g = getExec().getGraph();
+	const auto &g = getExec().getGraph();
 
 	/* Check whether there is a conflicting RevBlocker */
-	auto pending = g.getPendingRMW(sLab);
-	auto *pLab = llvm::dyn_cast_or_null<WriteLabel>(g.po_imm_succ(g.getEventLabel(pending)));
-	pending = (!pending.isInitializer() && pLab->hasAttr(WriteAttr::RevBlocker))
-			  ? pending.next()
-			  : Event::getInit();
+	const auto *pending = g.getPendingRMW(sLab);
+	const auto *pLab = llvm::dyn_cast_or_null<WriteLabel>(g.po_imm_succ(pending));
+	pending = (!pending->getPos().isInitializer() && pLab->hasAttr(WriteAttr::RevBlocker))
+			  ? g.po_imm_succ(pending)
+			  : g.getInitLabel();
 
 	/* If there is, do an optimized backward revisit */
-	auto &prefix = getPrefixView(sLab);
-	if (!pending.isInitializer() &&
-	    !getPrefixView(g.getEventLabel(pending)).contains(rLab->getPos()) &&
-	    rLab->getStamp() < g.getEventLabel(pending)->getStamp() && !prefix.contains(pending))
+	const auto &prefix = getPrefixView(sLab);
+	if (!pending->getPos().isInitializer() &&
+	    !getPrefixView(pending).contains(rLab->getPos()) &&
+	    rLab->getStamp() < pending->getStamp() && !prefix.contains(pending))
 		return std::make_unique<BackwardRevisitHELPER>(
 			rLab->getPos(), sLab->getPos(),
-			getRevisitView(rLab, sLab, g.getWriteLabel(pending)), pending);
+			getRevisitView(rLab, sLab, llvm::dyn_cast<WriteLabel>(pending)),
+			pending->getPos());
 	return std::make_unique<BackwardRevisit>(rLab, sLab, getRevisitView(rLab, sLab));
 }
 
@@ -2767,7 +2767,7 @@ bool GenMCDriver::checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<
 	auto &g = getExec().getGraph();
 	if (std::any_of(loads.begin(), loads.end(), [this, &g, sLab](const auto *rLab) {
 		    auto *lLab = g.getLastThreadLabel(rLab->getThread());
-		    auto *pLab = getPreviousVisibleAccessLabel(lLab->getPos());
+		    auto *pLab = getPreviousVisibleAccessLabel(lLab);
 		    return llvm::isa<BlockLabel>(lLab) && pLab && pLab->getPos() == rLab->getPos();
 	    })) {
 		moot();
@@ -3222,16 +3222,19 @@ void GenMCDriver::printGraph(bool printMetadata /* false */,
 			}
 		}
 		s << ":\n";
-		for (auto j = 1u; j < g.getThreadSize(i); j++) {
-			auto *lab = g.getEventLabel(Event(i, j));
+		for (auto &lab : g.po(i)) {
+			if (llvm::isa<ThreadStartLabel>(lab))
+				continue;
 			s << "\t";
 			GENMC_DEBUG(if (getConf()->colorAccesses)
-					    s.changeColor(getLabelColor(lab)););
-			s << printer.toString(*lab);
+					    s.changeColor(getLabelColor(&lab)););
+			s << printer.toString(lab);
 			GENMC_DEBUG(s.resetColor(););
-			GENMC_DEBUG(if (getConf()->printStamps) s << " @ " << lab->getStamp(););
-			if (printMetadata && thr.prefixLOC[j].first && shouldPrintLOC(lab)) {
-				executeMDPrint(lab, thr.prefixLOC[j], getConf()->inputFile, s);
+			GENMC_DEBUG(if (getConf()->printStamps) s << " @ " << lab.getStamp(););
+			if (printMetadata && thr.prefixLOC[lab.getIndex()].first &&
+			    shouldPrintLOC(&lab)) {
+				executeMDPrint(&lab, thr.prefixLOC[lab.getIndex()],
+					       getConf()->inputFile, s);
 			}
 			s << "\n";
 		}
@@ -3365,7 +3368,8 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const EventLabel *
 			if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab)) {
 				if (thr.id == 0)
 					continue;
-				printlnDotEdge(ss, bLab->getParentCreate(), bLab->getPos().next(),
+				printlnDotEdge(ss, bLab->getCreate()->getPos(),
+					       bLab->getPos().next(),
 					       {{"color", "blue"}, {"constraint", "false"}});
 			}
 			if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab))
@@ -3416,8 +3420,8 @@ void GenMCDriver::recPrintTraceBefore(const Event &e, View &a,
 			recPrintTraceBefore(g.getLastThreadLabel(jLab->getChildId())->getPos(), a,
 					    ss);
 		if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab))
-			if (!bLab->getParentCreate().isInitializer())
-				recPrintTraceBefore(bLab->getParentCreate(), a, ss);
+			if (!bLab->getCreateId().isInitializer())
+				recPrintTraceBefore(bLab->getCreateId(), a, ss);
 
 		/* Do not print the line if it is an RMW write, since it will be
 		 * the same as the previous one */

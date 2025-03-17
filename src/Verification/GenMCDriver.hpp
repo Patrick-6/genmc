@@ -627,12 +627,12 @@ private:
 
 	/* Opt: Finds the last memory access that is visible to other threads;
 	 * return nullptr if no such access is found */
-	const MemAccessLabel *getPreviousVisibleAccessLabel(Event start) const;
+	const MemAccessLabel *getPreviousVisibleAccessLabel(const EventLabel *start) const;
 
 	/* Opt: Checks whether there is no need to explore the other threads
 	 * (e.g., POS \in B and will not be removed in all subsequent subexplorations),
 	 * and if so moots the current execution */
-	void mootExecutionIfFullyBlocked(Event pos);
+	void mootExecutionIfFullyBlocked(EventLabel *bLab);
 
 	/* Helper: Wake up any threads blocked on a helping CAS */
 	void unblockWaitingHelping(const WriteLabel *lab);

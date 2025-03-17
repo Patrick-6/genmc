@@ -42,9 +42,8 @@ auto isHazptrProtected(const MemAccessLabel *mLab) -> bool
 		return false;
 
 	auto *pLab = llvm::dyn_cast<HpProtectLabel>(&*pLabIt);
-	for (auto j = pLab->getIndex() + 1; j < mLab->getIndex(); j++) {
-		auto *lab = g.getEventLabel(Event(mLab->getThread(), j));
-		if (auto *oLab = llvm::dyn_cast<HpProtectLabel>(lab))
+	for (auto &lab : std::ranges::subrange(std::ranges::begin(mpreds), pLabIt)) {
+		if (auto *oLab = llvm::dyn_cast<HpProtectLabel>(&lab))
 			if (oLab->getHpAddr() == pLab->getHpAddr())
 				return false;
 	}
@@ -53,18 +52,17 @@ auto isHazptrProtected(const MemAccessLabel *mLab) -> bool
 
 auto findMatchingLock(const UnlockWriteLabel *uLab) -> const CasWriteLabel *
 {
-	auto &g = *uLab->getParent();
+	const auto &g = *uLab->getParent();
 	std::vector<const UnlockWriteLabel *> locUnlocks;
 
-	for (auto j = uLab->getIndex() - 1; j > 0; j--) {
-		auto *lab = g.getEventLabel(Event(uLab->getThread(), j));
+	for (auto &lab : g.po_preds(uLab)) {
 
 		/* In case support for reentrant locks is added... */
-		if (auto *suLab = llvm::dyn_cast<UnlockWriteLabel>(lab)) {
+		if (auto *suLab = llvm::dyn_cast<UnlockWriteLabel>(&lab)) {
 			if (suLab->getAddr() == uLab->getAddr())
 				locUnlocks.push_back(suLab);
 		}
-		if (auto *lLab = llvm::dyn_cast<CasWriteLabel>(lab)) {
+		if (auto *lLab = llvm::dyn_cast<CasWriteLabel>(&lab)) {
 			if ((llvm::isa<LockCasWriteLabel>(lLab) ||
 			     llvm::isa<TrylockCasWriteLabel>(lLab)) &&
 			    lLab->getAddr() == uLab->getAddr()) {
@@ -79,22 +77,21 @@ auto findMatchingLock(const UnlockWriteLabel *uLab) -> const CasWriteLabel *
 
 auto findMatchingUnlock(const CasWriteLabel *lLab) -> const UnlockWriteLabel *
 {
-	auto &g = *lLab->getParent();
+	const auto &g = *lLab->getParent();
 	std::vector<const CasWriteLabel *> locLocks;
 
 	BUG_ON(!llvm::isa<LockCasReadLabel>(lLab) && !llvm::isa<TrylockCasReadLabel>(lLab));
-	for (auto j = lLab->getIndex() + 1; j < g.getThreadSize(lLab->getThread());
-	     j++) { /* skip next event */
-		auto *lab = g.getEventLabel(Event(lLab->getThread(), j));
+	for (auto &lab : g.po_succs(lLab)) {
+		/* skip next event */
 
 		/* In case support for reentrant locks is added... */
-		if (auto *slLab = llvm::dyn_cast<CasWriteLabel>(lab)) {
+		if (auto *slLab = llvm::dyn_cast<CasWriteLabel>(&lab)) {
 			if ((llvm::isa<LockCasWriteLabel>(slLab) ||
 			     llvm::isa<TrylockCasWriteLabel>(slLab)) &&
 			    slLab->getAddr() == lLab->getAddr())
 				locLocks.push_back(slLab);
 		}
-		if (auto *uLab = llvm::dyn_cast<UnlockWriteLabel>(lab)) {
+		if (auto *uLab = llvm::dyn_cast<UnlockWriteLabel>(&lab)) {
 			if (uLab->getAddr() == lLab->getAddr()) {
 				if (locLocks.empty())
 					return uLab;
@@ -108,16 +105,15 @@ auto findMatchingUnlock(const CasWriteLabel *lLab) -> const UnlockWriteLabel *
 auto findMatchingSpeculativeRead(const ReadLabel *cLab, const EventLabel *&scLab)
 	-> const SpeculativeReadLabel *
 {
-	auto &g = *cLab->getParent();
-	for (auto j = cLab->getIndex() - 1; j > 0; j--) {
-		auto *lab = g.getEventLabel(Event(cLab->getThread(), j));
+	const auto &g = *cLab->getParent();
+	for (auto &lab : g.po_preds(cLab)) {
 
-		if (lab->isSC())
-			scLab = lab;
+		if (lab.isSC())
+			scLab = &lab;
 
 		/* We don't care whether all previous confirmations are matched;
 		 * the same speculation maybe confirmed multiple times (e.g., baskets) */
-		if (auto *rLab = llvm::dyn_cast<SpeculativeReadLabel>(lab)) {
+		if (auto *rLab = llvm::dyn_cast<SpeculativeReadLabel>(&lab)) {
 			if (rLab->getAddr() == cLab->getAddr())
 				return rLab;
 		}

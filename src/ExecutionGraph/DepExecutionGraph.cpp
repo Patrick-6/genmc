@@ -25,7 +25,7 @@ auto DepExecutionGraph::getRevisitable(WriteLabel *sLab, const VectorClock &ppor
 	-> std::vector<ReadLabel *>
 {
 	auto &g = *sLab->getParent();
-	auto pendingRMW = getPendingRMW(sLab);
+	const auto *pendingRMW = getPendingRMW(sLab);
 	std::vector<ReadLabel *> loads;
 
 	for (auto i = 0u; i < getNumThreads(); i++) {
@@ -41,11 +41,10 @@ auto DepExecutionGraph::getRevisitable(WriteLabel *sLab, const VectorClock &ppor
 			}
 		}
 	}
-	if (!pendingRMW.isInitializer())
+	if (!pendingRMW->getPos().isInitializer())
 		loads.erase(std::remove_if(loads.begin(), loads.end(),
 					   [&](auto &eLab) {
-						   auto *confLab = getEventLabel(pendingRMW);
-						   return eLab->getStamp() > confLab->getStamp();
+						   return eLab->getStamp() > pendingRMW->getStamp();
 					   }),
 			    loads.end());
 	return loads;
@@ -73,12 +72,14 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 	/* Inform all calculators about the events cutted */
 	removeAfter(*preds);
 	for (auto labIt = insertionOrder.begin(); labIt != insertionOrder.end();) {
+		if (labIt->getIndex() > preds->getMax(labIt->getThread()))
+			poLists[labIt->getThread()].remove(*labIt);
 		labIt = preds->contains(labIt->getPos()) ? ++labIt : insertionOrder.erase(labIt);
 	}
 
 	/* Then, restrict the graph */
-	for (auto i = 0u; i < preds->size(); i++) {
-		for (auto j = 1u; j <= preds->getMax(i); j++) { /* Keeps begins */
+	for (auto i = 0u; i < getNumThreads(); i++) {
+		for (auto j = 0u; j <= preds->getMax(i); j++) { /* Keeps begins */
 			auto *lab = getEventLabel(Event(i, j));
 			if (!preds->contains(lab->getPos()))
 				continue;
@@ -97,6 +98,11 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
 				if (mLab->getAlloc() && !preds->contains(mLab->getAlloc()))
 					mLab->setAlloc(nullptr);
+			}
+			if (auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(lab)) {
+				if (tsLab->getCreate() &&
+				    !preds->contains(tsLab->getCreate()->getPos()))
+					tsLab->setCreate(nullptr);
 			}
 			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(lab)) {
 				if (eLab->getParentJoin() &&
@@ -143,10 +149,13 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 		for (auto j = 0u; j < getThreadSize(i); j++) {
 			if (preds->contains(Event(i, j)))
 				continue;
+			auto it = po_iterator(getEventLabel(Event(i, j)));
+			it = poLists[i].erase(it);
 			setEventLabel(Event(i, j), createHoleLabel(Event(i, j)));
 			getEventLabel(Event(i, j))->setStamp(nextStamp());
 			getEventLabel(Event(i, j))->setParent(this);
 			insertionOrder.push_back(*getEventLabel(Event(i, j)));
+			poLists[i].insert(it, *getEventLabel(Event(i, j)));
 		}
 	}
 }

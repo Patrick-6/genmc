@@ -111,12 +111,8 @@ inline const WriteLabel *co_imm_pred(const ExecutionGraph &G, const EventLabel *
  **                         po-iteration utilities
  ******************************************************************************/
 
-using const_po_iterator = decltype(std::declval<const ExecutionGraph>()
-					   .po_succs(std::declval<const EventLabel *>())
-					   .begin());
-using const_reverse_po_iterator = decltype(std::declval<const ExecutionGraph>()
-						   .po_preds(std::declval<const EventLabel *>())
-						   .begin());
+using const_po_iterator = ExecutionGraph::const_po_iterator;
+using const_reverse_po_iterator = ExecutionGraph::const_reverse_po_iterator;
 
 inline auto po_succs(const ExecutionGraph &G, const EventLabel *lab) { return G.po_succs(lab); }
 
@@ -472,8 +468,7 @@ inline const ThreadStartLabel *tc_succ(const ExecutionGraph &G, const EventLabel
 inline const ThreadCreateLabel *tc_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
 	auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(lab);
-	return tsLab ? llvm::dyn_cast<ThreadCreateLabel>(G.getEventLabel(tsLab->getParentCreate()))
-		     : nullptr;
+	return tsLab ? tsLab->getCreate() : nullptr;
 }
 
 /*******************************************************************************
@@ -489,10 +484,9 @@ inline const ThreadJoinLabel *tj_succ(const ExecutionGraph &G, const EventLabel 
 inline const ThreadFinishLabel *tj_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
 	auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(lab);
-	return (tjLab && llvm::isa<ThreadFinishLabel>(G.getLastThreadLabel(tjLab->getChildId())))
-		       ? static_cast<const ThreadFinishLabel *>(
-				 G.getLastThreadLabel(tjLab->getChildId()))
-		       : nullptr;
+	return tjLab ? llvm::dyn_cast_or_null<ThreadFinishLabel>(
+			       G.getLastThreadLabel(tjLab->getChildId()))
+		     : nullptr;
 }
 
 /*******************************************************************************

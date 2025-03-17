@@ -50,6 +50,7 @@
 class ReadLabel;
 class MallocLabel;
 class FreeLabel;
+class ThreadCreateLabel;
 class ThreadJoinLabel;
 class ExecutionGraph;
 
@@ -71,6 +72,8 @@ public:
  **                        EventLabel Class (Abstract)
  ******************************************************************************/
 
+struct po_tag {};
+
 /*
  * An abstract class for modeling event labels. Contains the bare minimum
  * that all different labels (e.g., Reads, Writes, etc) should have. Although
@@ -78,7 +81,8 @@ public:
  * getter methods are private. One can obtain information about such relations
  * by querying the execution graph.
  */
-class EventLabel : public llvm::ilist_node<EventLabel> {
+class EventLabel : public llvm::ilist_node<EventLabel>,
+		   public llvm::ilist_node<EventLabel, llvm::ilist_tag<po_tag>> {
 
 public:
 	/* Discriminator for LLVM-style RTTI (dyn_cast<> et al).
@@ -316,22 +320,28 @@ private:
 class ThreadStartLabel : public EventLabel {
 
 protected:
-	ThreadStartLabel(EventLabelKind kind, Event pos, Event parent)
-		: EventLabel(kind, pos, MemOrdering::Acquire, EventDeps()), parentCreate(parent)
+	ThreadStartLabel(EventLabelKind kind, Event pos, Event createId,
+			 ThreadCreateLabel *createLab)
+		: EventLabel(kind, pos, MemOrdering::Acquire, EventDeps()), createId_(createId),
+		  createLab_(createLab)
 	{}
 
 public:
-	ThreadStartLabel(Event pos, MemOrdering ord, Event parent, ThreadInfo tinfo,
-			 int symmPred = -1)
-		: EventLabel(ThreadStart, pos, ord, EventDeps()), parentCreate(parent),
-		  threadInfo(tinfo), symmPredTid(symmPred)
+	ThreadStartLabel(Event pos, MemOrdering ord, Event createId, ThreadCreateLabel *createLab,
+			 ThreadInfo tinfo, int symmPred = -1)
+		: EventLabel(ThreadStart, pos, ord, EventDeps()), createId_(createId),
+		  createLab_(createLab), threadInfo(tinfo), symmPredTid(symmPred)
 	{}
-	ThreadStartLabel(Event pos, Event parent, ThreadInfo tinfo, int symmPred = -1)
-		: ThreadStartLabel(pos, MemOrdering::Acquire, parent, tinfo, symmPred)
+	ThreadStartLabel(Event pos, Event createId, ThreadCreateLabel *createLab, ThreadInfo tinfo,
+			 int symmPred = -1)
+		: ThreadStartLabel(pos, MemOrdering::Acquire, createId, createLab, tinfo, symmPred)
 	{}
 
 	/* Returns the position of the corresponding create operation */
-	auto getParentCreate() const -> Event { return parentCreate; }
+	auto getCreate() const -> ThreadCreateLabel * { return createLab_; }
+	auto getCreate() -> ThreadCreateLabel * { return createLab_; }
+	auto setCreate(ThreadCreateLabel *lab) { createLab_ = lab; }
+	auto getCreateId() const -> Event { return createId_; }
 
 	/* Getters for the thread's info */
 	auto getThreadInfo() const -> const ThreadInfo & { return threadInfo; }
@@ -344,6 +354,12 @@ public:
 	/* SR: Returns the tid of the symmetric successor (-1 if it doesn't exist) */
 	auto getSymmSuccTid() const -> int { return symmSuccTid; }
 	void setSymmSuccTid(int tid) { symmSuccTid = tid; }
+
+	virtual void reset() override
+	{
+		EventLabel::reset();
+		createLab_ = nullptr;
+	}
 
 	DEFINE_CREATE_CLONE(ThreadStart)
 
@@ -358,7 +374,8 @@ public:
 
 private:
 	/* The position of the corresponding create opeartion */
-	Event parentCreate;
+	Event createId_;
+	ThreadCreateLabel *createLab_;
 
 	/* Information about this thread */
 	ThreadInfo threadInfo;
@@ -385,7 +402,7 @@ private:
 	friend class DepExecutionGraph;
 
 public:
-	InitLabel() : ThreadStartLabel(Init, Event::getInit(), Event::getInit()) {}
+	InitLabel() : ThreadStartLabel(Init, Event::getInit(), Event::getInit(), nullptr) {}
 
 	using rf_iterator = ReaderList::iterator;
 	using const_rf_iterator = ReaderList::const_iterator;

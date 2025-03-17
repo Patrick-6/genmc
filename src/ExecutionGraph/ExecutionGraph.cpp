@@ -27,31 +27,33 @@
  ** Basic getter methods
  ***********************************************************/
 
-Event ExecutionGraph::getMinimumStampEvent(const std::vector<Event> &es) const
+auto ExecutionGraph::getMinimumStampEvent(const std::vector<const EventLabel *> &es) const
+	-> const EventLabel *
 {
 	if (es.empty())
-		return Event::getInit();
-	return *std::min_element(es.begin(), es.end(), [&](const Event &e1, const Event &e2) {
-		return getEventLabel(e1)->getStamp() < getEventLabel(e2)->getStamp();
-	});
+		return getInitLabel();
+	return (*std::min_element(es.begin(), es.end(),
+				  [&](const EventLabel *e1, const EventLabel *e2) {
+					  return e1->getStamp() < e2->getStamp();
+				  }));
 }
 
-Event ExecutionGraph::getPendingRMW(const WriteLabel *sLab) const
+auto ExecutionGraph::getPendingRMW(const WriteLabel *sLab) const -> const EventLabel *
 {
 	/* If this is _not_ an RMW event, return an empty vector */
 	if (!sLab->isRMW())
-		return Event::getInit();
+		return getInitLabel();
 
 	/* Otherwise, scan for other RMWs that successfully read the same val */
-	auto *pLab = llvm::dyn_cast<ReadLabel>(po_imm_pred(sLab));
+	const auto *pLab = llvm::dyn_cast<ReadLabel>(po_imm_pred(sLab));
 	BUG_ON(!pLab->getRf());
-	std::vector<Event> pending;
+	std::vector<const EventLabel *> pending;
 
 	/* Fastpath: non-init rf */
 	if (auto *wLab = llvm::dyn_cast<WriteLabel>(pLab->getRf())) {
 		std::for_each(wLab->readers_begin(), wLab->readers_end(), [&](auto &rLab) {
 			if (rLab.isRMW() && &rLab != pLab)
-				pending.push_back(rLab.getPos());
+				pending.push_back(&rLab);
 		});
 		return getMinimumStampEvent(pending);
 	}
@@ -60,31 +62,30 @@ Event ExecutionGraph::getPendingRMW(const WriteLabel *sLab) const
 	std::for_each(init_rf_begin(pLab->getAddr()), init_rf_end(pLab->getAddr()),
 		      [&](auto &rLab) {
 			      if (rLab.getRf() == pLab->getRf() && &rLab != pLab && rLab.isRMW())
-				      pending.push_back(rLab.getPos());
+				      pending.push_back(&rLab);
 		      });
 	return getMinimumStampEvent(pending);
 }
 
-std::vector<ReadLabel *> ExecutionGraph::getRevisitable(WriteLabel *sLab, const VectorClock &before)
+auto ExecutionGraph::getRevisitable(WriteLabel *sLab, const VectorClock &before)
+	-> std::vector<ReadLabel *>
 {
-	auto pendingRMW = getPendingRMW(sLab);
+	const auto *pendingRMW = getPendingRMW(sLab);
 	std::vector<ReadLabel *> loads;
 
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = before.getMax(i) + 1u; j < getThreadSize(i); j++) {
-			auto *lab = getEventLabel(Event(i, j));
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				if (rLab->getAddr() == sLab->getAddr() && rLab->isRevisitable() &&
-				    rLab->wasAddedMax())
-					loads.push_back(rLab);
-			}
+	for (auto &lab : labels()) {
+		if (before.contains(lab.getPos()))
+			continue;
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab)) {
+			if (rLab->getAddr() == sLab->getAddr() && rLab->isRevisitable() &&
+			    rLab->wasAddedMax())
+				loads.push_back(rLab);
 		}
 	}
-	if (!pendingRMW.isInitializer())
+	if (!pendingRMW->getPos().isInitializer())
 		loads.erase(std::remove_if(loads.begin(), loads.end(),
 					   [&](auto &eLab) {
-						   const auto *confLab = getEventLabel(pendingRMW);
-						   return eLab->getStamp() > confLab->getStamp();
+						   return eLab->getStamp() > pendingRMW->getStamp();
 					   }),
 			    loads.end());
 	return loads;
@@ -107,17 +108,25 @@ EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 		trackCoherenceAtLoc(mLab->getAddr());
 
 	auto pos = lab->getPos();
-	if (pos.index < events[pos.thread].size()) {
+	auto *lastLab = getLastThreadLabel(pos.thread);
+	if (lastLab && pos.index < lastLab->getIndex()) {
 		auto eLab = getEventLabel(pos);
 		BUG_ON(eLab && !llvm::isa<EmptyLabel>(eLab));
-		insertionOrder.remove(*events[pos.thread][pos.index]);
+		auto &oldLab = *events[pos.thread][pos.index];
+		auto it = poLists[pos.thread].erase(po_iterator(oldLab));
+		insertionOrder.remove(oldLab);
 		events[pos.thread][pos.index] = std::move(lab);
-	} else {
-		events[pos.thread].push_back(std::move(lab));
+		auto &newLab = *events[pos.thread][pos.index];
+		insertionOrder.push_back(newLab);
+		poLists[pos.thread].insert(it, newLab);
+		BUG_ON(pos.index > events[pos.thread].size());
+		return &newLab;
 	}
-	insertionOrder.push_back(*events[pos.thread][pos.index]);
-	BUG_ON(pos.index > events[pos.thread].size());
-	return getEventLabel(pos);
+	events[pos.thread].push_back(std::move(lab));
+	auto &newLab = *events[pos.thread].back();
+	insertionOrder.push_back(newLab);
+	poLists[pos.thread].push_back(newLab);
+	return &newLab;
 }
 
 void ExecutionGraph::trackCoherenceAtLoc(SAddr addr)
@@ -133,7 +142,7 @@ void ExecutionGraph::trackCoherenceAtLoc(SAddr addr)
 void ExecutionGraph::removeLast(unsigned int thread)
 {
 	auto *lab = getLastThreadLabel(thread);
-	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+	if (auto *rLab = llvm::dyn_cast_or_null<ReadLabel>(lab)) {
 		if (auto *wLab = llvm::dyn_cast_or_null<WriteLabel>(rLab->getRf())) {
 			wLab->removeReader([&](ReadLabel &oLab) { return &oLab == rLab; });
 		}
@@ -156,7 +165,8 @@ void ExecutionGraph::removeLast(unsigned int thread)
 	}
 	/* Nothing to do for create/join: childId remains the same */
 	insertionOrder.remove(*lab);
-	resizeThread(lab->getPos());
+	poLists[lab->getThread()].remove(*lab);
+	events[thread].pop_back();
 }
 
 /************************************************************
@@ -206,12 +216,11 @@ void ExecutionGraph::removeAfter(const VectorClock &preds)
 		}
 	}
 
-	auto rIt = getInitLabel()->initRfs.begin();
 	for (auto lIt = coherence.begin(); lIt != coherence.end(); /* empty */) {
 		/* Should we keep this memory location lying around? */
 		if (!keep.count(lIt->first)) {
+			getInitLabel()->initRfs.erase(lIt->first);
 			lIt = coherence.erase(lIt);
-			rIt = getInitLabel()->initRfs.erase(rIt);
 		} else {
 			for (auto sIt = lIt->second.begin(); sIt != lIt->second.end();) {
 				if (!preds.contains(sIt->getPos()))
@@ -223,7 +232,6 @@ void ExecutionGraph::removeAfter(const VectorClock &preds)
 				return !preds.contains(rLab.getPos());
 			});
 			++lIt;
-			++rIt;
 		}
 	}
 }
@@ -235,11 +243,16 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 	/* Inform all calculators about the events cutted */
 	removeAfter(*preds);
 	for (auto labIt = insertionOrder.begin(), labE = insertionOrder.end(); labIt != labE;) {
-		labIt = preds->contains(labIt->getPos()) ? ++labIt : insertionOrder.erase(labIt);
+		if (preds->contains(labIt->getPos()))
+			++labIt;
+		else {
+			poLists[labIt->getThread()].remove(*labIt);
+			labIt = insertionOrder.erase(labIt);
+		}
 	}
 
 	/* Remove any 'pointers' to events that will be removed */
-	for (auto i = 0U; i < preds->size(); i++) {
+	for (auto i = 0U; i < getNumThreads(); i++) {
 		for (auto j = 0U; j <= preds->getMax(i); j++) {
 			auto *lab = getEventLabel(Event(i, j));
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
@@ -254,6 +267,11 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
 				if (mLab->getAlloc() && !preds->contains(mLab->getAlloc()))
 					mLab->setAlloc(nullptr);
+			}
+			if (auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(lab)) {
+				if (tsLab->getCreate() &&
+				    !preds->contains(tsLab->getCreate()->getPos()))
+					tsLab->setCreate(nullptr);
 			}
 			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(lab)) {
 				if (eLab->getParentJoin() &&
@@ -307,6 +325,7 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 	// FIXME: The reason why we resize to num of threads instead of v.size() is
 	// to keep the same size as the interpreter threads.
 	other.events.resize(getNumThreads());
+	other.poLists.resize(getNumThreads());
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		/* Skip the initializer */
 		if (i != 0)
@@ -341,7 +360,7 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 	for (auto &lab : other.labels()) {
 		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
 		if (rLab && rLab->getRf()) {
-			if (!other.containsPos(rLab->getRf()->getPos()))
+			if (!v.contains(rLab->getRf()->getPos()))
 				rLab->setRfNoCascade(nullptr);
 			else
 				rLab->setRfNoCascade(other.getEventLabel(rLab->getRf()->getPos()));
@@ -354,12 +373,22 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 		}
 		auto *mLab = llvm::dyn_cast<MemAccessLabel>(&lab);
 		if (mLab && mLab->getAlloc()) {
-			if (!other.containsPos(mLab->getAlloc()->getPos())) {
+			if (!v.contains(mLab->getAlloc()->getPos())) {
 				mLab->setAlloc(nullptr);
 			} else {
 				auto *aLab = llvm::dyn_cast<MallocLabel>(
 					other.getEventLabel(mLab->getAlloc()->getPos()));
 				mLab->setAlloc(aLab);
+			}
+		}
+		auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(&lab);
+		if (tsLab && tsLab->getCreate()) {
+			if (!v.contains(tsLab->getCreate()->getPos())) {
+				tsLab->setCreate(nullptr);
+			} else {
+				auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(
+					other.getEventLabel(tsLab->getCreate()->getPos()));
+				tsLab->setCreate(tcLab);
 			}
 		}
 		auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(&lab);
@@ -524,9 +553,8 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
 {
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		s << "Thread " << i << ":\n";
-		for (auto j = 0u; j < g.getThreadSize(i); j++) {
-			const EventLabel *lab = g.getEventLabel(Event(i, j));
-			s << "\t" << lab->getStamp() << " @ " << *lab << "\n";
+		for (const auto &lab : g.po(i)) {
+			s << "\t" << lab.getStamp() << " @ " << lab << "\n";
 		}
 	}
 	s << "Thread sizes:\n\t";

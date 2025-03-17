@@ -574,7 +574,7 @@ static auto getRevisitableFrom(WriteLabel *sLab, const VectorClock &pporf, Write
 	-> std::vector<ReadLabel *>
 {
 	auto &g = *sLab->getParent();
-	auto pendingRMW = g.getPendingRMW(sLab);
+	const auto *pendingRMW = g.getPendingRMW(sLab);
 	std::vector<ReadLabel *> loads;
 
 	for (auto &rLab : coPred->readers()) {
@@ -582,11 +582,10 @@ static auto getRevisitableFrom(WriteLabel *sLab, const VectorClock &pporf, Write
 		    rLab.isRevisitable() && rLab.wasAddedMax())
 			loads.push_back(&rLab);
 	}
-	if (!pendingRMW.isInitializer())
+	if (!pendingRMW->getPos().isInitializer())
 		loads.erase(std::remove_if(loads.begin(), loads.end(),
 					   [&](auto &eLab) {
-						   auto *confLab = g.getEventLabel(pendingRMW);
-						   return eLab->getStamp() > confLab->getStamp();
+						   return eLab->getStamp() > pendingRMW->getStamp();
 					   }),
 			    loads.end());
 	return loads;
@@ -2297,11 +2296,14 @@ View TSOChecker::calcPPoRfBefore(const EventLabel *lab) const
 	if (!pLab)
 		return pporf;
 	pporf.update(pLab->getPrefixView());
-	if (auto *rLab = llvm::dyn_cast<ReadLabel>(pLab))
+	auto *rLab = llvm::dyn_cast<ReadLabel>(pLab);
+	if (rLab && rLab->getRf())
 		pporf.update(rLab->getRf()->getPrefixView());
-	if (auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(pLab))
-		pporf.update(g.getEventLabel(tsLab->getParentCreate())->getPrefixView());
-	if (auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(pLab))
+	auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(pLab);
+	if (tsLab && tsLab->getCreate())
+		pporf.update(tsLab->getCreate()->getPrefixView());
+	auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(pLab);
+	if (tjLab && g.getLastThreadLabel(tjLab->getChildId()))
 		pporf.update(g.getLastThreadLabel(tjLab->getChildId())->getPrefixView());
 	return pporf;
 }

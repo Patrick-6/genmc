@@ -1023,7 +1023,7 @@ static auto getRevisitableFrom(WriteLabel *sLab, const VectorClock &pporf, Write
 	-> std::vector<ReadLabel *>
 {
 	auto &g = *sLab->getParent();
-	auto pendingRMW = g.getPendingRMW(sLab);
+	const auto *pendingRMW = g.getPendingRMW(sLab);
 	std::vector<ReadLabel *> loads;
 
 	for (auto &rLab : coPred->readers()) {
@@ -1031,11 +1031,10 @@ static auto getRevisitableFrom(WriteLabel *sLab, const VectorClock &pporf, Write
 		    rLab.isRevisitable() && rLab.wasAddedMax())
 			loads.push_back(&rLab);
 	}
-	if (!pendingRMW.isInitializer())
+	if (!pendingRMW->getPos().isInitializer())
 		loads.erase(std::remove_if(loads.begin(), loads.end(),
 					   [&](auto &eLab) {
-						   auto *confLab = g.getEventLabel(pendingRMW);
-						   return eLab->getStamp() > confLab->getStamp();
+						   return eLab->getStamp() > pendingRMW->getStamp();
 					   }),
 			    loads.end());
 	return loads;
