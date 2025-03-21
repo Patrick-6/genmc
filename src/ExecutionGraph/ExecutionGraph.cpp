@@ -271,6 +271,16 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 					return !preds->contains(mLab.getPos());
 				});
 			}
+			if (auto *begLab = llvm::dyn_cast<MethodBeginLabel>(lab)) {
+				begLab->removePredNoCascade([&](auto *endLab) {
+					return !preds->contains(endLab->getPos());
+				});
+			}
+			if (auto *endLab = llvm::dyn_cast<MethodEndLabel>(lab)) {
+				endLab->removeSuccNoCascade([&](auto *begLab) {
+					return !preds->contains(begLab->getPos());
+				});
+			}
 			/* No special action for CreateLabels; we can
 			 * keep the begin event of the child the since
 			 * it will not be deleted */
@@ -389,6 +399,24 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 					other.getEventLabel(dLab->getAlloc()->getPos()));
 				dLab->setAlloc(aLab);
 			}
+		}
+		if (auto *begLab = llvm::dyn_cast<MethodBeginLabel>(&lab)) {
+			begLab->removePredNoCascade([](auto *endLab) { return true; });
+			for (auto *endLab :
+			     llvm::dyn_cast<MethodBeginLabel>(getEventLabel(lab.getPos()))
+				     ->lin_preds())
+				if (v.contains(endLab->getPos()))
+					begLab->addPredNoCascade(llvm::dyn_cast<MethodEndLabel>(
+						other.getEventLabel(endLab->getPos())));
+		}
+		if (auto *endLab = llvm::dyn_cast<MethodEndLabel>(&lab)) {
+			endLab->removeSuccNoCascade([](auto *endLab) { return true; });
+			for (auto *begLab :
+			     llvm::dyn_cast<MethodEndLabel>(getEventLabel(lab.getPos()))
+				     ->lin_succs())
+				if (v.contains(begLab->getPos()))
+					endLab->addSuccNoCascade(llvm::dyn_cast<MethodBeginLabel>(
+						other.getEventLabel(begLab->getPos())));
 		}
 	}
 

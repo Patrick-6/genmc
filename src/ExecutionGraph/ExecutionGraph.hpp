@@ -21,15 +21,11 @@
 #ifndef GENMC_EXECUTION_GRAPH_HPP
 #define GENMC_EXECUTION_GRAPH_HPP
 
-#include "ADT/AdjList.hpp"
 #include "ADT/VectorClock.hpp"
-#include "ExecutionGraph/DepInfo.hpp"
 #include "ExecutionGraph/Event.hpp"
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/Stamp.hpp"
-#include "Support/Error.hpp"
 #include "Support/Hash.hpp"
-#include "Verification/Revisit.hpp"
 #include "config.h"
 #include <llvm/ADT/StringMap.h>
 
@@ -37,8 +33,6 @@
 #include <memory>
 #include <ranges>
 #include <unordered_map>
-
-class PSCCalculator;
 
 /*******************************************************************************
  **                           ExecutionGraph Class

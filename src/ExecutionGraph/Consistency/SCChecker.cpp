@@ -25,6 +25,7 @@
 #include "SCChecker.hpp"
 #include "ADT/VSet.hpp"
 #include "ADT/View.hpp"
+#include "Config/Config.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "ExecutionGraph/GraphIterators.hpp"
 #include "ExecutionGraph/GraphUtils.hpp"
@@ -35,118 +36,6 @@ bool SCChecker::isDepTracking() const
 	return 0;
 }
 
-bool SCChecker::visitCalc57_0(const EventLabel *lab, View &calcRes) const 
-{
-	auto &g = *lab->getParent();
-
-
-
-
-	return true;
-}
-
-bool SCChecker::visitCalc57_1(const EventLabel *lab, View &calcRes) const 
-{
-	auto &g = *lab->getParent();
-
-
-	if (auto pLab = lab; true)if (calcRes.update(pLab->view(0)); true) {
-			if (!visitCalc57_0(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-
-	return true;
-}
-
-bool SCChecker::visitCalc57_2(const EventLabel *lab, View &calcRes) const 
-{
-	auto &g = *lab->getParent();
-
-
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCalc57_3(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc57_0(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCalc57_1(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-
-	return true;
-}
-
-bool SCChecker::visitCalc57_3(const EventLabel *lab, View &calcRes) const 
-{
-	auto &g = *lab->getParent();
-
-
-	if (auto pLab = tc_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc57_0(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-	if (auto pLab = tj_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc57_0(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-	if (auto pLab = rf_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc57_0(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-	if (auto pLab = tc_pred(g, lab); pLab) {
-			if (!visitCalc57_1(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-			if (!visitCalc57_1(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-			if (!visitCalc57_1(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-
-	return true;
-}
-
-View SCChecker::visitCalc57(const EventLabel *lab) const
-{
-	auto &g = *lab->getParent();
-	View calcRes;
-
-
-	visitCalc57_2(lab, calcRes);
-	return calcRes;
-}
-auto SCChecker::checkCalc57(const EventLabel *lab) const
-{
-	auto &g = *lab->getParent();
-
-	return visitCalc57(lab);
-}
 bool SCChecker::visitCalc62_0(const EventLabel *lab, View &calcRes) const 
 {
 	auto &g = *lab->getParent();
@@ -177,33 +66,6 @@ bool SCChecker::visitCalc62_2(const EventLabel *lab, View &calcRes) const
 	auto &g = *lab->getParent();
 
 
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
-			if (!visitCalc62_0(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCalc62_3(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCalc62_1(pLab, calcRes)){
-				return false;
-		}
-		
-	}
-
-	return true;
-}
-
-bool SCChecker::visitCalc62_3(const EventLabel *lab, View &calcRes) const 
-{
-	auto &g = *lab->getParent();
-
-
 	if (auto pLab = tc_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
 			if (!visitCalc62_0(pLab, calcRes)){
 				return false;
@@ -211,6 +73,12 @@ bool SCChecker::visitCalc62_3(const EventLabel *lab, View &calcRes) const
 		
 	}
 	if (auto pLab = tj_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc62_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true)if (calcRes.updateIdx(pLab->getPos()); true) {
 			if (!visitCalc62_0(pLab, calcRes)){
 				return false;
 		}
@@ -234,8 +102,41 @@ bool SCChecker::visitCalc62_3(const EventLabel *lab, View &calcRes) const
 		}
 		
 	}
+	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
+			if (!visitCalc62_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
 	if (auto pLab = rf_pred(g, lab); pLab) {
 			if (!visitCalc62_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	return true;
+}
+
+bool SCChecker::visitCalc62_3(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = *lab->getParent();
+
+
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc62_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCalc62_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCalc62_2(pLab, calcRes)){
 				return false;
 		}
 		
@@ -250,7 +151,7 @@ View SCChecker::visitCalc62(const EventLabel *lab) const
 	View calcRes;
 
 
-	visitCalc62_2(lab, calcRes);
+	visitCalc62_3(lab, calcRes);
 	return calcRes;
 }
 auto SCChecker::checkCalc62(const EventLabel *lab) const
@@ -259,14 +160,281 @@ auto SCChecker::checkCalc62(const EventLabel *lab) const
 
 	return visitCalc62(lab);
 }
+bool SCChecker::visitCalc63_0(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = *lab->getParent();
+
+
+
+
+	return true;
+}
+
+bool SCChecker::visitCalc63_1(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = *lab->getParent();
+
+
+	if (auto pLab = lab; true)if (calcRes.update(pLab->view(0)); true) {
+			if (!visitCalc63_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	return true;
+}
+
+bool SCChecker::visitCalc63_2(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = *lab->getParent();
+
+
+	if (auto pLab = tc_pred(g, lab); pLab) {
+			if (!visitCalc63_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+			if (!visitCalc63_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
+			if (!visitCalc63_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+			if (!visitCalc63_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = tc_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc63_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = tj_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc63_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc63_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc63_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	return true;
+}
+
+bool SCChecker::visitCalc63_3(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = *lab->getParent();
+
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCalc63_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCalc63_2(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc63_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	return true;
+}
+
+View SCChecker::visitCalc63(const EventLabel *lab) const
+{
+	auto &g = *lab->getParent();
+	View calcRes;
+
+
+	visitCalc63_3(lab, calcRes);
+	return calcRes;
+}
+auto SCChecker::checkCalc63(const EventLabel *lab) const
+{
+	auto &g = *lab->getParent();
+
+	return visitCalc63(lab);
+}
+bool SCChecker::visitCalc64_0(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = *lab->getParent();
+
+
+
+
+	return true;
+}
+
+bool SCChecker::visitCalc64_1(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = *lab->getParent();
+
+
+	if (auto pLab = lab; true)if (calcRes.update(pLab->view(2)); true) {
+			if (!visitCalc64_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	return true;
+}
+
+bool SCChecker::visitCalc64_2(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = *lab->getParent();
+
+
+	if (auto pLab = tc_pred(g, lab); pLab) {
+			if (!visitCalc64_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+			if (!visitCalc64_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
+			if (!visitCalc64_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = tc_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc64_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = tj_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc64_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc64_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	return true;
+}
+
+bool SCChecker::visitCalc64_3(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = *lab->getParent();
+
+
+	if (auto pLab = rf_pred(g, lab); pLab) {
+			if (!visitCalc64_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = rf_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc64_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	return true;
+}
+
+bool SCChecker::visitCalc64_4(const EventLabel *lab, View &calcRes) const 
+{
+	auto &g = *lab->getParent();
+
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCalc64_1(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (calcRes.updateIdx(pLab->getPos()); true) {
+			if (!visitCalc64_0(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCalc64_2(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && !(llvm::isa<AbstractLockCasReadLabel>(pLab))) {
+			if (!visitCalc64_3(pLab, calcRes)){
+				return false;
+		}
+		
+	}
+
+	return true;
+}
+
+View SCChecker::visitCalc64(const EventLabel *lab) const
+{
+	auto &g = *lab->getParent();
+	View calcRes;
+
+
+	visitCalc64_4(lab, calcRes);
+	return calcRes;
+}
+auto SCChecker::checkCalc64(const EventLabel *lab) const
+{
+	auto &g = *lab->getParent();
+
+	return visitCalc64(lab);
+}
 void SCChecker::calculateSaved(EventLabel *lab)
 {
 }
 
 void SCChecker::calculateViews(EventLabel *lab)
 {
-	lab->addView(checkCalc57(lab));
+
 	lab->addView(checkCalc62(lab));
+
+	lab->addView(checkCalc63(lab));
+if (!getConf()->collectLinSpec && !getConf()->checkLinSpec) lab->addView({}); else
+	lab->addView(checkCalc64(lab));
 }
 
 void SCChecker::updateMMViews(EventLabel *lab)
@@ -278,13 +446,13 @@ void SCChecker::updateMMViews(EventLabel *lab)
 
 const View &SCChecker::getHbView(const EventLabel *lab) const
 {
-	return lab->view(0);
+	return lab->view(1);
 }
 
 
 static auto isWriteRfBefore(const WriteLabel *wLab, const EventLabel *lab) -> bool
 {
-	auto &before = lab->view(0);
+	auto &before = lab->view(1);
 	return before.contains(wLab->getPos()) ||
 	       std::ranges::any_of(wLab->readers(),
 				   [&](auto &rLab) { return before.contains(rLab.getPos()); });
@@ -292,9 +460,9 @@ static auto isWriteRfBefore(const WriteLabel *wLab, const EventLabel *lab) -> bo
 
 static auto isHbOptRfBefore(const EventLabel *lab, const WriteLabel *wLab) -> bool
 {
-	return wLab->view(0).contains(lab->getPos()) ||
+	return wLab->view(1).contains(lab->getPos()) ||
 	       std::ranges::any_of(wLab->readers(), [&](auto &rLab) {
-		       return rLab.view(0).contains(lab->getPos());
+		       return rLab.view(1).contains(lab->getPos());
 	       });
 }
 
@@ -312,12 +480,12 @@ static auto splitLocMOAfterHb(ReadLabel *rLab) -> ExecutionGraph::co_iterator
 {
 	auto &g = *rLab->getParent();
 	if (std::any_of(g.init_rf_begin(rLab->getAddr()), g.init_rf_end(rLab->getAddr()),
-			[rLab](auto &rfLab) { return rfLab.view(0).contains(rLab->getPos()); }))
+			[rLab](auto &rfLab) { return rfLab.view(1).contains(rLab->getPos()); }))
 		return g.co_begin(rLab->getAddr());
 
 	auto it = std::find_if(g.co_begin(rLab->getAddr()), g.co_end(rLab->getAddr()),
 			       [&](auto &wLab) { return isHbOptRfBefore(rLab, &wLab); });
-	if (it == g.co_end(rLab->getAddr()) || it->view(0).contains(rLab->getPos()))
+	if (it == g.co_end(rLab->getAddr()) || it->view(1).contains(rLab->getPos()))
 		return it;
 	return ++it;
 }
@@ -447,7 +615,7 @@ auto SCChecker::getCoherentRevisits(WriteLabel *sLab, const VectorClock &pporf)
 	auto optRfs = getMOOptRfAfter(sLab);
 	ls.erase(std::remove_if(ls.begin(), ls.end(),
 				[&](auto &eLab) {
-					auto &before = eLab->view(0);
+					auto &before = eLab->view(1);
 					return std::any_of(
 						optRfs.begin(), optRfs.end(), [&](auto &evLab) {
 							return before.contains(evLab->getPos());
@@ -462,7 +630,7 @@ auto SCChecker::getCoherentRevisits(WriteLabel *sLab, const VectorClock &pporf)
 
 	/* Otherwise, we also have to exclude hb-before loads */
 	ls.erase(std::remove_if(ls.begin(), ls.end(),
-				[&](auto &eLab) { return sLab->view(0).contains(eLab->getPos()); }),
+				[&](auto &eLab) { return sLab->view(1).contains(eLab->getPos()); }),
 		 ls.end());
 
 	/* ...and also exclude (mo^-1; rf?; (hb^-1)?; sb^-1)-after reads in
@@ -477,7 +645,7 @@ auto SCChecker::getCoherentRevisits(WriteLabel *sLab, const VectorClock &pporf)
 				 return std::any_of(
 					 moInvOptRfs.begin(), moInvOptRfs.end(), [&](auto &evLab) {
 						 return v->contains(evLab->getPos()) &&
-							evLab->view(0).contains(eLab->getPos());
+							evLab->view(1).contains(eLab->getPos());
 					 });
 			 }),
 		 ls.end());
@@ -518,119 +686,411 @@ auto SCChecker::getCoherentPlacings(WriteLabel *wLab)
 					    : (EventLabel *)g.co_imm_pred(&*rangeEnd)));
 	return result;
 }
-bool SCChecker::visitCoherence_0(const EventLabel *lab) const 
+bool SCChecker::visitCoherence_0(const EventLabel *lab, const EventLabel *initLab) const 
 {
 	auto &g = *lab->getParent();
 
-	++visitedCoherenceAccepting;
 
+if (lab == initLab) return false;
 
-	--visitedCoherenceAccepting;
 	return true;
 }
 
-bool SCChecker::visitCoherence_1(const EventLabel *lab) const 
+bool SCChecker::visitCoherence_1(const EventLabel *lab, const EventLabel *initLab) const 
 {
 	auto &g = *lab->getParent();
 
-	visitedCoherence_1[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::entered };
 
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCoherence_2(pLab)){
-				return false;
+	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto status = visitedCoherence_5[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_5(pLab, initLab)){
+return false;
 		}
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-			if (!visitCoherence_0(pLab)){
-				return false;
-		}
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedCoherence_1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitCoherence_1(pLab)){
-				return false;
-		}
-		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 1)) {
+		
+		} else if (status == NodeStatus::entered) {
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+		} else if (status == NodeStatus::left) {
 
 		}
 	}
-	visitedCoherence_1[lab->getStamp().get()] = { visitedCoherenceAccepting, NodeStatus::left };
+
 	return true;
 }
 
-bool SCChecker::visitCoherence_2(const EventLabel *lab) const 
+bool SCChecker::visitCoherence_2(const EventLabel *lab, const EventLabel *initLab) const 
+{
+	auto &g = *lab->getParent();
+
+	if (visitedCoherence_2[lab->getStamp().get()] != NodeStatus::unseen)
+		return true;
+	visitedCoherence_2[lab->getStamp().get()] = NodeStatus::entered;
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCoherence_0(pLab, initLab)){
+return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedCoherence_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_2(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCoherence_3(pLab, initLab)){
+return false;
+		}
+		
+	}
+
+	visitedCoherence_2[lab->getStamp().get()] = NodeStatus::left;
+	return true;
+}
+
+bool SCChecker::visitCoherence_3(const EventLabel *lab, const EventLabel *initLab) const 
 {
 	auto &g = *lab->getParent();
 
 
 	if (auto pLab = tc_pred(g, lab); pLab) {
-			if (!visitCoherence_0(pLab)){
-				return false;
+			if (!visitCoherence_0(pLab, initLab)){
+return false;
 		}
+		
 	}
 	if (auto pLab = tj_pred(g, lab); pLab) {
-			if (!visitCoherence_0(pLab)){
-				return false;
+			if (!visitCoherence_0(pLab, initLab)){
+return false;
 		}
+		
+	}
+	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
+			if (!visitCoherence_0(pLab, initLab)){
+return false;
+		}
+		
 	}
 	if (auto pLab = rf_pred(g, lab); pLab) {
-			if (!visitCoherence_0(pLab)){
-				return false;
+			if (!visitCoherence_0(pLab, initLab)){
+return false;
 		}
+		
 	}
 	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto &node = visitedCoherence_1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitCoherence_1(pLab)){
-				return false;
+		auto status = visitedCoherence_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_2(pLab, initLab)){
+return false;
 		}
-		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 1)) {
+		
+		} else if (status == NodeStatus::entered) {
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+		} else if (status == NodeStatus::left) {
 
 		}
 	}
 	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto &node = visitedCoherence_1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitCoherence_1(pLab)){
-				return false;
+		auto status = visitedCoherence_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_2(pLab, initLab)){
+return false;
 		}
-		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 1)) {
+		
+		} else if (status == NodeStatus::entered) {
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto status = visitedCoherence_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_2(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
 
 		}
 	}
 	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto &node = visitedCoherence_1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen) {
-			if (!visitCoherence_1(pLab)){
-				return false;
+		auto status = visitedCoherence_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_2(pLab, initLab)){
+return false;
 		}
-		} else if (node.status == NodeStatus::entered && (visitedCoherenceAccepting > node.count || 1)) {
+		
+		} else if (status == NodeStatus::entered) {
 
-			return false;
-		} else if (node.status == NodeStatus::left) {
+		} else if (status == NodeStatus::left) {
 
 		}
 	}
+
 	return true;
 }
 
-bool SCChecker::visitCoherenceFull(const ExecutionGraph &g) const
+bool SCChecker::visitCoherence_4(const EventLabel *lab, const EventLabel *initLab) const 
 {
-	visitedCoherenceAccepting = 0;
-	visitedCoherence_1.clear();
-	visitedCoherence_1.resize(g.getMaxStamp().get() + 1);
-	return true
-		&& std::ranges::all_of(g.labels(), [&](auto &lab){ return visitedCoherence_1[lab.getStamp().get()].status != NodeStatus::unseen || visitCoherence_1(&lab); });
+	auto &g = *lab->getParent();
+
+	if (visitedCoherence_4[lab->getStamp().get()] != NodeStatus::unseen)
+		return true;
+	visitedCoherence_4[lab->getStamp().get()] = NodeStatus::entered;
+
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto status = visitedCoherence_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_2(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto status = visitedCoherence_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_2(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto status = visitedCoherence_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_2(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto status = visitedCoherence_4[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_4(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto status = visitedCoherence_4[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_4(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto status = visitedCoherence_4[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_4(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+
+	visitedCoherence_4[lab->getStamp().get()] = NodeStatus::left;
+	return true;
+}
+
+bool SCChecker::visitCoherence_5(const EventLabel *lab, const EventLabel *initLab) const 
+{
+	auto &g = *lab->getParent();
+
+	if (visitedCoherence_5[lab->getStamp().get()] != NodeStatus::unseen)
+		return true;
+	visitedCoherence_5[lab->getStamp().get()] = NodeStatus::entered;
+
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedCoherence_5[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_5(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+			if (!visitCoherence_6(pLab, initLab)){
+return false;
+		}
+		
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedCoherence_4[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_4(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+
+	visitedCoherence_5[lab->getStamp().get()] = NodeStatus::left;
+	return true;
+}
+
+bool SCChecker::visitCoherence_6(const EventLabel *lab, const EventLabel *initLab) const 
+{
+	auto &g = *lab->getParent();
+
+
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto status = visitedCoherence_5[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_5(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto status = visitedCoherence_5[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_5(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto status = visitedCoherence_5[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_5(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto status = visitedCoherence_5[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_5(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto status = visitedCoherence_4[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_4(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto status = visitedCoherence_4[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_4(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : lin_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto status = visitedCoherence_4[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen) {
+			if (!visitCoherence_4(pLab, initLab)){
+return false;
+		}
+		
+		} else if (status == NodeStatus::entered) {
+
+		} else if (status == NodeStatus::left) {
+
+		}
+	}
+
+	return true;
+}
+
+bool SCChecker::visitCoherenceRelinche(const ExecutionGraph &g) const
+{
+	for (auto &lab : g.labels()) {
+		if (!llvm::isa<MethodBeginLabel>(&lab)) continue;
+		visitedCoherence_2.clear();
+		visitedCoherence_2.resize(g.getMaxStamp().get() + 1);
+		visitedCoherence_4.clear();
+		visitedCoherence_4.resize(g.getMaxStamp().get() + 1);
+		visitedCoherence_5.clear();
+		visitedCoherence_5.resize(g.getMaxStamp().get() + 1);
+		if (true && !visitCoherence_1(&lab, &lab))
+			return false;
+	}
+	return true;
 }
 
 bool SCChecker::visitConsAcyclic1_0(const EventLabel *lab) const 
@@ -647,6 +1107,7 @@ bool SCChecker::visitConsAcyclic1_0(const EventLabel *lab) const
 			if (!visitConsAcyclic1_0(pLab)){
 				return false;
 		}
+		
 		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
 
 			return false;
@@ -660,6 +1121,21 @@ bool SCChecker::visitConsAcyclic1_0(const EventLabel *lab) const
 			if (!visitConsAcyclic1_0(pLab)){
 				return false;
 		}
+		
+		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
+
+			return false;
+		} else if (node.status == NodeStatus::left) {
+
+		}
+	}
+	for (auto &tmp : lin_succs(g, lab)) if (auto *pLab = &tmp; true) {
+		auto &node = visitedConsAcyclic1_0[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen) {
+			if (!visitConsAcyclic1_0(pLab)){
+				return false;
+		}
+		
 		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
 
 			return false;
@@ -673,6 +1149,7 @@ bool SCChecker::visitConsAcyclic1_0(const EventLabel *lab) const
 			if (!visitConsAcyclic1_0(pLab)){
 				return false;
 		}
+		
 		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
 
 			return false;
@@ -686,6 +1163,7 @@ bool SCChecker::visitConsAcyclic1_0(const EventLabel *lab) const
 			if (!visitConsAcyclic1_0(pLab)){
 				return false;
 		}
+		
 		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
 
 			return false;
@@ -699,6 +1177,7 @@ bool SCChecker::visitConsAcyclic1_0(const EventLabel *lab) const
 			if (!visitConsAcyclic1_0(pLab)){
 				return false;
 		}
+		
 		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
 
 			return false;
@@ -712,6 +1191,7 @@ bool SCChecker::visitConsAcyclic1_0(const EventLabel *lab) const
 			if (!visitConsAcyclic1_0(pLab)){
 				return false;
 		}
+		
 		} else if (node.status == NodeStatus::entered && (visitedConsAcyclic1Accepting > node.count || 1)) {
 
 			return false;
@@ -721,6 +1201,7 @@ bool SCChecker::visitConsAcyclic1_0(const EventLabel *lab) const
 	}
 	--visitedConsAcyclic1Accepting;
 	visitedConsAcyclic1_0[lab->getStamp().get()] = { visitedConsAcyclic1Accepting, NodeStatus::left };
+
 	return true;
 }
 
@@ -750,6 +1231,10 @@ bool SCChecker::checkConsAcyclic1(const EventLabel *lab) const
 
 
 	return visitConsAcyclic1(lab);
+}
+bool SCChecker::checkConsAcyclic1(const ExecutionGraph &g) const
+{
+	return visitConsAcyclic1Full(g);
 }
 bool SCChecker::visitError2(const EventLabel *lab) const
 {
@@ -926,13 +1411,13 @@ bool SCChecker::visitLHSUnlessError4_2(const EventLabel *lab, const View &v) con
 
 
 	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
-			if (!visitLHSUnlessError4_1(pLab, v)){
+			if (!visitLHSUnlessError4_0(pLab, v)){
 			return false;
 		}
 		
 	}
 	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
-			if (!visitLHSUnlessError4_0(pLab, v)){
+			if (!visitLHSUnlessError4_1(pLab, v)){
 			return false;
 		}
 		
@@ -1078,14 +1563,14 @@ bool SCChecker::visitLHSUnlessError6_2(const EventLabel *lab, const View &v) con
 	auto &g = *lab->getParent();
 
 
-	if (true && llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab)if (true && llvm::isa<MemAccessLabel>(pLab) && llvm::dyn_cast<MemAccessLabel>(pLab)->getAddr().isDynamic() && !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(pLab))) {
-			if (!visitLHSUnlessError6_0(pLab, v)){
+	if (true && llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
+			if (!visitLHSUnlessError6_1(pLab, v)){
 			return false;
 		}
 		
 	}
-	if (true && llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
-			if (!visitLHSUnlessError6_1(pLab, v)){
+	if (true && llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab)if (true && llvm::isa<MemAccessLabel>(pLab) && llvm::dyn_cast<MemAccessLabel>(pLab)->getAddr().isDynamic() && !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(pLab))) {
+			if (!visitLHSUnlessError6_0(pLab, v)){
 			return false;
 		}
 		
@@ -1391,6 +1876,20 @@ bool SCChecker::isConsistent(const EventLabel *lab) const
 
 	return true
 		&& checkConsAcyclic1(lab);
+}
+
+bool SCChecker::isConsistent(const ExecutionGraph &g) const
+{
+
+	return true
+		&& checkConsAcyclic1(g);
+}
+
+bool SCChecker::isCoherentRelinche(const ExecutionGraph &g) const
+{
+
+	return true
+		&& visitCoherenceRelinche(g);
 }
 
 View SCChecker::calcPPoRfBefore(const EventLabel *lab) const

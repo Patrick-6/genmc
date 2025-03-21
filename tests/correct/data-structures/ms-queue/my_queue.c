@@ -1,5 +1,7 @@
+#include <assert.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 
 #include "my_queue.h"
 
@@ -21,6 +23,10 @@
 #define INITIAL_FREE 2 /* Each thread starts with INITIAL_FREE free nodes */
 
 #define POISON_IDX 0x666
+
+/* Implementation of Michael-Scott queue extracted from CDSChecker's benchmarks:
+ * https://github.com/computersforpeace/model-checker-benchmarks
+ * */
 
 static unsigned int free_lists[MAX_THREADS][MAX_FREELIST];
 
@@ -83,6 +89,8 @@ void init_queue(queue_t *q, int num_threads)
 	atomic_init(&q->nodes[1].next, MAKE_POINTER(0, 0));
 }
 
+void clear_queue(queue_t *q, int num_threads) { }
+
 void enqueue(queue_t *q, unsigned int val)
 {
 	int success = 0;
@@ -136,7 +144,7 @@ bool dequeue(queue_t *q, unsigned int *retVal)
 
 	while (!success) {
 		head = atomic_load_explicit(&q->head, acquire);
-		tail = atomic_load_explicit(&q->tail, relaxed);
+		tail = atomic_load_explicit(&q->tail, acquire); // The original use `relaxed` which is buggy
 		next = atomic_load_explicit(&q->nodes[get_ptr(head)].next, acquire);
 		if (atomic_load_explicit(&q->head, relaxed) == head) {
 			if (get_ptr(head) == get_ptr(tail)) {

@@ -21,6 +21,7 @@
 #ifndef GENMC_DEP_EXECUTION_GRAPH_HPP
 #define GENMC_DEP_EXECUTION_GRAPH_HPP
 
+#include "ADT/DepView.hpp"
 #include "ExecutionGraph.hpp"
 
 /*******************************************************************************

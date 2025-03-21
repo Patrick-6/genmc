@@ -74,6 +74,7 @@ enum class VerificationError {
 	VE_InvalidTruncate,
 	VE_Annotation,
 	VE_MixedSize,
+	VE_LinearizabilityError,
 	VE_SystemError,
 };
 

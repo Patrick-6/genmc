@@ -21,7 +21,6 @@
 #ifndef GENMC_EVENTLABEL_HPP
 #define GENMC_EVENTLABEL_HPP
 
-#include "ADT/DepView.hpp"
 #include "ADT/VSet.hpp"
 #include "ADT/View.hpp"
 #include "ADT/value_ptr.hpp"
@@ -32,19 +31,22 @@
 #include "Runtime/InterpreterEnumAPI.hpp"
 #include "Static/ModuleID.hpp"
 #include "Support/MemAccess.hpp"
+#include "Support/MemOrdering.hpp"
 #include "Support/NameInfo.hpp"
+#include "Support/RMWOps.hpp"
 #include "Support/SAddr.hpp"
 #include "Support/SExpr.hpp"
 #include "Support/SVal.hpp"
 #include "Support/ThreadInfo.hpp"
+
 #include <llvm/ADT/ilist_node.h>
-#include <llvm/IR/Instructions.h> /* For AtomicOrdering in older LLVMs */
+#include <llvm/ADT/simple_ilist.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>
+
 #include <optional>
 #include <ranges>
 
-class DskAccessLabel;
 class ReadLabel;
 class MallocLabel;
 class FreeLabel;
@@ -87,8 +89,7 @@ public:
 	};
 
 protected:
-	EventLabel(EventLabelKind k, Event p, llvm::AtomicOrdering o,
-		   const EventDeps &deps = EventDeps())
+	EventLabel(EventLabelKind k, Event p, MemOrdering o, const EventDeps &deps = EventDeps())
 		: kind(k), position(p), ordering(o), deps(deps)
 	{}
 
@@ -135,8 +136,8 @@ public:
 	int getThread() const { return position.thread; }
 
 	/* Getter/setter for the label ordering */
-	llvm::AtomicOrdering getOrdering() const { return ordering; }
-	void setOrdering(llvm::AtomicOrdering ord) { ordering = ord; }
+	MemOrdering getOrdering() const { return ordering; }
+	void setOrdering(MemOrdering ord) { ordering = ord; }
 
 	/* Returns this label's dependencies */
 	const EventDeps &getDeps() const { return deps; }
@@ -184,42 +185,22 @@ public:
 	}
 
 	/* Returns true if this label corresponds to a non-atomic access */
-	bool isNotAtomic() const { return ordering == llvm::AtomicOrdering::NotAtomic; }
+	bool isNotAtomic() const { return ordering == MemOrdering::NotAtomic; }
 
 	/* Returns true if the ordering of this access is acquire or stronger */
 	bool isAtLeastAcquire() const
 	{
-		return ordering == llvm::AtomicOrdering::Acquire ||
-		       ordering == llvm::AtomicOrdering::AcquireRelease ||
-		       ordering == llvm::AtomicOrdering::SequentiallyConsistent;
-	}
-
-	/* Returns true if the ordering of this access is acquire or weaker */
-	bool isAtMostAcquire() const
-	{
-		return ordering == llvm::AtomicOrdering::NotAtomic ||
-		       ordering == llvm::AtomicOrdering::Monotonic ||
-		       ordering == llvm::AtomicOrdering::Acquire;
+		return isAtLeastOrStrongerThan(ordering, MemOrdering::Acquire);
 	}
 
 	/* Returns true if the ordering of this access is release or stronger */
 	bool isAtLeastRelease() const
 	{
-		return ordering == llvm::AtomicOrdering::Release ||
-		       ordering == llvm::AtomicOrdering::AcquireRelease ||
-		       ordering == llvm::AtomicOrdering::SequentiallyConsistent;
-	}
-
-	/* Returns true if the ordering of this access is release or weaker */
-	bool isAtMostRelease() const
-	{
-		return ordering == llvm::AtomicOrdering::NotAtomic ||
-		       ordering == llvm::AtomicOrdering::Monotonic ||
-		       ordering == llvm::AtomicOrdering::Release;
+		return isAtLeastOrStrongerThan(ordering, MemOrdering::Release);
 	}
 
 	/* Returns true if this is a sequentially consistent access */
-	bool isSC() const { return ordering == llvm::AtomicOrdering::SequentiallyConsistent; }
+	bool isSC() const { return ordering == MemOrdering::SequentiallyConsistent; }
 
 	/* Whether this label can have outgoing dep edges */
 	bool isDependable() const { return isDependable(getKind()); }
@@ -252,8 +233,6 @@ public:
 
 	/* Necessary for multiple inheritance + LLVM-style RTTI to work */
 	static bool classofKind(EventLabelKind K) { return true; }
-	static DskAccessLabel *castToDskAccessLabel(const EventLabel *);
-	static EventLabel *castFromDskAccessLabel(const DskAccessLabel *);
 
 	/* Returns a clone object (virtual to allow deep copying from base) */
 	virtual std::unique_ptr<EventLabel> clone() const = 0;
@@ -291,7 +270,7 @@ private:
 	Event position;
 
 	/* Ordering of this access mode */
-	llvm::AtomicOrdering ordering;
+	MemOrdering ordering;
 
 	/* Events on which this label depends */
 	EventDeps deps;
@@ -338,18 +317,17 @@ class ThreadStartLabel : public EventLabel {
 
 protected:
 	ThreadStartLabel(EventLabelKind kind, Event pos, Event parent)
-		: EventLabel(kind, pos, llvm::AtomicOrdering::Acquire, EventDeps()),
-		  parentCreate(parent)
+		: EventLabel(kind, pos, MemOrdering::Acquire, EventDeps()), parentCreate(parent)
 	{}
 
 public:
-	ThreadStartLabel(Event pos, llvm::AtomicOrdering ord, Event parent, ThreadInfo tinfo,
+	ThreadStartLabel(Event pos, MemOrdering ord, Event parent, ThreadInfo tinfo,
 			 int symmPred = -1)
 		: EventLabel(ThreadStart, pos, ord, EventDeps()), parentCreate(parent),
 		  threadInfo(tinfo), symmPredTid(symmPred)
 	{}
 	ThreadStartLabel(Event pos, Event parent, ThreadInfo tinfo, int symmPred = -1)
-		: ThreadStartLabel(pos, llvm::AtomicOrdering::Acquire, parent, tinfo, symmPred)
+		: ThreadStartLabel(pos, MemOrdering::Acquire, parent, tinfo, symmPred)
 	{}
 
 	/* Returns the position of the corresponding create operation */
@@ -448,7 +426,7 @@ private:
 class TerminatorLabel : public EventLabel {
 
 protected:
-	TerminatorLabel(EventLabelKind k, llvm::AtomicOrdering ord, Event pos)
+	TerminatorLabel(EventLabelKind k, MemOrdering ord, Event pos)
 		: EventLabel(k, pos, ord, EventDeps())
 	{}
 
@@ -471,9 +449,7 @@ public:
 class BlockLabel : public TerminatorLabel {
 
 protected:
-	BlockLabel(EventLabelKind k, Event pos)
-		: TerminatorLabel(k, llvm::AtomicOrdering::NotAtomic, pos)
-	{}
+	BlockLabel(EventLabelKind k, Event pos) : TerminatorLabel(k, MemOrdering::NotAtomic, pos) {}
 
 public:
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
@@ -552,9 +528,7 @@ private:
 class ThreadKillLabel : public TerminatorLabel {
 
 public:
-	ThreadKillLabel(Event pos)
-		: TerminatorLabel(ThreadKill, llvm::AtomicOrdering::NotAtomic, pos)
-	{}
+	ThreadKillLabel(Event pos) : TerminatorLabel(ThreadKill, MemOrdering::NotAtomic, pos) {}
 
 	DEFINE_STANDARD_MEMBERS(ThreadKill)
 };
@@ -571,12 +545,12 @@ public:
 class ThreadFinishLabel : public TerminatorLabel {
 
 public:
-	ThreadFinishLabel(Event pos, llvm::AtomicOrdering ord, SVal retVal)
+	ThreadFinishLabel(Event pos, MemOrdering ord, SVal retVal)
 		: TerminatorLabel(ThreadFinish, ord, pos), retVal(retVal)
 	{}
 
 	ThreadFinishLabel(Event pos, SVal retVal)
-		: ThreadFinishLabel(pos, llvm::AtomicOrdering::Release, retVal)
+		: ThreadFinishLabel(pos, MemOrdering::Release, retVal)
 	{}
 
 	/* Returns the join() operation waiting on this thread or
@@ -615,11 +589,11 @@ private:
 class MemAccessLabel : public EventLabel, public llvm::ilist_node<MemAccessLabel> {
 
 protected:
-	MemAccessLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
+	MemAccessLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr loc, ASize size,
 		       AType type, const EventDeps &deps = EventDeps())
 		: EventLabel(k, pos, ord, deps), access(loc, size, type)
 	{}
-	MemAccessLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, AAccess a,
+	MemAccessLabel(EventLabelKind k, Event pos, MemOrdering ord, AAccess a,
 		       const EventDeps &deps = EventDeps())
 		: EventLabel(k, pos, ord, deps), access(a)
 	{}
@@ -687,23 +661,23 @@ public:
 	using AnnotVP = value_ptr<AnnotT, SExprCloner<ModuleID::ID>>;
 
 protected:
-	ReadLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
-		  AType type, EventLabel *rfLab = nullptr, AnnotVP annot = nullptr,
+	ReadLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,
+		  EventLabel *rfLab = nullptr, AnnotVP annot = nullptr,
 		  const EventDeps &deps = EventDeps())
 		: MemAccessLabel(k, pos, ord, loc, size, type, deps), readsFrom(rfLab),
 		  annotExpr(std::move(annot))
 	{}
 
 public:
-	ReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size, AType type,
-		  EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps())
+	ReadLabel(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type, EventLabel *rfLab,
+		  AnnotVP annot, const EventDeps &deps = EventDeps())
 		: ReadLabel(Read, pos, ord, loc, size, type, rfLab, annot, deps)
 	{}
-	ReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size, AType type,
-		  EventLabel *rfLab, const EventDeps &deps = EventDeps())
+	ReadLabel(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type, EventLabel *rfLab,
+		  const EventDeps &deps = EventDeps())
 		: ReadLabel(pos, ord, loc, size, type, rfLab, nullptr, deps)
 	{}
-	ReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size, AType type,
+	ReadLabel(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,
 		  const EventDeps &deps = EventDeps())
 		: ReadLabel(pos, ord, loc, size, type, nullptr, nullptr, deps)
 	{}
@@ -794,18 +768,17 @@ private:
 	class name##Label : public ReadLabel {                                                     \
                                                                                                    \
 	public:                                                                                    \
-		name##Label(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,            \
-			    AType type, EventLabel *rfLab, AnnotVP annot,                          \
-			    const EventDeps &deps = EventDeps())                                   \
+		name##Label(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,         \
+			    EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps()) \
 			: ReadLabel(name, pos, ord, loc, size, type, rfLab, std::move(annot),      \
 				    deps)                                                          \
 		{}                                                                                 \
-		name##Label(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,            \
-			    AType type, EventLabel *rfLab, const EventDeps &deps = EventDeps())    \
+		name##Label(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,         \
+			    EventLabel *rfLab, const EventDeps &deps = EventDeps())                \
 			: name##Label(pos, ord, loc, size, type, rfLab, nullptr, deps)             \
 		{}                                                                                 \
-		name##Label(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,            \
-			    AType type, const EventDeps &deps = EventDeps())                       \
+		name##Label(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,         \
+			    const EventDeps &deps = EventDeps())                                   \
 			: name##Label(pos, ord, loc, size, type, nullptr, nullptr, deps)           \
 		{}                                                                                 \
                                                                                                    \
@@ -826,37 +799,36 @@ READ_PURE_SUBCLASS(CondVarWaitRead);
 class FaiReadLabel : public ReadLabel {
 
 protected:
-	FaiReadLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
-		     AType type, llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr,
-		     EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps())
+	FaiReadLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
+		     AType type, RMWBinOp op, SVal val, WriteAttr wattr, EventLabel *rfLab,
+		     AnnotVP annot, const EventDeps &deps = EventDeps())
 		: ReadLabel(k, pos, ord, addr, size, type, rfLab, std::move(annot), deps),
 		  binOp(op), opValue(val), wattr(wattr)
 	{}
 
 public:
-	FaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		     llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr, EventLabel *rfLab,
-		     AnnotVP annot, const EventDeps &deps = EventDeps())
+	FaiReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, RMWBinOp op,
+		     SVal val, WriteAttr wattr, EventLabel *rfLab, AnnotVP annot,
+		     const EventDeps &deps = EventDeps())
 		: FaiReadLabel(FaiRead, pos, ord, addr, size, type, op, val, wattr, rfLab,
 			       std::move(annot), deps)
 	{}
-	FaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		     llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr, EventLabel *rfLab,
+	FaiReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, RMWBinOp op,
+		     SVal val, WriteAttr wattr, EventLabel *rfLab,
 		     const EventDeps &deps = EventDeps())
 		: FaiReadLabel(pos, ord, addr, size, type, op, val, wattr, rfLab, nullptr, deps)
 	{}
-	FaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		     llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr,
-		     const EventDeps &deps = EventDeps())
+	FaiReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, RMWBinOp op,
+		     SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
 		: FaiReadLabel(pos, ord, addr, size, type, op, val, wattr, nullptr, deps)
 	{}
-	FaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		     llvm::AtomicRMWInst::BinOp op, SVal val, const EventDeps &deps = EventDeps())
+	FaiReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, RMWBinOp op,
+		     SVal val, const EventDeps &deps = EventDeps())
 		: FaiReadLabel(pos, ord, addr, size, type, op, val, WriteAttr::None, deps)
 	{}
 
 	/* Returns the type of this RMW operation (e.g., add, sub) */
-	llvm::AtomicRMWInst::BinOp getOp() const { return binOp; }
+	RMWBinOp getOp() const { return binOp; }
 
 	/* Returns the other operand's value */
 	SVal getOpVal() const { return opValue; }
@@ -887,7 +859,7 @@ public:
 
 private:
 	/* The binary operator for this RMW operation */
-	const llvm::AtomicRMWInst::BinOp binOp;
+	const RMWBinOp binOp;
 
 	/* The other operand's value for the operation */
 	SVal opValue;
@@ -900,26 +872,25 @@ private:
 	class name##Label : public FaiReadLabel {                                                  \
                                                                                                    \
 	public:                                                                                    \
-		name##Label(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,           \
-			    AType type, llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr,  \
-			    EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps()) \
+		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
+			    RMWBinOp op, SVal val, WriteAttr wattr, EventLabel *rfLab,             \
+			    AnnotVP annot, const EventDeps &deps = EventDeps())                    \
 			: FaiReadLabel(name, pos, ord, addr, size, type, op, val, wattr, rfLab,    \
 				       std::move(annot), deps)                                     \
 		{}                                                                                 \
-		name##Label(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,           \
-			    AType type, llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr,  \
-			    EventLabel *rfLab, const EventDeps &deps = EventDeps())                \
+		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
+			    RMWBinOp op, SVal val, WriteAttr wattr, EventLabel *rfLab,             \
+			    const EventDeps &deps = EventDeps())                                   \
 			: name##Label(pos, ord, addr, size, type, op, val, wattr, rfLab, nullptr,  \
 				      deps)                                                        \
 		{}                                                                                 \
-		name##Label(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,           \
-			    AType type, llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr,  \
+		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
+			    RMWBinOp op, SVal val, WriteAttr wattr,                                \
 			    const EventDeps &deps = EventDeps())                                   \
 			: name##Label(pos, ord, addr, size, type, op, val, wattr, nullptr, deps)   \
 		{}                                                                                 \
-		name##Label(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,           \
-			    AType type, llvm::AtomicRMWInst::BinOp op, SVal val,                   \
-			    const EventDeps &deps = EventDeps())                                   \
+		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
+			    RMWBinOp op, SVal val, const EventDeps &deps = EventDeps())            \
 			: name##Label(pos, ord, addr, size, type, op, val, WriteAttr::None, deps)  \
 		{}                                                                                 \
                                                                                                    \
@@ -937,31 +908,31 @@ FAIREAD_PURE_SUBCLASS(BIncFaiRead);
 class CasReadLabel : public ReadLabel {
 
 protected:
-	CasReadLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
+	CasReadLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
 		     AType type, SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
 		     AnnotVP annot, const EventDeps &deps = EventDeps())
 		: ReadLabel(k, pos, ord, addr, size, type, rfLab, std::move(annot), deps),
-		  wattr(wattr), expected(exp), swapValue(swap)
+		  expected(exp), swapValue(swap), wattr(wattr)
 	{}
 
 public:
-	CasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		     SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab, AnnotVP annot,
+	CasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
+		     SVal swap, WriteAttr wattr, EventLabel *rfLab, AnnotVP annot,
 		     const EventDeps &deps = EventDeps())
 		: CasReadLabel(CasRead, pos, ord, addr, size, type, exp, swap, wattr, rfLab,
 			       std::move(annot), deps)
 	{}
-	CasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		     SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
+	CasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
+		     SVal swap, WriteAttr wattr, EventLabel *rfLab,
 		     const EventDeps &deps = EventDeps())
 		: CasReadLabel(pos, ord, addr, size, type, exp, swap, wattr, rfLab, nullptr, deps)
 	{}
-	CasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		     SVal exp, SVal swap, WriteAttr wattr, const EventDeps &deps = EventDeps())
+	CasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
+		     SVal swap, WriteAttr wattr, const EventDeps &deps = EventDeps())
 		: CasReadLabel(pos, ord, addr, size, type, exp, swap, wattr, nullptr, deps)
 	{}
-	CasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		     SVal exp, SVal swap, const EventDeps &deps = EventDeps())
+	CasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
+		     SVal swap, const EventDeps &deps = EventDeps())
 		: CasReadLabel(pos, ord, addr, size, type, exp, swap, WriteAttr::None, deps)
 	{}
 
@@ -1010,25 +981,25 @@ private:
 	class name##Label : public CasReadLabel {                                                  \
                                                                                                    \
 	public:                                                                                    \
-		name##Label(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,           \
-			    AType type, SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,   \
+		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
+			    SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,               \
 			    AnnotVP annot, const EventDeps &deps = EventDeps())                    \
 			: CasReadLabel(name, pos, ord, addr, size, type, exp, swap, wattr, rfLab,  \
 				       std::move(annot), deps)                                     \
 		{}                                                                                 \
-		name##Label(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,           \
-			    AType type, SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,   \
+		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
+			    SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,               \
 			    const EventDeps &deps = EventDeps())                                   \
 			: name##Label(pos, ord, addr, size, type, exp, swap, wattr, rfLab,         \
 				      nullptr, deps)                                               \
 		{}                                                                                 \
-		name##Label(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,           \
-			    AType type, SVal exp, SVal swap, WriteAttr wattr,                      \
+		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
+			    SVal exp, SVal swap, WriteAttr wattr,                                  \
 			    const EventDeps &deps = EventDeps())                                   \
 			: name##Label(pos, ord, addr, size, type, exp, swap, wattr, nullptr, deps) \
 		{}                                                                                 \
-		name##Label(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,           \
-			    AType type, SVal exp, SVal swap, const EventDeps &deps = EventDeps())  \
+		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
+			    SVal exp, SVal swap, const EventDeps &deps = EventDeps())              \
 			: name##Label(pos, ord, addr, size, type, exp, swap, WriteAttr::None,      \
 				      deps)                                                        \
 		{}                                                                                 \
@@ -1046,17 +1017,25 @@ CASREAD_PURE_SUBCLASS(ConfirmingCasRead);
 /* Specialization of CasReadLabel for lock CASes */
 class LockCasReadLabel : public CasReadLabel {
 
-public:
-	LockCasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-			 SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
+protected:
+	LockCasReadLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
+			 AType type, SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
 			 AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+		: CasReadLabel(k, pos, ord, addr, size, type, exp, swap, wattr, rfLab,
+			       std::move(annot), deps)
+	{}
+
+public:
+	LockCasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
+			 SVal swap, WriteAttr wattr, EventLabel *rfLab, AnnotVP annot = nullptr,
+			 const EventDeps &deps = EventDeps())
 		: CasReadLabel(LockCasRead, pos, ord, addr, size, type, exp, swap, wattr, rfLab,
 			       std::move(annot), deps)
 	{}
 	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, EventLabel *rfLab,
 			 AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
-		: LockCasReadLabel(pos, llvm::AtomicOrdering::Acquire, addr, size, AType::Signed,
-				   SVal(0), SVal(1), wattr, rfLab, std::move(annot), deps)
+		: LockCasReadLabel(pos, MemOrdering::Acquire, addr, size, AType::Signed, SVal(0),
+				   SVal(1), wattr, rfLab, std::move(annot), deps)
 	{}
 	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr,
 			 AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
@@ -1067,7 +1046,16 @@ public:
 		: LockCasReadLabel(pos, addr, size, WriteAttr::None, std::move(annot), deps)
 	{}
 
-	DEFINE_STANDARD_MEMBERS(LockCasRead)
+	DEFINE_CREATE_CLONE(LockCasRead)
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k)
+	{
+		return
+#define FIRST_LOCK_CAS_READ_LABEL(NUM) k >= NUM &&
+#define LAST_LOCK_CAS_READ_LABEL(NUM) k <= NUM;
+#include "ExecutionGraph/EventLabel.def"
+	}
 };
 
 /*******************************************************************************
@@ -1078,7 +1066,7 @@ public:
 class TrylockCasReadLabel : public CasReadLabel {
 
 public:
-	TrylockCasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
+	TrylockCasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,
 			    SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
 			    AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
 		: CasReadLabel(TrylockCasRead, pos, ord, addr, size, type, exp, swap, wattr, rfLab,
@@ -1086,8 +1074,8 @@ public:
 	{}
 	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, EventLabel *rfLab,
 			    AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
-		: TrylockCasReadLabel(pos, llvm::AtomicOrdering::Acquire, addr, size, AType::Signed,
-				      SVal(0), SVal(1), wattr, rfLab, std::move(annot), deps)
+		: TrylockCasReadLabel(pos, MemOrdering::Acquire, addr, size, AType::Signed, SVal(0),
+				      SVal(1), wattr, rfLab, std::move(annot), deps)
 	{}
 	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr,
 			    AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
@@ -1102,6 +1090,23 @@ public:
 };
 
 /*******************************************************************************
+ **                         AbstractLockCasReadLabel Class
+ ******************************************************************************/
+
+/* Special lock to enforce atomicity in the abstract specification */
+class AbstractLockCasReadLabel : public LockCasReadLabel {
+public:
+	AbstractLockCasReadLabel(Event pos, SAddr addr, ASize size, AnnotVP annot = nullptr,
+				 const EventDeps &deps = EventDeps(), EventLabel *rfLab = nullptr)
+		: LockCasReadLabel(AbstractLockCasRead, pos, MemOrdering::Acquire, addr, size,
+				   AType::Signed, SVal(0), SVal(1), WriteAttr::None, rfLab, annot,
+				   deps)
+	{}
+
+	DEFINE_STANDARD_MEMBERS(AbstractLockCasRead)
+};
+
+/*******************************************************************************
  **                         WriteLabel Class
  ******************************************************************************/
 
@@ -1110,22 +1115,22 @@ public:
 class WriteLabel : public MemAccessLabel, public llvm::ilist_node<WriteLabel> {
 
 protected:
-	WriteLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
-		   AType type, SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
+	WriteLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,
+		   SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
 		: MemAccessLabel(k, pos, ord, addr, size, type, deps), value(val), wattr(wattr)
 	{}
-	WriteLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
-		   AType type, SVal val, const EventDeps &deps = EventDeps())
+	WriteLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,
+		   SVal val, const EventDeps &deps = EventDeps())
 		: WriteLabel(k, pos, ord, addr, size, type, val, WriteAttr::None, deps)
 	{}
 
 public:
-	WriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		   SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
+	WriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal val,
+		   WriteAttr wattr, const EventDeps &deps = EventDeps())
 		: WriteLabel(Write, pos, ord, addr, size, type, val, wattr, deps)
 	{}
-	WriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		   SVal val, const EventDeps &deps = EventDeps())
+	WriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal val,
+		   const EventDeps &deps = EventDeps())
 		: WriteLabel(pos, ord, addr, size, type, val, WriteAttr::None, deps)
 	{}
 
@@ -1224,13 +1229,12 @@ private:
 	class _class_kind##Label : public WriteLabel {                                             \
                                                                                                    \
 	public:                                                                                    \
-		_class_kind##Label(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,     \
-				   AType type, SVal val, WriteAttr wattr,                          \
-				   const EventDeps &deps = EventDeps())                            \
+		_class_kind##Label(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,  \
+				   SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps()) \
 			: WriteLabel(_class_kind, pos, ord, loc, size, type, val, wattr, deps)     \
 		{}                                                                                 \
-		_class_kind##Label(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,     \
-				   AType type, SVal val, const EventDeps &deps = EventDeps())      \
+		_class_kind##Label(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,  \
+				   SVal val, const EventDeps &deps = EventDeps())                  \
 			: _class_kind##Label(pos, ord, loc, size, type, val, WriteAttr::None,      \
 					     deps)                                                 \
 		{}                                                                                 \
@@ -1238,13 +1242,59 @@ private:
 		DEFINE_STANDARD_MEMBERS(_class_kind)                                               \
 	};
 
-WRITE_PURE_SUBCLASS(UnlockWrite);
 WRITE_PURE_SUBCLASS(BInitWrite);
 WRITE_PURE_SUBCLASS(BDestroyWrite);
 WRITE_PURE_SUBCLASS(CondVarInitWrite);
 WRITE_PURE_SUBCLASS(CondVarSignalWrite);
 WRITE_PURE_SUBCLASS(CondVarBcastWrite);
 WRITE_PURE_SUBCLASS(CondVarDestroyWrite);
+
+class UnlockWriteLabel : public WriteLabel {
+protected:
+	UnlockWriteLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
+			 AType type, SVal val, WriteAttr wattr = WriteAttr::None,
+			 const EventDeps &deps = EventDeps())
+		: WriteLabel(k, pos, ord, addr, size, type, val, wattr, deps)
+	{}
+
+public:
+	UnlockWriteLabel(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type, SVal val,
+			 WriteAttr wattr, const EventDeps &deps = EventDeps())
+		: UnlockWriteLabel(UnlockWrite, pos, ord, loc, size, type, val, wattr, deps)
+	{}
+	UnlockWriteLabel(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type, SVal val,
+			 const EventDeps &deps = EventDeps())
+		: UnlockWriteLabel(pos, ord, loc, size, type, val, WriteAttr::None, deps)
+	{}
+
+	DEFINE_CREATE_CLONE(UnlockWrite)
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k)
+	{
+		return
+#define FIRST_UNLOCK_WRITE_LABEL(NUM) k >= NUM &&
+#define LAST_UNLOCK_WRITE_LABEL(NUM) k <= NUM;
+#include "ExecutionGraph/EventLabel.def"
+	}
+};
+
+/*******************************************************************************
+ **                         AbstractUnlockWriteLabel Class
+ ******************************************************************************/
+
+class AbstractUnlockWriteLabel : public UnlockWriteLabel {
+
+public:
+	AbstractUnlockWriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,
+				 SVal val, WriteAttr wattr = WriteAttr::None,
+				 const EventDeps &deps = EventDeps())
+		: UnlockWriteLabel(AbstractUnlockWrite, pos, ord, addr, size, type, val, wattr,
+				   deps)
+	{}
+
+	DEFINE_STANDARD_MEMBERS(AbstractUnlockWrite)
+};
 
 /*******************************************************************************
  **                         FaiWriteLabel Class
@@ -1255,18 +1305,18 @@ fetch-and-add, fetch-and-sub, etc) */
 class FaiWriteLabel : public WriteLabel {
 
 protected:
-	FaiWriteLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
+	FaiWriteLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
 		      AType type, SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
 		: WriteLabel(k, pos, ord, addr, size, type, val, wattr, deps)
 	{}
 
 public:
-	FaiWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		      SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
+	FaiWriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal val,
+		      WriteAttr wattr, const EventDeps &deps = EventDeps())
 		: FaiWriteLabel(FaiWrite, pos, ord, addr, size, type, val, wattr, deps)
 	{}
-	FaiWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		      SVal val, const EventDeps &deps = EventDeps())
+	FaiWriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal val,
+		      const EventDeps &deps = EventDeps())
 		: FaiWriteLabel(pos, ord, addr, size, type, val, WriteAttr::None, deps)
 	{}
 
@@ -1290,9 +1340,8 @@ public:
 class NoRetFaiWriteLabel : public FaiWriteLabel {
 
 public:
-	NoRetFaiWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-			   SVal val, WriteAttr wattr = WriteAttr::None,
-			   const EventDeps &deps = EventDeps())
+	NoRetFaiWriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal val,
+			   WriteAttr wattr = WriteAttr::None, const EventDeps &deps = EventDeps())
 		: FaiWriteLabel(NoRetFaiWrite, pos, ord, addr, size, type, val, wattr, deps)
 	{}
 
@@ -1307,12 +1356,12 @@ public:
 class BIncFaiWriteLabel : public FaiWriteLabel {
 
 public:
-	BIncFaiWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-			  SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
+	BIncFaiWriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal val,
+			  WriteAttr wattr, const EventDeps &deps = EventDeps())
 		: FaiWriteLabel(BIncFaiWrite, pos, ord, addr, size, type, val, wattr, deps)
 	{}
-	BIncFaiWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-			  SVal val, const EventDeps &deps = EventDeps())
+	BIncFaiWriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal val,
+			  const EventDeps &deps = EventDeps())
 		: FaiWriteLabel(BIncFaiWrite, pos, ord, addr, size, type, val, WriteAttr::None,
 				deps)
 	{}
@@ -1328,16 +1377,15 @@ public:
 class CasWriteLabel : public WriteLabel {
 
 protected:
-	CasWriteLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
+	CasWriteLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
 		      AType type, SVal val, WriteAttr wattr = WriteAttr::None,
 		      const EventDeps &deps = EventDeps())
 		: WriteLabel(k, pos, ord, addr, size, type, val, wattr, deps)
 	{}
 
 public:
-	CasWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		      SVal val, WriteAttr wattr = WriteAttr::None,
-		      const EventDeps &deps = EventDeps())
+	CasWriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal val,
+		      WriteAttr wattr = WriteAttr::None, const EventDeps &deps = EventDeps())
 		: CasWriteLabel(CasWrite, pos, ord, addr, size, type, val, wattr, deps)
 	{}
 
@@ -1357,8 +1405,8 @@ public:
 	class _class_kind##Label : public CasWriteLabel {                                          \
                                                                                                    \
 	public:                                                                                    \
-		_class_kind##Label(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,    \
-				   AType type, SVal val, WriteAttr wattr = WriteAttr::None,        \
+		_class_kind##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, \
+				   SVal val, WriteAttr wattr = WriteAttr::None,                    \
 				   const EventDeps &deps = EventDeps())                            \
 			: CasWriteLabel(_class_kind, pos, ord, addr, size, type, val, wattr, deps) \
 		{}                                                                                 \
@@ -1376,21 +1424,36 @@ CASWRITE_PURE_SUBCLASS(ConfirmingCasWrite);
 /* Specialization of CasWriteLabel for lock CASes */
 class LockCasWriteLabel : public CasWriteLabel {
 
+protected:
+	LockCasWriteLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
+			  AType type, SVal val, WriteAttr wattr = WriteAttr::None,
+			  const EventDeps &deps = EventDeps())
+		: CasWriteLabel(k, pos, ord, addr, size, type, val, wattr, deps)
+	{}
+
 public:
-	LockCasWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-			  SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
+	LockCasWriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal val,
+			  WriteAttr wattr, const EventDeps &deps = EventDeps())
 		: CasWriteLabel(LockCasWrite, pos, ord, addr, size, type, val, wattr, deps)
 	{}
-	LockCasWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-			  SVal val, const EventDeps &deps = EventDeps())
+	LockCasWriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal val,
+			  const EventDeps &deps = EventDeps())
 		: LockCasWriteLabel(pos, ord, addr, size, type, val, WriteAttr::None, deps)
 	{}
 	LockCasWriteLabel(Event pos, SAddr addr, ASize size, const EventDeps &deps = EventDeps())
-		: LockCasWriteLabel(pos, llvm::AtomicOrdering::Acquire, addr, size, AType::Signed,
-				    SVal(1), deps)
+		: LockCasWriteLabel(pos, MemOrdering::Acquire, addr, size, AType::Signed, SVal(1),
+				    deps)
 	{}
 
-	DEFINE_STANDARD_MEMBERS(LockCasWrite)
+	DEFINE_CREATE_CLONE(LockCasWrite)
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k)
+	{
+		return
+#define FIRST_LOCK_CAS_WRITE_LABEL(NUM) k >= NUM &&
+#define LAST_LOCK_CAS_WRITE_LABEL(NUM) k <= NUM;
+#include "ExecutionGraph/EventLabel.def"
+	}
 };
 
 /*******************************************************************************
@@ -1401,22 +1464,43 @@ public:
 class TrylockCasWriteLabel : public CasWriteLabel {
 
 public:
-	TrylockCasWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
-			     AType type, SVal val, WriteAttr wattr,
-			     const EventDeps &deps = EventDeps())
+	TrylockCasWriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,
+			     SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
 		: CasWriteLabel(TrylockCasWrite, pos, ord, addr, size, type, val, WriteAttr::None,
 				deps)
 	{}
-	TrylockCasWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
-			     AType type, SVal val, const EventDeps &deps = EventDeps())
+	TrylockCasWriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,
+			     SVal val, const EventDeps &deps = EventDeps())
 		: TrylockCasWriteLabel(pos, ord, addr, size, type, val, WriteAttr::None, deps)
 	{}
 	TrylockCasWriteLabel(Event pos, SAddr addr, ASize size, const EventDeps &deps = EventDeps())
-		: TrylockCasWriteLabel(pos, llvm::AtomicOrdering::Acquire, addr, size,
-				       AType::Signed, SVal(1), deps)
+		: TrylockCasWriteLabel(pos, MemOrdering::Acquire, addr, size, AType::Signed,
+				       SVal(1), deps)
 	{}
 
 	DEFINE_STANDARD_MEMBERS(TrylockCasWrite)
+};
+
+/*******************************************************************************
+ **                         AbstractLockCasWriteLabel Class
+ ******************************************************************************/
+
+/* Special lock to enforce atomicity in the abstract specification */
+class AbstractLockCasWriteLabel : public LockCasWriteLabel {
+public:
+	AbstractLockCasWriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,
+				  SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
+		: LockCasWriteLabel(AbstractLockCasWrite, pos, ord, addr, size, type, val, wattr,
+				    deps)
+	{}
+
+	AbstractLockCasWriteLabel(Event pos, SAddr addr, ASize size,
+				  const EventDeps &deps = EventDeps())
+		: AbstractLockCasWriteLabel(pos, MemOrdering::Acquire, addr, size, AType::Signed,
+					    SVal(1), WriteAttr::None, deps)
+	{}
+
+	DEFINE_STANDARD_MEMBERS(AbstractLockCasWrite)
 };
 
 /*******************************************************************************
@@ -1427,13 +1511,13 @@ public:
 class FenceLabel : public EventLabel {
 
 protected:
-	FenceLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord,
+	FenceLabel(EventLabelKind k, Event pos, MemOrdering ord,
 		   const EventDeps &deps = EventDeps())
 		: EventLabel(k, pos, ord, deps)
 	{}
 
 public:
-	FenceLabel(Event pos, llvm::AtomicOrdering ord, const EventDeps &deps = EventDeps())
+	FenceLabel(Event pos, MemOrdering ord, const EventDeps &deps = EventDeps())
 		: FenceLabel(Fence, pos, ord, deps)
 	{}
 
@@ -1457,19 +1541,18 @@ public:
 class MallocLabel : public EventLabel {
 
 public:
-	MallocLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, unsigned int size,
-		    unsigned alignment, StorageDuration sd, StorageType stype, AddressSpace spc,
-		    const NameInfo *info, const std::string &name,
-		    const EventDeps &deps = EventDeps())
+	MallocLabel(Event pos, MemOrdering ord, SAddr addr, unsigned int size, unsigned alignment,
+		    StorageDuration sd, StorageType stype, AddressSpace spc, const NameInfo *info,
+		    const std::string &name, const EventDeps &deps = EventDeps())
 		: EventLabel(Malloc, pos, ord, deps), allocAddr(addr), allocSize(size),
-		  alignment(alignment), sdur(sd), stype(stype), spc(spc), nameInfo(info), name(name)
+		  alignment(alignment), sdur(sd), stype(stype), spc(spc), name(name), nameInfo(info)
 	{}
 	MallocLabel(Event pos, SAddr addr, unsigned int size, unsigned alignment,
 		    StorageDuration sd, StorageType stype, AddressSpace spc,
 		    const NameInfo *info = nullptr, const std::string &name = {},
 		    const EventDeps &deps = EventDeps())
-		: MallocLabel(pos, llvm::AtomicOrdering::NotAtomic, addr, size, alignment, sd,
-			      stype, spc, info, name, deps)
+		: MallocLabel(pos, MemOrdering::NotAtomic, addr, size, alignment, sd, stype, spc,
+			      info, name, deps)
 	{}
 	MallocLabel(Event pos, unsigned int size, unsigned alignment, StorageDuration sd,
 		    StorageType stype, AddressSpace spc, const NameInfo *info = nullptr,
@@ -1614,22 +1697,22 @@ private:
 class FreeLabel : public EventLabel {
 
 protected:
-	FreeLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr,
-		  unsigned int size, const EventDeps &deps = EventDeps())
+	FreeLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, unsigned int size,
+		  const EventDeps &deps = EventDeps())
 		: EventLabel(k, pos, ord, deps), freeAddr(addr), freedSize(size)
 	{}
 	FreeLabel(EventLabelKind k, Event pos, SAddr addr, unsigned int size,
 		  const EventDeps &deps = EventDeps())
-		: FreeLabel(k, pos, llvm::AtomicOrdering::NotAtomic, addr, size, deps)
+		: FreeLabel(k, pos, MemOrdering::NotAtomic, addr, size, deps)
 	{}
 
 public:
-	FreeLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, unsigned int size,
+	FreeLabel(Event pos, MemOrdering ord, SAddr addr, unsigned int size,
 		  const EventDeps &deps = EventDeps())
 		: FreeLabel(Free, pos, ord, addr, size, deps)
 	{}
 	FreeLabel(Event pos, SAddr addr, unsigned int size, const EventDeps &deps = EventDeps())
-		: FreeLabel(pos, llvm::AtomicOrdering::NotAtomic, addr, size, deps)
+		: FreeLabel(pos, MemOrdering::NotAtomic, addr, size, deps)
 	{}
 	FreeLabel(Event pos, SAddr addr, const EventDeps &deps = EventDeps())
 		: FreeLabel(pos, addr, 0, deps)
@@ -1689,12 +1772,12 @@ private:
 class HpRetireLabel : public FreeLabel {
 
 public:
-	HpRetireLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, unsigned int size,
+	HpRetireLabel(Event pos, MemOrdering ord, SAddr addr, unsigned int size,
 		      const EventDeps &deps = EventDeps())
 		: FreeLabel(HpRetire, pos, ord, addr, size, deps)
 	{}
 	HpRetireLabel(Event pos, SAddr addr, unsigned int size, const EventDeps &deps = EventDeps())
-		: HpRetireLabel(pos, llvm::AtomicOrdering::NotAtomic, addr, size, deps)
+		: HpRetireLabel(pos, MemOrdering::NotAtomic, addr, size, deps)
 	{}
 	HpRetireLabel(Event pos, SAddr addr, const EventDeps &deps = EventDeps())
 		: HpRetireLabel(pos, addr, 0, deps)
@@ -1711,12 +1794,12 @@ public:
 class ThreadCreateLabel : public EventLabel {
 
 public:
-	ThreadCreateLabel(Event pos, llvm::AtomicOrdering ord, ThreadInfo childInfo,
+	ThreadCreateLabel(Event pos, MemOrdering ord, ThreadInfo childInfo,
 			  const EventDeps &deps = EventDeps())
 		: EventLabel(ThreadCreate, pos, ord, deps), childInfo(childInfo)
 	{}
 	ThreadCreateLabel(Event pos, ThreadInfo childInfo, const EventDeps &deps = EventDeps())
-		: ThreadCreateLabel(pos, llvm::AtomicOrdering::Release, childInfo, deps)
+		: ThreadCreateLabel(pos, MemOrdering::Release, childInfo, deps)
 	{}
 
 	/* Getters for the created thread's info */
@@ -1742,12 +1825,12 @@ private:
 class ThreadJoinLabel : public EventLabel {
 
 public:
-	ThreadJoinLabel(Event pos, llvm::AtomicOrdering ord, unsigned int childId,
+	ThreadJoinLabel(Event pos, MemOrdering ord, unsigned int childId,
 			const EventDeps &deps = EventDeps())
 		: EventLabel(ThreadJoin, pos, ord, deps), childId(childId)
 	{}
 	ThreadJoinLabel(Event pos, unsigned int childId, const EventDeps &deps = EventDeps())
-		: ThreadJoinLabel(pos, llvm::AtomicOrdering::Acquire, childId, deps)
+		: ThreadJoinLabel(pos, MemOrdering::Acquire, childId, deps)
 	{}
 
 	/* Returns the identifier of the thread this join() is waiting on */
@@ -1768,12 +1851,12 @@ private:
 class HpProtectLabel : public EventLabel {
 
 public:
-	HpProtectLabel(Event pos, llvm::AtomicOrdering ord, SAddr hpAddr, SAddr protAddr,
+	HpProtectLabel(Event pos, MemOrdering ord, SAddr hpAddr, SAddr protAddr,
 		       const EventDeps &deps = EventDeps())
 		: EventLabel(HpProtect, pos, ord, deps), hpAddr(hpAddr), protAddr(protAddr)
 	{}
 	HpProtectLabel(Event pos, SAddr hpAddr, SAddr protAddr, const EventDeps &deps = EventDeps())
-		: HpProtectLabel(pos, llvm::AtomicOrdering::Release, hpAddr, protAddr, deps)
+		: HpProtectLabel(pos, MemOrdering::Release, hpAddr, protAddr, deps)
 	{}
 
 	/* Getters for HP/protected address */
@@ -1791,6 +1874,151 @@ private:
 };
 
 /*******************************************************************************
+ **                         MethodBeginLabel Class
+ ******************************************************************************/
+
+class MethodEndLabel;
+
+/* Along with `MethodEndLabel` represents boundaries of a method invocation */
+class MethodBeginLabel : public EventLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	MethodBeginLabel(Event pos, std::string methodName, int32_t argValue)
+		: EventLabel(MethodBegin, pos, MemOrdering::NotAtomic),
+		  name_(std::move(methodName)), arg_(argValue)
+	{}
+
+	auto lin_preds() const { return std::views::all(linPreds_); }
+	auto lin_preds() { return std::views::all(linPreds_); }
+
+	/* Adds PRED as a linearization predecessor for this label.
+	 * (Also updates information in the predecessor.) */
+	void addPred(MethodEndLabel *pred);
+
+	/* Removes all predecessors that satisfy predicate F,
+	 * and accordingly updates successor lists of predecessors (SLOW) */
+	template <typename F> void removePred(F cond);
+
+	auto getName() const -> std::string { return name_; }
+	auto getArgument() const -> int32_t { return arg_; }
+
+	virtual void reset() override
+	{
+		EventLabel::reset();
+		linPreds_.clear();
+	}
+
+	DEFINE_STANDARD_MEMBERS(MethodBegin)
+
+private:
+	friend class ExecutionGraph;
+	friend class MethodEndLabel;
+
+	void addPredNoCascade(MethodEndLabel *predLab)
+	{
+		BUG_ON(std::ranges::find(linPreds_, predLab) != linPreds_.end());
+		linPreds_.push_back(predLab);
+	}
+
+	template <typename F> void removePredNoCascade(F cond)
+	{
+		for (auto it = linPreds_.begin(); it != linPreds_.end();) {
+			if (cond(*it)) {
+				it = linPreds_.erase(it);
+			} else {
+				++it;
+			}
+		}
+	}
+
+	std::string name_;
+	int32_t arg_;
+	std::vector<MethodEndLabel *> linPreds_;
+};
+
+/*******************************************************************************
+ **                         MethodEndLabel Class
+ ******************************************************************************/
+
+/* Along with `MethodBeginLabel` represent boundaries of a method invocation and
+ * also captures its result */
+class MethodEndLabel : public EventLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	MethodEndLabel(Event pos, std::string methodName, int32_t returnValue)
+		: EventLabel(MethodEnd, pos, MemOrdering::NotAtomic), name_(std::move(methodName)),
+		  result_(returnValue)
+	{}
+
+	auto lin_succs() const { return std::views::all(linSuccs_); }
+	auto lin_succs() { return std::views::all(linSuccs_); }
+
+	/* Adds SUCC as a linearization successor for this label.
+	 * (Also updates predecessor information in the successor.) */
+	void addSucc(MethodBeginLabel *succ);
+
+	/* Removes all successors that satisfy predicate F, and accordingly updates the
+	 * predecessor lists of the successors (SLOW) */
+	template <typename F> void removeSucc(F cond)
+	{
+		for (auto it = linSuccs_.begin(); it != linSuccs_.end();) {
+			if (cond(*it)) {
+				auto *mbLab = llvm::dyn_cast<MethodBeginLabel>(*it);
+				mbLab->removePredNoCascade(
+					[this](auto &lab) { return lab == this; });
+				it = linSuccs_.erase(it);
+			} else {
+				++it;
+			}
+		}
+	}
+
+	auto getName() const -> std::string { return name_; }
+	auto getResult() const -> int32_t { return result_; }
+
+	virtual void reset() override
+	{
+		EventLabel::reset();
+		linSuccs_.clear();
+	}
+
+	DEFINE_STANDARD_MEMBERS(MethodEnd)
+
+private:
+	friend class MethodBeginLabel;
+	friend class ExecutionGraph;
+
+	template <typename F> void removeSuccNoCascade(F cond)
+	{
+		for (auto it = linSuccs_.begin(); it != linSuccs_.end();) {
+			if (cond(*it)) {
+				it = linSuccs_.erase(it);
+			} else {
+				++it;
+			}
+		}
+	}
+
+	void addSuccNoCascade(MethodBeginLabel *succLab)
+	{
+		BUG_ON(std::ranges::find(linSuccs_, succLab) != linSuccs_.end());
+		linSuccs_.push_back(succLab);
+	}
+
+	std::string name_;
+	int32_t result_;
+	std::vector<MethodBeginLabel *> linSuccs_;
+};
+
+/*******************************************************************************
  **                         HelpingCasLabel class
  ******************************************************************************/
 
@@ -1798,8 +2026,8 @@ private:
 class HelpingCasLabel : public EventLabel {
 
 public:
-	HelpingCasLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-			SVal exp, SVal swap, const EventDeps &deps = EventDeps())
+	HelpingCasLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
+			SVal swap, const EventDeps &deps = EventDeps())
 		: EventLabel(HelpingCas, pos, ord, deps), access(AAccess(addr, size, type)),
 		  expected(exp), swapValue(swap)
 	{}
@@ -1844,7 +2072,7 @@ class OptionalLabel : public EventLabel {
 
 public:
 	OptionalLabel(Event pos, const EventDeps &deps = EventDeps())
-		: EventLabel(Optional, pos, llvm::AtomicOrdering::NotAtomic, deps)
+		: EventLabel(Optional, pos, MemOrdering::NotAtomic, deps)
 	{}
 
 	/* Whether this block is expandable */
@@ -1870,7 +2098,7 @@ private:
 	class _class_kind##Label : public EventLabel {                                             \
 	public:                                                                                    \
 		_class_kind##Label(Event pos, const EventDeps &deps = EventDeps())                 \
-			: EventLabel(_class_kind, pos, llvm::AtomicOrdering::NotAtomic, deps)      \
+			: EventLabel(_class_kind, pos, MemOrdering::NotAtomic, deps)               \
 		{}                                                                                 \
                                                                                                    \
 		DEFINE_STANDARD_MEMBERS(_class_kind)                                               \
@@ -1886,12 +2114,17 @@ DEFINE_DUMMY_SUBCLASS(Empty)
  **                             Out-of-class definitions
  *******************************************************************************/
 
-inline void InitLabel::addReader(ReadLabel *rLab)
+template <typename F> void MethodBeginLabel::removePred(F cond)
 {
-	BUG_ON(std::find_if(rf_begin(rLab->getAddr()), rf_end(rLab->getAddr()),
-			    [rLab](ReadLabel &oLab) { return oLab.getPos() == rLab->getPos(); }) !=
-	       rf_end(rLab->getAddr()));
-	initRfs[rLab->getAddr()].push_back(*rLab);
+	for (auto it = linPreds_.begin(); it != linPreds_.end();) {
+		if (cond(*it)) {
+			auto *meLab = llvm::dyn_cast<MethodEndLabel>(*it);
+			meLab->removeSuccNoCascade([this](auto &lab) { return lab == this; });
+			it = linPreds_.erase(it);
+		} else {
+			++it;
+		}
+	}
 }
 
 /*******************************************************************************
@@ -1927,7 +2160,6 @@ inline bool ReadLabel::isConfirming(EventLabelKind k)
 	return ConfirmingReadLabel::classofKind(k) || ConfirmingCasReadLabel::classofKind(k);
 }
 
-llvm::raw_ostream &operator<<(llvm::raw_ostream &rhs, const llvm::AtomicOrdering o);
 llvm::raw_ostream &operator<<(llvm::raw_ostream &rhs, const EventLabel::EventLabelKind k);
 
 #endif /* GENMC_EVENTLABEL_HPP */

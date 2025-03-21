@@ -78,6 +78,7 @@ libgenmc_a_SOURCES = \
   src/Static/Transforms/PropagateAssumesPass.cpp \
   src/Static/Transforms/SpinAssumePass.cpp \
   src/Support/ASize.cpp \
+  src/Support/MemOrdering.cpp \
   src/Support/NameInfo.cpp \
   src/Support/Parser.cpp \
   src/Support/SAddr.cpp \
@@ -90,9 +91,13 @@ libgenmc_a_SOURCES = \
   src/Verification/WorkList.cpp \
   src/Verification/VerificationError.cpp \
   src/Verification/Revisit.cpp \
+  src/Verification/Relinche/LinearizabilityChecker.cpp \
+  src/Verification/Relinche/Linearization.cpp \
+  src/Verification/Relinche/Observation.cpp \
+  src/Verification/Relinche/Specification.cpp \
   src/main.cpp
 
-TESTS=scripts/fast-driver.sh scripts/randomize-driver.sh
+TESTS=scripts/fast-driver.sh scripts/randomize-driver.sh scripts/run-relinche-tests.sh
 
 AM_CXXFLAGS = -I$(abs_top_srcdir)/src -DINCLUDE_DIR=\"$(pkgincludedir)/$(pkg)/include\" -DSRC_INCLUDE_DIR=\"$(abs_top_srcdir)/include\" $(COVERAGE_CXXFLAGS)
 bin_PROGRAMS = genmc

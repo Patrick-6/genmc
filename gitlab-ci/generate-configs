@@ -34,7 +34,7 @@ MACOS_HEADER="default:
 "
 
 ## supported versions
-LINUX_LLVM_VERSIONS="13 14 15 16"
+LINUX_LLVM_VERSIONS="13 14 15 19"
 MACOS_LLVM_VERSIONS="17 18"
 
 declare -A LINUX_IMAGES
@@ -43,7 +43,7 @@ declare -A LINUX_IMAGES_VERSIONS
 LINUX_IMAGES["imageA"]="registry.mpi-sws.org/genmc-tool-bookworm"
 LINUX_IMAGES["imageB"]="registry.mpi-sws.org/genmc-tool-trixie"
 LINUX_IMAGES_VERSIONS["imageA"]=" 13 14 15 " # spaces --> hack to match regex
-LINUX_IMAGES_VERSIONS["imageB"]=" 16 "
+LINUX_IMAGES_VERSIONS["imageB"]=" 19 "
 
 find_image_name() {
     version=$1
@@ -80,7 +80,9 @@ anchor_macos() {
     version=$1
     anchor_shared $version
     echo "  before_script:"
-    echo "    - export PATH=/usr/local/opt/llvm@${version%%.*}/bin:/usr/local/opt/gnu-getopt/bin:/usr/local/opt/flex/bin:/usr/local/opt/bison/bin:$PATH"
+    echo "    - export PATH=/usr/local/opt/llvm/bin:/usr/local/opt/gnu-getopt/bin:/usr/local/opt/flex/bin:/usr/local/opt/bison/bin:$PATH"
+    echo "  variables:"
+    echo "    LLVM_VERSION: \"$version\""
     echo ""
 }
 
@@ -88,11 +90,12 @@ LINUX_ANCHOR_FUN=anchor_linux
 MACOS_ANCHOR_FUN=anchor_macos
 
 ## pipeline stages -- we assume the first stage is a build stage
-LINUX_STAGES="build ftest rtest concurrency bounding test regression"
+LINUX_STAGES="build ftest rtest concurrency bounding test regression relinche"
 MACOS_STAGES="build ftest" ## only run quick stages for macos
 
+# for macos, we assume the lates
 LINUX_CONFIG_CMD='./configure --with-llvm=`llvm-config-${LLVM_VERSION} --prefix` || (cat config.log; false)'
-MACOS_CONFIG_CMD='./configure --with-llvm=`llvm-config --prefix` || (cat config.log; false)'
+MACOS_CONFIG_CMD='CXX=clang++ CXXFLAGS="-O2 -g -I$(brew --prefix llvm)/include/c++/v1" LDFLAGS="-L$(brew --prefix llvm)/lib/c++ -L$(brew --prefix llvm)/lib"  ./configure  --with-llvm=`/usr/local/opt/llvm@${LLVM_VERSION}/bin/llvm-config --prefix` --with-clang=/usr/local/opt/llvm@${LLVM_VERSION}/bin/clang --with-clangxx=/usr/local/opt/llvm@${LLVM_VERSION}/bin/clang++ || (cat config.log; false)'
 
 build_stage() {
     cmd=$1_CONFIG_CMD
@@ -158,6 +161,14 @@ regression_stage() {
     echo "  script:"
     echo "    - ./scripts/check-regression.sh \$CI_MERGE_REQUEST_TARGET_BRANCH_NAME \$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
     echo ""
+}
+
+relinche_stage() {
+  echo ".test:llvm_job: &relinche"
+  echo "  stage: relinche"
+  echo "  script:"
+  echo "    - ./scripts/run-relinche-tests.sh"
+  echo ""
 }
 
 for os in LINUX MACOS; do

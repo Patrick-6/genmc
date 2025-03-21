@@ -42,6 +42,18 @@ void init_queue(queue_t *q, int num_threads)
 	atomic_init(&q->tail, dummy);
 }
 
+void clear_queue(queue_t *q, int num_threads)
+{
+	node_t *next;
+	while (q->head != NULL) {
+		// int v = q->head->value;
+		next = q->head->next;
+		free(q->head);
+		q->head = next;
+	}
+}
+
+
 void enqueue(queue_t *q, unsigned int val)
 {
 	node_t *tail, *next;
@@ -72,6 +84,7 @@ void enqueue(queue_t *q, unsigned int val)
 	__VERIFIER_helped_CAS(
 		atomic_compare_exchange_strong_explicit(&q->tail, &tail, node, release, release);
 	);
+	__VERIFIER_hp_free(hp);
 }
 
 bool dequeue(queue_t *q, unsigned int *retVal)
@@ -88,8 +101,11 @@ bool dequeue(queue_t *q, unsigned int *retVal)
 		if (atomic_load_explicit(&q->head, acquire) != head)
 			continue;
 		if (head == tail) {
-			if (next == NULL)
+			if (next == NULL) {
+				__VERIFIER_hp_free(hp_head);
+				__VERIFIER_hp_free(hp_next);
 				return false;
+			}
 			__VERIFIER_helping_CAS(
 				atomic_compare_exchange_strong_explicit(&q->tail, &tail, next,
 									release, release);
@@ -103,5 +119,7 @@ bool dequeue(queue_t *q, unsigned int *retVal)
 	}
 	*retVal = ret;
 	reclaim(head);
+	__VERIFIER_hp_free(hp_head);
+	__VERIFIER_hp_free(hp_next);
 	return true;
 }

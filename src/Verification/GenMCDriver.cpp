@@ -29,12 +29,14 @@
 #include "ExecutionGraph/LabelVisitor.hpp"
 #include "Runtime/Interpreter.h"
 #include "Static/LLVMModule.hpp"
+#include "Support/DotPrint.hpp"
 #include "Support/Error.hpp"
 #include "Support/Logger.hpp"
 #include "Support/Parser.hpp"
 #include "Support/SExprVisitor.hpp"
 #include "Support/ThreadPool.hpp"
 #include "Verification/DriverHandlerDispatcher.hpp"
+#include "Verification/Relinche/LinearizabilityChecker.hpp"
 #include "config.h"
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/DynamicLibrary.h>
@@ -51,7 +53,7 @@
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 			 std::unique_ptr<ModuleInfo> modInfo, ThreadPool *pool /* = nullptr */,
 			 Mode mode /* = VerificationMode{} */)
-	: userConf(std::move(conf)), pool(pool), mode(mode)
+	: mode(mode), pool(pool), userConf(std::move(conf))
 {
 	/* Set up the execution context */
 	auto initValGetter = [this](const auto &access) { return getEE()->getLocInitVal(access); };
@@ -62,7 +64,7 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 			       std::move(ChoiceMap()), std::move(SAddrAllocator()),
 			       Event::getInit());
 
-	consChecker = ConsistencyChecker::create(getConf()->model);
+	consChecker = ConsistencyChecker::create(getConf());
 	symmChecker = SymmetryChecker::create();
 	auto hasBounder = userConf->bound.has_value();
 	GENMC_DEBUG(hasBounder |= userConf->boundsHistogram;);
@@ -95,6 +97,17 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 	if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr, &ErrorStr)) {
 		WARN("Could not resolve symbols in the program: " + ErrorStr);
 	}
+
+	if (userConf->collectLinSpec)
+		result.specification = std::make_unique<Specification>(userConf->maxExtSize
+#ifdef ENABLE_GENMC_DEBUG
+								       ,
+								       userConf->relincheDebug
+#endif
+		);
+	if (userConf->checkLinSpec)
+		relinche =
+			LinearizabilityChecker::create(&getConsChecker(), *getConf()->checkLinSpec);
 }
 
 GenMCDriver::~GenMCDriver() = default;
@@ -568,6 +581,18 @@ void GenMCDriver::updateStSpaceEstimation()
 		prevV / totalExplored;
 }
 
+static const auto maybeTimeRelinche = [](auto &&relinche, auto &&g) {
+#ifdef ENABLE_GENMC_DEBUG
+	const auto &start = std::chrono::high_resolution_clock::now();
+#endif
+	auto res = relinche.refinesSpec(g);
+#ifdef ENABLE_GENMC_DEBUG
+	const auto &stop = std::chrono::high_resolution_clock::now();
+	res.analysisTime = stop - start;
+#endif
+	return res;
+};
+
 void GenMCDriver::handleExecutionEnd()
 {
 	if (isMoot()) {
@@ -607,6 +632,25 @@ void GenMCDriver::handleExecutionEnd()
 	++result.explored;
 	if (fullExecutionExceedsBound())
 		++result.boundExceeding;
+
+	if (isHalting() || isExecutionBlocked() || isMoot())
+		return;
+
+	if (inEstimationMode())
+		return;
+
+	/* Relinche: Collect/check abstract behavior */
+	if (getConf()->collectLinSpec)
+		result.specification->add(getExec().getGraph(), &getConsChecker(),
+					  getConf()->symmetryReduction);
+	if (getConf()->checkLinSpec) {
+		result.relincheResult += maybeTimeRelinche(getRelinche(), getExec().getGraph());
+		if (result.relincheResult.status) {
+			result.status = VerificationError::VE_LinearizabilityError;
+			reportError({Event::getBottom(), result.status,
+				     result.relincheResult.status->toString()});
+		}
+	}
 }
 
 void GenMCDriver::handleRecoveryStart()
@@ -683,7 +727,8 @@ GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf,
 	if (conf->threads == 1) {
 		auto driver = GenMCDriver::create(conf, std::move(mod), std::move(modInfo));
 		driver->run();
-		return driver->getResult();
+		auto res = std::move(driver->getResult());
+		return res;
 	}
 
 	std::vector<std::future<GenMCDriver::Result>> futures;
@@ -710,7 +755,7 @@ GenMCDriver::Result GenMCDriver::estimate(std::shared_ptr<const Config> conf,
 	auto driver = GenMCDriver::create(conf, std::move(newmod), std::move(newMI), nullptr,
 					  GenMCDriver::EstimationMode{conf->estimationMax});
 	driver->run();
-	return driver->getResult();
+	return std::move(driver->getResult());
 }
 
 /************************************************************
@@ -1492,7 +1537,8 @@ std::optional<EventLabel *> GenMCDriver::findConsistentCo(WriteLabel *wLab,
 
 void GenMCDriver::handleThreadKill(std::unique_ptr<ThreadKillLabel> kLab)
 {
-	BUG_ON(isExecutionDrivenByGraph(&*kLab));
+	auto replay = isExecutionDrivenByGraph(&*kLab);
+	BUG_ON(replay);
 	addLabelToGraph(std::move(kLab));
 }
 
@@ -2134,8 +2180,8 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 	/* If this is an invalid access, change the RF of the offending
 	 * event to BOTTOM, so that we do not try to get its value.
 	 * Don't bother updating the views */
-	auto *errLab = g.getEventLabel(details.pos);
-	if (isInvalidAccessError(details.type) && llvm::isa<ReadLabel>(errLab))
+	auto *errLab = details.pos.isBottom() ? nullptr : g.getEventLabel(details.pos);
+	if (errLab && isInvalidAccessError(details.type) && llvm::isa<ReadLabel>(errLab))
 		llvm::dyn_cast<ReadLabel>(errLab)->setRf(nullptr);
 
 	/* Print a basic error message and the graph.
@@ -2148,14 +2194,15 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 	llvm::raw_string_ostream out(result.message);
 
 	out << (isHardError(details.type) ? "Error: " : "Warning: ") << details.type << "!\n";
-	out << "Event " << errLab->getPos() << " ";
+	if (errLab)
+		out << "Event " << errLab->getPos() << " ";
 	if (details.racyLab != nullptr)
 		out << "conflicts with event " << details.racyLab->getPos() << " ";
 	out << "in graph:\n";
 	printGraph(true, out);
 
 	/* Print error trace leading up to the violating event(s) */
-	if (getConf()->printErrorTrace) {
+	if (errLab && getConf()->printErrorTrace) {
 		printTraceBefore(errLab, out);
 		if (details.racyLab != nullptr)
 			printTraceBefore(details.racyLab, out);
@@ -2167,7 +2214,8 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 
 	/* Dump the graph into a file (DOT format) */
 	if (!getConf()->dotFile.empty())
-		dotPrintToFile(getConf()->dotFile, errLab, details.racyLab);
+		dotPrintToFile(getConf()->dotFile, errLab, details.racyLab,
+			       getConf()->dotPrintOnlyClientEvents);
 
 	getEE()->restoreState(std::move(iState));
 
@@ -2501,7 +2549,7 @@ GenMCDriver::getRevisitView(const ReadLabel *rLab, const WriteLabel *sLab,
 	updatePredsWithPrefixView(g, *preds, getPrefixView(sLab));
 	if (midLab)
 		updatePredsWithPrefixView(g, *preds, getPrefixView(midLab));
-	return std::move(preds);
+	return preds;
 }
 
 std::unique_ptr<BackwardRevisit> GenMCDriver::constructBackwardRevisit(const ReadLabel *rLab,
@@ -2773,8 +2821,8 @@ WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 		 * and we cannot get the value in that case (but it will also not be an RMW)
 		 */
 		auto rfVal = rLab->getAccessValue(rLab->getAccess());
-		result = getEE()->executeAtomicRMWOperation(rfVal, faiLab->getOpVal(),
-							    faiLab->getSize(), faiLab->getOp());
+		result = executeRMWBinOp(rfVal, faiLab->getOpVal(), faiLab->getSize(),
+					 faiLab->getOp());
 		if (llvm::isa<BIncFaiReadLabel>(faiLab) && result == SVal(0))
 			result = findBarrierInitValue(getExec().getGraph(), rLab->getAccess());
 		wattr = faiLab->getAttr();
@@ -2800,6 +2848,7 @@ WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 		CREATE_COUNTERPART(Fai);
 		CREATE_COUNTERPART(LockCas);
 		CREATE_COUNTERPART(TrylockCas);
+		CREATE_COUNTERPART(AbstractLockCas);
 		CREATE_COUNTERPART(Cas);
 		CREATE_COUNTERPART(HelpedCas);
 		CREATE_COUNTERPART(ConfirmingCas);
@@ -3208,7 +3257,7 @@ void GenMCDriver::printGraph(bool printMetadata /* false */,
 }
 
 void GenMCDriver::dotPrintToFile(const std::string &filename, const EventLabel *errLab,
-				 const EventLabel *confLab)
+				 const EventLabel *confLab, bool printObservation)
 {
 	auto &g = getExec().getGraph();
 	auto *EE = getEE();
@@ -3220,11 +3269,16 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const EventLabel *
 						      : SVal();
 			   });
 
-	auto before = getPrefixView(errLab).clone();
+	unique_ptr<VectorClock> before;
+	if (errLab)
+		before = getPrefixView(errLab).clone();
+	else
+		before = g.getViewFromStamp(g.getMaxStamp());
+
 	if (confLab)
 		before->update(getPrefixView(confLab));
 
-	/* Create a directed graph graph */
+	/* Create a directed graph */
 	ss << "strict digraph {\n";
 	/* Specify node shape */
 	ss << "node [shape=plaintext]\n";
@@ -3235,12 +3289,22 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const EventLabel *
 
 	/* Print all nodes with each thread represented by a cluster */
 	for (auto i = 0u; i < before->size(); i++) {
+		bool inMethod = false;
 		auto &thr = EE->getThrById(i);
 		ss << "subgraph cluster_" << thr.id << "{\n";
 		ss << "\tlabel=\"" << thr.threadFun->getName().str() << "()\"\n";
+		ss << "\ttooltip=\"thread #" << thr.id << "\"\n";
 		for (auto j = 1; j <= before->getMax(i); j++) {
 			auto *lab = g.getEventLabel(Event(i, j));
 
+			if (printObservation) {
+				if (llvm::isa<MethodBeginLabel>(lab))
+					inMethod = true;
+				else if (llvm::isa<MethodEndLabel>(lab))
+					inMethod = false;
+				else if (inMethod)
+					continue;
+			}
 			ss << "\t\"" << lab->getPos() << "\" [label=<";
 
 			/* First, print the graph label for this node */
@@ -3252,46 +3316,80 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const EventLabel *
 				executeMDPrint(lab, thr.prefixLOC[j], getConf()->inputFile, ss);
 				ss << "</FONT>";
 			}
+			ss << ">";
 
-			ss << ">"
-			   << (lab->getPos() == errLab->getPos() ||
-					       lab->getPos() == confLab->getPos()
-				       ? ",style=filled,fillcolor=yellow"
-				       : "")
-			   << "]\n";
+			if (errLab && lab->getPos() == errLab->getPos())
+				ss << ", style=filled, fillcolor=yellow";
+			if (confLab && lab->getPos() == confLab->getPos())
+				ss << ", style=filled, fillcolor=yellow";
+
+			ss << ", tooltip=\"" << lab->getPos() << "\"";
+			ss << "]\n";
 		}
 		ss << "}\n";
 	}
 
 	/* Print relations between events (po U rf) */
 	for (auto i = 0u; i < before->size(); i++) {
+		bool inMethod = false;
 		auto &thr = EE->getThrById(i);
+		EventLabel const *lastLab = nullptr;
 		for (auto j = 0; j <= before->getMax(i); j++) {
 			auto *lab = g.getEventLabel(Event(i, j));
 
+			if (printObservation) {
+				if (llvm::isa<MethodBeginLabel>(lab))
+					inMethod = true;
+				else if (llvm::isa<MethodEndLabel>(lab))
+					inMethod = false;
+				else if (inMethod)
+					continue;
+			}
+
 			/* Print a po-edge, but skip dummy start events for
 			 * all threads except for the first one */
-			if (j < before->getMax(i) && !llvm::isa<ThreadStartLabel>(lab))
-				ss << "\"" << lab->getPos() << "\" -> \"" << lab->getPos().next()
-				   << "\"\n";
+			if (lastLab)
+				printlnDotEdge(ss, lastLab->getPos(), lab->getPos());
+			if (!llvm::isa<ThreadStartLabel>(lab))
+				lastLab = lab;
+
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				/* Do not print RFs from INIT, BOTTOM, and same thread */
-				if (llvm::dyn_cast_or_null<WriteLabel>(rLab) &&
+				if (llvm::dyn_cast_or_null<WriteLabel>(rLab->getRf()) &&
 				    rLab->getRf()->getThread() != lab->getThread()) {
-					ss << "\"" << rLab->getRf() << "\" -> \"" << rLab->getPos()
-					   << "\"[color=green, constraint=false]\n";
+					printlnDotEdge(
+						ss, rLab->getRf()->getPos(), rLab->getPos(),
+						{{"color", "green"}, {"constraint", "false"}});
 				}
 			}
 			if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab)) {
 				if (thr.id == 0)
 					continue;
-				ss << "\"" << bLab->getParentCreate() << "\" -> \""
-				   << bLab->getPos().next() << "\"[color=blue, constraint=false]\n";
+				printlnDotEdge(ss, bLab->getParentCreate(), bLab->getPos().next(),
+					       {{"color", "blue"}, {"constraint", "false"}});
 			}
 			if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab))
-				ss << "\"" << g.getLastThreadLabel(jLab->getChildId())->getPos()
-				   << "\" -> \"" << jLab->getPos()
-				   << "\"[color=blue, constraint=false]\n";
+				printlnDotEdge(ss,
+					       g.getLastThreadLabel(jLab->getChildId())->getPos(),
+					       jLab->getPos(),
+					       {{"color", "blue"}, {"constraint", "false"}});
+
+			// print extension edges
+			for (auto begLab : lin_succs(g, lab))
+				printlnDotEdge(ss, lab->getPos(), begLab.getPos(),
+					       {{"color", "red"}, {"constraint", "false"}});
+		}
+	}
+
+	if (printObservation) {
+		Observation obs(g, &getConsChecker());
+
+		for (auto const &[op1, op2] : obs.hb()) {
+			auto src = obs.getCall(op1).beginLab->getPos();
+			auto dst = obs.getCall(op2).endLab->getPos();
+			if (src.thread == dst.thread)
+				continue;
+			printlnDotEdge(ss, src, dst, {{"color", "blue"}, {"constraint", "false"}});
 		}
 	}
 

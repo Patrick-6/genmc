@@ -21,9 +21,9 @@
 #ifndef GENMC_VSET_HPP
 #define GENMC_VSET_HPP
 
-#include <functional>
-#include <initializer_list>
 #include <llvm/Support/raw_ostream.h>
+
+#include <initializer_list>
 #include <vector>
 
 template <class T> class VSet {
@@ -34,45 +34,43 @@ protected:
 	Set vset_;
 
 public:
-	VSet() : vset_(){};
-
-	/* Pre: v is sorted and distinct */
-	VSet(const std::vector<T> &v) : vset_(v){};
-
-	/* Pre: v is sorted and distinct */
-	VSet(std::vector<T> &&v) : vset_(std::move(v)){};
+	VSet() : vset_() {};
 
 	template <typename ITER> VSet(ITER begin, ITER end);
+
+	VSet(const std::vector<T> &v) : VSet(v.begin(), v.end()) {}
+
+	VSet(std::vector<T> &&v) : vset_(std::move(v)) { std::sort(vset_.begin(), vset_.end()); }
 
 	VSet(std::initializer_list<T> il);
 
 	VSet(const VSet &) = default;
 
-	VSet(VSet &&);
+	VSet(VSet &&) = default;
 
 	VSet &operator=(const VSet &) = default;
 
-	VSet &operator=(VSet &&);
+	VSet &operator=(VSet &&) = default;
 
-	virtual ~VSet(){};
+	virtual ~VSet() {};
 
 	using const_iterator = typename Set::const_iterator;
 	using const_reverse_iterator = typename Set::const_reverse_iterator;
 
-	const_iterator begin() const { return vset_.cbegin(); };
-	const_iterator end() const { return vset_.cend(); };
-	const_reverse_iterator rbegin() const { return vset_.crbegin(); };
-	const_reverse_iterator rend() const { return vset_.crend(); };
+	const_iterator begin() const { return vset_.begin(); };
+	const_iterator end() const { return vset_.end(); };
+	const_reverse_iterator rbegin() const { return vset_.rbegin(); };
+	const_reverse_iterator rend() const { return vset_.rend(); };
 
 	std::pair<const_iterator, bool> insert(const T &t);
 	int insert(const VSet<T> &s);
 	template <typename ITER> void insert(ITER begin, ITER end);
 
 	int erase(const T &t);
-
 	int erase(const VSet<T> &S);
 
 	int count(const T &t) const;
+	bool contains(const T &t) const;
 
 	const_iterator find(const T &t) const;
 
@@ -87,10 +85,15 @@ public:
 	bool intersects(const VSet<T> &s) const;
 	VSet<T> intersectWith(const VSet<T> &s) const;
 
+	/* remove from elements that is in given set `s` */
+	VSet<T> diff(const VSet<T> &s) const;
+
 	const T &min() const { return vset_[0]; };
 	const T &max() const { return vset_.back(); };
 
 	inline const T &operator[](int i) const { return vset_[i]; };
+
+	auto operator<=>(const VSet<T> &other) const = default;
 
 	template <typename U>
 	friend llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const VSet<U> &set);

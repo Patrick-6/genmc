@@ -126,6 +126,10 @@ public:
 	{
 		return DELEGATE_LABEL(CasReadLabel);
 	}
+	void visitAbstractLockCasReadLabel(const AbstractLockCasReadLabel &lab)
+	{
+		return DELEGATE_LABEL(LockCasReadLabel);
+	}
 	void visitTrylockCasReadLabel(const TrylockCasReadLabel &lab)
 	{
 		return DELEGATE_LABEL(CasReadLabel);
@@ -153,6 +157,10 @@ public:
 	{
 		return DELEGATE_LABEL(WriteLabel);
 	}
+	void visitAbstractUnlockWriteLabel(const AbstractUnlockWriteLabel &lab)
+	{
+		return DELEGATE_LABEL(UnlockWriteLabel);
+	}
 	void visitBInitWriteLabel(const BInitWriteLabel &lab) { return DELEGATE_LABEL(WriteLabel); }
 	void visitBDestroyWriteLabel(const BDestroyWriteLabel &lab)
 	{
@@ -178,6 +186,10 @@ public:
 	void visitLockCasWriteLabel(const LockCasWriteLabel &lab)
 	{
 		return DELEGATE_LABEL(CasWriteLabel);
+	}
+	void visitAbstractLockCasWriteLabel(const AbstractLockCasWriteLabel &lab)
+	{
+		return DELEGATE_LABEL(LockCasWriteLabel);
 	}
 	void visitTrylockCasWriteLabel(const TrylockCasWriteLabel &lab)
 	{
@@ -228,6 +240,11 @@ public:
 		return DELEGATE_LABEL(EventLabel);
 	}
 	void visitEmptyLabel(const EmptyLabel &lab) { return DELEGATE_LABEL(EventLabel); }
+	void visitMethodBeginLabel(const MethodBeginLabel &lab)
+	{
+		return DELEGATE_LABEL(EventLabel);
+	}
+	void visitMethodEndLabel(const MethodEndLabel &lab) { return DELEGATE_LABEL(EventLabel); }
 
 	/* Matchers for abstract classes */
 
@@ -341,6 +358,18 @@ public:
 		out << " [thread " << lab.getChildId() << "]";
 	}
 
+	void visitMethodBeginLabel(const MethodBeginLabel &lab)
+	{
+		DELEGATE_LABEL(EventLabel);
+		out << " (\"" << lab.getName() << "\")";
+	}
+
+	void visitMethodEndLabel(const MethodEndLabel &lab)
+	{
+		DELEGATE_LABEL(EventLabel);
+		out << " (\"" << lab.getName() << "\", " << lab.getResult() << ")";
+	}
+
 	/* Generic handlers */
 
 	void visitMemAccessLabel(const MemAccessLabel &lab)
@@ -367,7 +396,7 @@ public:
 	using FmterT = LabelPrinterBase<LabelPrinter>::FmterT;
 	using GetterT = LabelPrinterBase<LabelPrinter>::GetterT;
 
-	LabelPrinter() : LabelPrinterBase(){};
+	LabelPrinter() : LabelPrinterBase() {};
 	LabelPrinter(FmterT fmter, GetterT getter) : LabelPrinterBase(fmter, getter) {}
 
 	std::string toString(const EventLabel &lab)
@@ -402,7 +431,7 @@ public:
 	using FmterT = LabelPrinterBase<DotPrinter>::FmterT;
 	using GetterT = LabelPrinterBase<DotPrinter>::GetterT;
 
-	DotPrinter() : LabelPrinterBase(){};
+	DotPrinter() : LabelPrinterBase() {};
 	DotPrinter(FmterT fmter, GetterT getter) : LabelPrinterBase(fmter, getter) {}
 
 	std::string toString(const EventLabel &lab)

@@ -46,18 +46,6 @@ VSet<T>::VSet(std::initializer_list<T> il)
 }
 
 template<typename T>
-VSet<T>::VSet(VSet<T> &&s) : vset_(std::move(s.vset_)) { }
-
-template<typename T>
-VSet<T> &VSet<T>::operator=(VSet<T> &&s)
-{
-	if (this != &s){
-		vset_ = std::move(s.vset_);
-	}
-	return *this;
-}
-
-template<typename T>
 typename VSet<T>::const_iterator VSet<T>::find(const T &el) const
 {
 	auto it = std::lower_bound(begin(), end(), el);
@@ -70,10 +58,12 @@ int VSet<T>::count(const T &el) const
 	return (find(el) != end()) ? 1 : 0;
 }
 
+template <typename T> bool VSet<T>::contains(const T &el) const { return find(el) != end(); }
+
 template<typename T>
 std::pair<typename VSet<T>::const_iterator, bool> VSet<T>::insert(const T &el)
 {
-	auto it = std::lower_bound(begin(), end(), el);
+	auto it = std::lower_bound(vset_.begin(), vset_.end(), el);
 	if (it == end() || *it != el)
 		return std::make_pair(vset_.insert(it, el), true);
 	return std::make_pair(it, false);
@@ -294,6 +284,17 @@ VSet<T> VSet<T>::intersectWith(const VSet<T> &s) const
 		} else {
 			++b;
 		}
+	}
+	return result;
+}
+
+template <class T> VSet<T> VSet<T>::diff(const VSet<T> &s) const
+{
+	// TODO: optimize via a two-pointer algorithm
+	VSet<T> result;
+	for (const auto &e : vset_) {
+		if (auto it = s.find(e); it == s.end())
+			result.insert(e);
 	}
 	return result;
 }

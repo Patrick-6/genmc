@@ -538,7 +538,6 @@ public:
 	}
 
 	unsigned int getTypeSize(Type *typ) const;
-	SVal executeAtomicRMWOperation(SVal oldVal, SVal val, ASize size, AtomicRMWInst::BinOp op);
 
 	// Methods used to execute code:
 	// Place a call on the stack
@@ -719,6 +718,7 @@ private: // Helper functions
 	void handleUnlock(SAddr addr, ASize size, const EventDeps *deps);
 
 	/* Custom Opcode Implementations */
+
 #define HANDLE_FUNCTION(NUM, FUN, NAME)                                                            \
 	void call##NAME(Function *F, const std::vector<GenericValue> &ArgVals,                     \
 			const std::unique_ptr<EventDeps> &specialDeps);

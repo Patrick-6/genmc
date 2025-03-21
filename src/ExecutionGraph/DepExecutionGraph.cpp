@@ -114,6 +114,16 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 					return !preds->contains(mLab.getPos());
 				});
 			}
+			if (auto *begLab = llvm::dyn_cast<MethodBeginLabel>(lab)) {
+				begLab->removePredNoCascade([&](auto *endLab) {
+					return !preds->contains(endLab->getPos());
+				});
+			}
+			if (auto *endLab = llvm::dyn_cast<MethodEndLabel>(lab)) {
+				endLab->removeSuccNoCascade([&](auto *begLab) {
+					return !preds->contains(begLab->getPos());
+				});
+			}
 		}
 	}
 

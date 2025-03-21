@@ -149,7 +149,7 @@ public:
 			auto dw = GenMCDriver::create(conf, std::move(newmod), std::move(newMI),
 						      this);
 			if (i == 0)
-				submit(std::move(dw->extractState()));
+				submit(dw->extractState());
 			addWorker(i, std::move(dw));
 		}
 	}

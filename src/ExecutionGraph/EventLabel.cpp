@@ -59,6 +59,40 @@ SVal EventLabel::getReturnValue() const
 	BUG();
 }
 
+void InitLabel::addReader(ReadLabel *rLab)
+{
+	BUG_ON(std::find_if(rf_begin(rLab->getAddr()), rf_end(rLab->getAddr()),
+			    [rLab](ReadLabel &oLab) { return oLab.getPos() == rLab->getPos(); }) !=
+	       rf_end(rLab->getAddr()));
+	initRfs[rLab->getAddr()].push_back(*rLab);
+}
+
+void MethodBeginLabel::addPred(MethodEndLabel *predLab)
+{
+	/* Add to predecessor list */
+	auto preds = lin_preds();
+	BUG_ON(std::ranges::find_if(preds, [predLab](auto &endLab) {
+		       return endLab->getPos() == predLab->getPos();
+	       }) != std::ranges::end(preds));
+	linPreds_.push_back(predLab);
+
+	/* Add THIS as a successor of PREDLAB */
+	predLab->addSuccNoCascade(this);
+}
+
+void MethodEndLabel::addSucc(MethodBeginLabel *succLab)
+{
+	/* Add to successors list */
+	auto succs = lin_succs();
+	BUG_ON(std::ranges::find_if(succs, [succLab](auto &begLab) {
+		       return begLab->getPos() == succLab->getPos();
+	       }) != std::ranges::end(succs));
+	linSuccs_.push_back(succLab);
+
+	/* Add THIS as a predecessor of SUCCLAB */
+	succLab->addPredNoCascade(this);
+}
+
 bool WriteLabel::isRMW() const
 {
 	return CasWriteLabel::classofKind(getKind()) || FaiWriteLabel::classofKind(getKind());
@@ -79,7 +113,7 @@ bool WriteLabel::isEffectful() const
 	auto &g = *getParent();
 	auto *xLab = llvm::dyn_cast<FaiWriteLabel>(this);
 	auto *rLab = llvm::dyn_cast<FaiReadLabel>(g.po_imm_pred(this));
-	if (!xLab || rLab->getOp() != llvm::AtomicRMWInst::BinOp::Xchg)
+	if (!xLab || rLab->getOp() != RMWBinOp::Xchg)
 		return true;
 
 	return rLab->getAccessValue(rLab->getAccess()) != xLab->getVal();
@@ -226,6 +260,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabel
 	case EventLabel::CasRead:
 	case EventLabel::LockCasRead:
 	case EventLabel::TrylockCasRead:
+	case EventLabel::AbstractLockCasRead:
 	case EventLabel::HelpedCasRead:
 	case EventLabel::ConfirmingCasRead:
 		s << "CR";
@@ -248,6 +283,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabel
 	case EventLabel::CasWrite:
 	case EventLabel::LockCasWrite:
 	case EventLabel::TrylockCasWrite:
+	case EventLabel::AbstractLockCasWrite:
 	case EventLabel::HelpedCasWrite:
 	case EventLabel::ConfirmingCasWrite:
 		s << "CW";
@@ -281,6 +317,12 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabel
 	case EventLabel::HpProtect:
 		s << "HP_PROTECT";
 		break;
+	case EventLabel::MethodBegin:
+		s << "METHOD_BEGIN";
+		break;
+	case EventLabel::MethodEnd:
+		s << "METHOD_END";
+		break;
 	case EventLabel::Optional:
 		s << "OPTIONAL";
 		break;
@@ -294,7 +336,6 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabel
 	case EventLabel::LockZNESpinEnd:
 		s << "ZNE_SPIN_END";
 		break;
-		break;
 	case EventLabel::Empty:
 		s << "EMPTY";
 		break;
@@ -302,30 +343,6 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabel
 		PRINT_BUGREPORT_INFO_ONCE("print-label-type", "Cannot print label type");
 		s << "UNKNOWN";
 		break;
-	}
-	return s;
-}
-
-llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const llvm::AtomicOrdering o)
-{
-	switch (o) {
-	case llvm::AtomicOrdering::NotAtomic:
-		return s << "na";
-	case llvm::AtomicOrdering::Unordered:
-		return s << "un";
-	case llvm::AtomicOrdering::Monotonic:
-		return s << "rlx";
-	case llvm::AtomicOrdering::Acquire:
-		return s << "acq";
-	case llvm::AtomicOrdering::Release:
-		return s << "rel";
-	case llvm::AtomicOrdering::AcquireRelease:
-		return s << "ar";
-	case llvm::AtomicOrdering::SequentiallyConsistent:
-		return s << "sc";
-	default:
-		PRINT_BUGREPORT_INFO_ONCE("print-ordering-type", "Cannot print ordering");
-		return s;
 	}
 	return s;
 }

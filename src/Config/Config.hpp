@@ -58,6 +58,10 @@ public:
 	bool ipr;
 	bool disableStopOnSystemError;
 	bool warnUnfreedMemory;
+	std::optional<std::string> collectLinSpec;
+	std::optional<std::string> checkLinSpec;
+	unsigned int maxExtSize;
+	bool dotPrintOnlyClientEvents;
 
 	/*** Persistency options ***/
 	bool persevere;
@@ -101,6 +105,7 @@ public:
 	bool countMootExecs;
 	bool printEstimationStats;
 	bool boundsHistogram;
+	bool relincheDebug;
 #endif
 
 	/* Parses the CLI options and initialized the respective fields */

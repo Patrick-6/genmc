@@ -27,11 +27,15 @@
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "Support/SAddrAllocator.hpp"
 #include "Verification/ChoiceMap.hpp"
+#include "Verification/Relinche/LinearizabilityChecker.hpp"
+#include "Verification/Relinche/Specification.hpp"
 #include "Verification/VerificationError.hpp"
 #include "Verification/WorkList.hpp"
 #include <llvm/ADT/BitVector.h>
 #include <llvm/IR/Module.h>
 
+#include <chrono>
+#include <cstdint>
 #include <ctime>
 #include <memory>
 #include <random>
@@ -79,12 +83,14 @@ public:
 		llvm::IndexedMap<int> exploredBounds{}; /* Number of complete executions not
 							   exceeding each bound */
 #endif
-		std::string message{};		    /* A message to be printed */
-		VSet<VerificationError> warnings{}; /* The warnings encountered */
+		std::string message{};				 /* A message to be printed */
+		VSet<VerificationError> warnings{};		 /* The warnings encountered */
+		std::unique_ptr<Specification> specification;	 /* Spec collected (if any) */
+		LinearizabilityChecker::Result relincheResult{}; /* Spec analysis result */
 
 		Result() = default;
 
-		auto operator+=(const Result &other) -> Result &
+		auto operator+=(Result &&other) -> Result &
 		{
 			/* Propagate latest error */
 			if (other.status != VerificationError::VE_OK)
@@ -104,6 +110,10 @@ public:
 			duplicates += other.duplicates;
 #endif
 			warnings.insert(other.warnings);
+			if (other.specification)
+				specification->merge(std::move(
+					*other.specification)); // FIXME other is const lvalue
+			relincheResult += std::move(other.relincheResult);
 			return *this;
 		}
 	};
@@ -289,6 +299,9 @@ protected:
 	/* Returns a reference to the symmetry checker */
 	SymmetryChecker &getSymmChecker() { return *symmChecker; }
 	const SymmetryChecker &getSymmChecker() const { return *symmChecker; }
+
+	LinearizabilityChecker &getRelinche() { return *relinche; }
+	const LinearizabilityChecker &getRelinche() const { return *relinche; }
 
 	/* Stops the verification procedure when an error is found */
 	void halt(VerificationError status);
@@ -689,8 +702,8 @@ private:
 	/* Outputs the current graph into a file (DOT format),
 	 * and visually marks events e and c (conflicting).
 	 * Assumes debugging information have already been collected  */
-	void dotPrintToFile(const std::string &filename, const EventLabel *errLab,
-			    const EventLabel *racyLab);
+	void dotPrintToFile(const std::string &filename, const EventLabel *errLab = nullptr,
+			    const EventLabel *racyLab = nullptr, bool printObservation = false);
 
 	void updateLabelViews(EventLabel *lab);
 	VerificationError checkForRaces(const EventLabel *lab);
@@ -742,6 +755,9 @@ private:
 
 	/* Decider used to bound the exploration */
 	std::unique_ptr<BoundDecider> bounder;
+
+	/* Linearizability checker */
+	std::unique_ptr<LinearizabilityChecker> relinche;
 
 	/* Opt: Which thread(s) the scheduler should prioritize
 	 * (empty if none) */

@@ -26,8 +26,6 @@
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
-#include <thread>
-
 /*** Command-line argument categories ***/
 
 static llvm::cl::OptionCategory clGeneral("Exploration Options");
@@ -116,6 +114,25 @@ static llvm::cl::opt<bool>
 static llvm::cl::opt<bool>
 	clDisableWarnUnfreedMemory("disable-warn-on-unfreed-memory", llvm::cl::cat(clGeneral),
 				   llvm::cl::desc("Do not warn about unfreed memory"));
+
+static llvm::cl::opt<std::string>
+	clCollectLinSpec("collect-lin-spec", llvm::cl::init(""), llvm::cl::value_desc("file"),
+			 llvm::cl::cat(clGeneral),
+			 llvm::cl::desc("Collect linearizability specification into a file"));
+
+static llvm::cl::opt<std::string>
+	clCheckLinSpec("check-lin-spec", llvm::cl::init(""), llvm::cl::value_desc("file"),
+		       llvm::cl::cat(clGeneral),
+		       llvm::cl::desc("Check implementation refinement of specification file"));
+
+static llvm::cl::opt<bool>
+	clDotPrintOnlyClientEvents("dot-print-only-client-events", llvm::cl::cat(clGeneral),
+				   llvm::cl::desc("Omit library events in the DOT file"));
+
+static llvm::cl::opt<unsigned int> clMaxExtSize(
+	"max-hint-size", llvm::cl::init(std::numeric_limits<unsigned int>::max()),
+	llvm::cl::cat(clDebugging),
+	llvm::cl::desc("Limit the number of edges in hints to be considered (for debugging)"));
 
 /*** Persistency options ***/
 
@@ -281,6 +298,9 @@ static llvm::cl::opt<bool> clCountMootExecs("count-moot-execs", llvm::cl::cat(cl
 static llvm::cl::opt<bool> clPrintEstimationStats("print-estimation-stats",
 						  llvm::cl::cat(clDebugging),
 						  llvm::cl::desc("Prints estimations statistics"));
+
+static llvm::cl::opt<bool> clRelincheDebug("relinche-debug", llvm::cl::cat(clDebugging),
+					   llvm::cl::desc("Enable debug printing for Relinche"));
 #endif /* ENABLE_GENMC_DEBUG */
 
 void printVersion(llvm::raw_ostream &s)
@@ -338,6 +358,12 @@ void Config::checkConfigOptions() const
 		clSchedulePolicy = SchedulePolicy::ltr;
 	}
 
+	/* Check Relinche options */
+	if (!clCollectLinSpec.empty() && !clCheckLinSpec.empty()) {
+		ERROR("Cannot collect and analyze linearizability specification in a single "
+		      "run.\n");
+	}
+
 	/* Make sure filename is a regular file */
 	if (!llvm::sys::fs::is_regular_file(clInputFile))
 		ERROR("Input file is not a regular file!\n");
@@ -371,6 +397,12 @@ void Config::saveConfigOptions()
 	ipr = !clDisableIPR;
 	disableStopOnSystemError = clDisableStopOnSystemError;
 	warnUnfreedMemory = !clDisableWarnUnfreedMemory;
+	collectLinSpec = clCollectLinSpec.empty() ? std::nullopt
+						  : std::optional(clCollectLinSpec.getValue());
+	checkLinSpec = clCheckLinSpec.empty() ? std::nullopt
+					      : std::optional(clCheckLinSpec.getValue());
+	dotPrintOnlyClientEvents = clDotPrintOnlyClientEvents;
+	maxExtSize = clMaxExtSize;
 
 	/* Save persistency options */
 	persevere = clPersevere;
@@ -411,6 +443,7 @@ void Config::saveConfigOptions()
 	countMootExecs = clCountMootExecs;
 	printEstimationStats = clPrintEstimationStats;
 	boundsHistogram = clBoundsHistogram;
+	relincheDebug = clRelincheDebug;
 #endif
 	/* Set (global) log state */
 	logLevel = vLevel;
