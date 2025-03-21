@@ -104,7 +104,7 @@ public:
 	using CallEdge = std::pair<MethodCall::Id, MethodCall::Id>;
 	using PermutationMap = llvm::IndexedMap<MethodCall::Id>;
 
-	Observation(const ExecutionGraph &graph, const ConsistencyChecker *consChecker);
+	Observation(ExecutionGraph &graph, const ConsistencyChecker *consChecker);
 
 	[[nodiscard]] auto ops() const { return std::views::all(ops_); }
 	[[nodiscard]] auto ops() { return std::views::all(ops_); }

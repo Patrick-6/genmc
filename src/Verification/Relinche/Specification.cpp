@@ -234,7 +234,7 @@ template <class T> static auto existsPermutation(std::vector<std::vector<T>> &v)
 		v, [](auto &eq) { return std::ranges::next_permutation(eq).found; });
 }
 
-void Specification::add(const ExecutionGraph &g, const ConsistencyChecker *consChecker,
+void Specification::add(ExecutionGraph &g, const ConsistencyChecker *consChecker,
 			bool symmReduction)
 {
 	Observation obs(g, consChecker);

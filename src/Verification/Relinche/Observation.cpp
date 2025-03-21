@@ -46,7 +46,7 @@ static auto isTotallyOrderedOp(const MethodCall &op, const auto &&ops,
 }
 
 /* Collect the set of method calls and non-method RF edges */
-static void populateOpsRf(const ExecutionGraph &g, std::vector<MethodCall> &ops,
+static void populateOpsRf(ExecutionGraph &g, std::vector<MethodCall> &ops,
 			  VSet<std::pair<int, int>> &rfs)
 {
 	int thdKindIx = 0; // main thread has index zero
@@ -154,7 +154,7 @@ static void normalize(std::vector<MethodCall> &ops)
 	std::ranges::stable_sort(ops);
 }
 
-Observation::Observation(const ExecutionGraph &g, const ConsistencyChecker *checker)
+Observation::Observation(ExecutionGraph &g, const ConsistencyChecker *checker)
 {
 	/* Collect all method calls and non-method RF edges */
 	populateOpsRf(g, ops_, rfs_);
