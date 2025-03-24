@@ -325,9 +325,6 @@ protected:
 	 * The driver is left in an inconsistent form */
 	std::unique_ptr<Execution> extractState();
 
-	/* Returns a fresh address for a new allocation */
-	SAddr getFreshAddr(const MallocLabel *aLab);
-
 	/* Returns all values read leading up to POS */
 	std::pair<std::vector<SVal>, std::vector<Event>> extractValPrefix(Event pos);
 

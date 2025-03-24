@@ -193,7 +193,7 @@ std::unique_ptr<GenMCDriver::Execution> GenMCDriver::extractState()
 }
 
 /* Returns a fresh address to be used from the interpreter */
-SAddr GenMCDriver::getFreshAddr(const MallocLabel *aLab)
+static auto getFreshAddr(const MallocLabel *aLab, SAddrAllocator &alloctor) -> SAddr
 {
 	/* The arguments to getFreshAddr() need to be well-formed;
 	 * make sure the alignment is positive and a power of 2 */
@@ -201,21 +201,20 @@ SAddr GenMCDriver::getFreshAddr(const MallocLabel *aLab)
 	BUG_ON(alignment <= 0 || (alignment & (alignment - 1)) != 0);
 	switch (aLab->getStorageDuration()) {
 	case StorageDuration::SD_Automatic:
-		return getExec().getAllocator().allocAutomatic(
-			aLab->getThread(), aLab->getAllocSize(), alignment,
-			aLab->getStorageType() == StorageType::ST_Durable,
-			aLab->getAddressSpace() == AddressSpace::AS_Internal);
+		return alloctor.allocAutomatic(aLab->getThread(), aLab->getAllocSize(), alignment,
+					       aLab->getStorageType() == StorageType::ST_Durable,
+					       aLab->getAddressSpace() ==
+						       AddressSpace::AS_Internal);
 	case StorageDuration::SD_Heap:
-		return getExec().getAllocator().allocHeap(
-			aLab->getThread(), aLab->getAllocSize(), alignment,
-			aLab->getStorageType() == StorageType::ST_Durable,
-			aLab->getAddressSpace() == AddressSpace::AS_Internal);
+		return alloctor.allocHeap(aLab->getThread(), aLab->getAllocSize(), alignment,
+					  aLab->getStorageType() == StorageType::ST_Durable,
+					  aLab->getAddressSpace() == AddressSpace::AS_Internal);
 	case StorageDuration::SD_Static: /* Cannot ask for fresh static addresses */
 	default:
 		BUG();
 	}
 	BUG();
-	return SAddr();
+	return {};
 }
 
 void GenMCDriver::resetThreadPrioritization() { threadPrios.clear(); }
@@ -2098,7 +2097,7 @@ SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
 	BUG_ON(!getConf()->isDepTrackingModel && oldAddr != SAddr() &&
 	       oldAddr != aLab->getAllocAddr());
 	if (oldAddr == SAddr())
-		aLab->setAllocAddr(getFreshAddr(&*aLab));
+		aLab->setAllocAddr(getFreshAddr(&*aLab, getExec().getAllocator()));
 	auto *lab = llvm::dyn_cast<MallocLabel>(addLabelToGraph(std::move(aLab)));
 	return SVal(lab->getAllocAddr().get());
 }
