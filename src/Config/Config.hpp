@@ -34,8 +34,6 @@ enum class SchedulePolicy : std::uint8_t { ltr, wf, wfr, arbitrary };
 enum class BoundType : std::uint8_t { context, round };
 
 struct Config {
-
-public:
 	/*** General syntax ***/
 	std::vector<std::string> cflags;
 	std::string inputFile;
