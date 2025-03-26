@@ -201,7 +201,7 @@ runspec() {
     failure_output=""
     dir="$1"
     spec="${dir}/spec.c"
-    client="${dir}/test_client.c"
+    client="${dir}/mpc.c"
     GENMCFLAGS="${GENMCFLAGS:--disable-estimation --disable-mm-detector --rc11}"
     for test_in in "${dir}"/args.*.in; do
 	for sr in "" "-disable-sr"; do
@@ -281,7 +281,7 @@ runimpl() {
     failure_output=""
     dir="$1"
     spec="${dir}/spec.c"
-    client="${dir}/test_client.c"
+    client="${dir}/mpc.c"
     GENMCFLAGS="${GENMCFLAGS:--disable-estimation --disable-mm-detector --rc11}"
     che_hint_time="" # requires genmc to be compiled with -DGENMC_DEBUG
     che_genmc_time=""

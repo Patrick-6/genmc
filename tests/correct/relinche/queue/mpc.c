@@ -42,4 +42,4 @@ queue_t queue;
 # define THREAD_NUM_2 1
 #endif
 
-#include "../generic_test_client.c"
+#include "../mpc_template.h"

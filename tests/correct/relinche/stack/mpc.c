@@ -34,4 +34,4 @@
 #define THREAD_NUM_2 RTN
 
 
-#include "../generic_test_client.c"
+#include "../mpc_template.h"
