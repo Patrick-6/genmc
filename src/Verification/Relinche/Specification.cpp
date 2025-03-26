@@ -552,9 +552,8 @@ void serialize(llvm::raw_ostream &os, const Specification &spec)
 	};
 
 	os << "# Specification\n";
-	os << "# size: \n";
-	os << spec.data_.size() << "\n";
 	os << "# Statistics: "
+	   << " Size: " << spec.data_.size() << " "
 	   << " Hints: " << spec.getNumHints() << " "
 	   << " Lins: " << spec.getNumLins() << "\n";
 	os << "# Observations:\n";
@@ -587,23 +586,17 @@ inline static void readVector(std::istream &is, std::vector<T> &v, FT readElem)
 	v.resize(v_size);
 	for (auto i = 0U; i < v_size; ++i)
 		readElem(v[i]);
+
+	/* Using >> will leave trailing newlines.
+	 * Consume those before calling getline */
+	is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 }
 
 static void skipComments(std::istream &is)
 {
 	static std::string comment;
-	for (;;) {
-		if (is.eof() || is.fail())
-			break;
-		auto pos = is.tellg();
+	while (!is.eof() && !is.fail() && is.peek() == '#')
 		std::getline(is, comment);
-		auto isNonEmpty = std::count_if(comment.begin(), comment.end(),
-						[](auto chr) { return !std::isspace(chr); }) != 0;
-		if (comment[0] != '#' && isNonEmpty) {
-			is.seekg(pos);
-			break;
-		}
-	}
 }
 
 auto deserialize(std::istream &is) -> Specification
@@ -619,10 +612,9 @@ auto deserialize(std::istream &is) -> Specification
 
 	Specification result;
 
-	skipComments(is); // # Specification ## Size
-	size_t size = 0;
-	is >> size;
-	for (size_t i = 0; i < size; ++i) {
+	auto i = 0U;
+	while (!is.eof()) {
+		++i;
 		Observation obs;
 
 		std::vector<MethodCall> ops; // ### Outcome
@@ -646,6 +638,9 @@ auto deserialize(std::istream &is) -> Specification
 		skipComments(is);
 		readVector(is, hints, [&](auto &hint) { readVector(is, hint.edges, readIdEdge); });
 		result.addHints(obs, std::move(hints));
+
+		/* empty newline between outcomes */
+		is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 	}
 	return result;
 }
