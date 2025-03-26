@@ -303,7 +303,7 @@ static llvm::cl::opt<bool> clRelincheDebug("relinche-debug", llvm::cl::cat(clDeb
 					   llvm::cl::desc("Enable debug printing for Relinche"));
 #endif /* ENABLE_GENMC_DEBUG */
 
-void printVersion(llvm::raw_ostream &s)
+static void printVersion(llvm::raw_ostream &s)
 {
 	s << PACKAGE_NAME " (" PACKAGE_URL "):\n"
 	  << "  " PACKAGE_NAME " v" PACKAGE_VERSION
@@ -313,7 +313,7 @@ void printVersion(llvm::raw_ostream &s)
 	  << "\n  Built with LLVM " LLVM_VERSION " (" LLVM_BUILDMODE ")\n";
 }
 
-void Config::checkConfigOptions() const
+static void checkConfigOptions()
 {
 	/* Check exploration options */
 	if (clLAPOR) {
@@ -369,87 +369,85 @@ void Config::checkConfigOptions() const
 		ERROR("Input file is not a regular file!\n");
 }
 
-void Config::saveConfigOptions()
+static void saveConfigOptions(Config &conf)
 {
 	/* General syntax */
-	cflags.insert(cflags.end(), clCFLAGS.begin(), clCFLAGS.end());
-	inputFile = clInputFile;
+	conf.cflags.insert(conf.cflags.end(), clCFLAGS.begin(), clCFLAGS.end());
+	conf.inputFile = std::move(clInputFile);
 
 	/* Save exploration options */
-	dotFile = clDotGraphFile;
-	model = clModelType;
-	estimate = !clDisableEstimation;
-	estimationMax = clEstimationMax;
-	estimationMin = clEstimationMin;
-	sdThreshold = clEstimationSdThreshold;
-	isDepTrackingModel = (model == ModelType::IMM);
-	threads = clThreads;
-	bound = clBound >= 0 ? std::optional(clBound.getValue()) : std::nullopt;
-	boundType = clBoundType;
-	LAPOR = clLAPOR;
-	symmetryReduction = !clDisableSymmetryReduction;
-	helper = clHelper;
-	printErrorTrace = clPrintErrorTrace;
-	checkLiveness = clCheckLiveness;
-	instructionCaching = !clDisableInstructionCaching;
-	disableRaceDetection = clDisableRaceDetection;
-	disableBAM = clDisableBAM;
-	ipr = !clDisableIPR;
-	disableStopOnSystemError = clDisableStopOnSystemError;
-	warnUnfreedMemory = !clDisableWarnUnfreedMemory;
-	collectLinSpec = clCollectLinSpec.empty() ? std::nullopt
-						  : std::optional(clCollectLinSpec.getValue());
-	checkLinSpec = clCheckLinSpec.empty() ? std::nullopt
-					      : std::optional(clCheckLinSpec.getValue());
-	dotPrintOnlyClientEvents = clDotPrintOnlyClientEvents;
-	maxExtSize = clMaxExtSize;
+	conf.dotFile = std::move(clDotGraphFile);
+	conf.model = clModelType;
+	conf.estimate = !clDisableEstimation;
+	conf.estimationMax = clEstimationMax;
+	conf.estimationMin = clEstimationMin;
+	conf.sdThreshold = clEstimationSdThreshold;
+	conf.isDepTrackingModel = (conf.model == ModelType::IMM);
+	conf.threads = clThreads;
+	conf.bound = clBound >= 0 ? std::optional(clBound.getValue()) : std::nullopt;
+	conf.boundType = clBoundType;
+	conf.LAPOR = clLAPOR;
+	conf.symmetryReduction = !clDisableSymmetryReduction;
+	conf.helper = clHelper;
+	conf.printErrorTrace = clPrintErrorTrace;
+	conf.checkLiveness = clCheckLiveness;
+	conf.instructionCaching = !clDisableInstructionCaching;
+	conf.disableRaceDetection = clDisableRaceDetection;
+	conf.disableBAM = clDisableBAM;
+	conf.ipr = !clDisableIPR;
+	conf.disableStopOnSystemError = clDisableStopOnSystemError;
+	conf.warnUnfreedMemory = !clDisableWarnUnfreedMemory;
+	conf.collectLinSpec = clCollectLinSpec.empty() ? std::nullopt
+						       : std::optional(clCollectLinSpec.getValue());
+	conf.checkLinSpec = clCheckLinSpec.empty() ? std::nullopt
+						   : std::optional(clCheckLinSpec.getValue());
+	conf.dotPrintOnlyClientEvents = clDotPrintOnlyClientEvents;
+	conf.maxExtSize = clMaxExtSize;
 
 	/* Save persistency options */
-	persevere = clPersevere;
-	blockSize = clBlockSize;
-	maxFileSize = clMaxFileSize;
-	journalData = clJournalData;
-	disableDelalloc = clDisableDelalloc;
+	conf.persevere = clPersevere;
+	conf.blockSize = clBlockSize;
+	conf.maxFileSize = clMaxFileSize;
+	conf.journalData = clJournalData;
+	conf.disableDelalloc = clDisableDelalloc;
 
 	/* Save transformation options */
-	unroll = clLoopUnroll >= 0 ? std::optional(clLoopUnroll.getValue()) : std::nullopt;
-	noUnrollFuns.insert(clNoUnrollFuns.begin(), clNoUnrollFuns.end());
-	loopJumpThreading = !clDisableLoopJumpThreading;
-	castElimination = !clDisableCastElimination;
-	inlineFunctions = !clDisableFunctionInliner;
-	spinAssume = !clDisableSpinAssume;
-	codeCondenser = !clDisableCodeCondenser;
-	loadAnnot = !clDisableLoadAnnot;
-	assumePropagation = !clDisableAssumePropagation;
-	confirmAnnot = !clDisableConfirmAnnot;
-	mmDetector = !clDisableMMDetector;
+	conf.unroll = clLoopUnroll >= 0 ? std::optional(clLoopUnroll.getValue()) : std::nullopt;
+	conf.noUnrollFuns.insert(clNoUnrollFuns.begin(), clNoUnrollFuns.end());
+	conf.loopJumpThreading = !clDisableLoopJumpThreading;
+	conf.castElimination = !clDisableCastElimination;
+	conf.inlineFunctions = !clDisableFunctionInliner;
+	conf.spinAssume = !clDisableSpinAssume;
+	conf.codeCondenser = !clDisableCodeCondenser;
+	conf.loadAnnot = !clDisableLoadAnnot;
+	conf.assumePropagation = !clDisableAssumePropagation;
+	conf.confirmAnnot = !clDisableConfirmAnnot;
+	conf.mmDetector = !clDisableMMDetector;
 
 	/* Save debugging options */
-	programEntryFun = clProgramEntryFunction;
-	warnOnGraphSize = clWarnOnGraphSize;
-	schedulePolicy = clSchedulePolicy;
-	printRandomScheduleSeed = clPrintArbitraryScheduleSeed;
-	randomScheduleSeed = clArbitraryScheduleSeed;
-	printExecGraphs = clPrintExecGraphs;
-	printBlockedExecs = clPrintBlockedExecs;
-	inputFromBitcodeFile = clInputFromBitcodeFile;
-	transformFile = clTransformFile;
-	vLevel = clVLevel;
+	conf.programEntryFun = std::move(clProgramEntryFunction);
+	conf.warnOnGraphSize = clWarnOnGraphSize;
+	conf.schedulePolicy = clSchedulePolicy;
+	conf.printRandomScheduleSeed = clPrintArbitraryScheduleSeed;
+	conf.randomScheduleSeed = std::move(clArbitraryScheduleSeed);
+	conf.printExecGraphs = clPrintExecGraphs;
+	conf.printBlockedExecs = clPrintBlockedExecs;
+	conf.inputFromBitcodeFile = clInputFromBitcodeFile;
+	conf.transformFile = std::move(clTransformFile);
+	conf.vLevel = clVLevel;
 #ifdef ENABLE_GENMC_DEBUG
-	printStamps = clPrintStamps;
-	colorAccesses = clColorAccesses;
-	validateExecGraphs = clValidateExecGraphs;
-	countDuplicateExecs = clCountDuplicateExecs;
-	countMootExecs = clCountMootExecs;
-	printEstimationStats = clPrintEstimationStats;
-	boundsHistogram = clBoundsHistogram;
-	relincheDebug = clRelincheDebug;
+	conf.printStamps = clPrintStamps;
+	conf.colorAccesses = clColorAccesses;
+	conf.validateExecGraphs = clValidateExecGraphs;
+	conf.countDuplicateExecs = clCountDuplicateExecs;
+	conf.countMootExecs = clCountMootExecs;
+	conf.printEstimationStats = clPrintEstimationStats;
+	conf.boundsHistogram = clBoundsHistogram;
+	conf.relincheDebug = clRelincheDebug;
 #endif
-	/* Set (global) log state */
-	logLevel = vLevel;
 }
 
-void Config::getConfigOptions(int argc, char **argv)
+void parseConfig(int argc, char **argv, Config &conf)
 {
 	/* Option categories printed */
 	const llvm::cl::OptionCategory *cats[] = {&clGeneral, &clDebugging, &clTransformation,
@@ -465,7 +463,10 @@ void Config::getConfigOptions(int argc, char **argv)
 
 	/* Sanity-check config options and then appropriately save them */
 	checkConfigOptions();
-	saveConfigOptions();
+	saveConfigOptions(conf);
+
+	/* Set (global) log state */
+	logLevel = conf.vLevel;
 
 	llvm::cl::ResetAllOptionOccurrences();
 	clInputFile.removeArgument();

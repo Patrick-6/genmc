@@ -24,7 +24,7 @@
 #include <memory>
 
 class ExecutionGraph;
-enum class BoundType;
+enum class BoundType : std::uint8_t;
 
 enum class BoundCalculationStrategy { Slacked, NonSlacked };
 

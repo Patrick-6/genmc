@@ -203,7 +203,7 @@ auto main(int argc, char **argv) -> int
 	auto begin = std::chrono::high_resolution_clock::now();
 	auto conf = std::make_shared<Config>();
 
-	conf->getConfigOptions(argc, argv);
+	parseConfig(argc, argv, *conf);
 
 	PRINT(VerbosityLevel::Error)
 		<< PACKAGE_NAME " v" PACKAGE_VERSION << " (LLVM " LLVM_VERSION ")\n"
