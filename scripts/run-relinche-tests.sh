@@ -46,8 +46,8 @@ print_spec_header() {
 
 	# Print table's header
 	printline
-	printf "| ${CYAN}%-29s${NC} | ${CYAN}%-4s${NC} | ${CYAN}%-6s${NC} | ${CYAN}%-6s${NC} | ${CYAN}%-6s${NC} |\n" \
-	       "Testcase" "Spec" "Result" "Spec execs" "Spec hints"
+	printf "| ${CYAN}%-29s${NC} | ${CYAN}%-4s${NC} | ${CYAN}%-3s${NC} | ${CYAN}%-6s${NC} | ${CYAN}%-6s${NC} | ${CYAN}%-6s${NC} | ${CYAN}%-6s${NC} |\n" \
+	       "Testcase" "Spec" "SR" "Result" "Execs" "Obs" "Hints"
 	printline
 }
 
@@ -75,16 +75,22 @@ printfooter() {
     echo ''
 }
 
-print_spec_info() {
+print_impl_info() {
 	line_suffix=""
 	if [ "${test_line_num}" -gt 1 ]; then
 		line_suffix=" (${test_line_num})"
 	fi
-	[[ -z "$sr" ]] && sr_suffix="SR" || sr_suffix="NOSR"
 	SPEC_TYPE="V"
 	if [[ "${args_in}" =~ "DSYNC_INS" ]]; then SPEC_TYPE="${SPEC_TYPE}I"; fi
 	if [[ "${args_in}" =~ "DSYNC_REM" ]]; then SPEC_TYPE="${SPEC_TYPE}R"; fi
-	printf "| ${POWDER_BLUE}%-29s${NC} | ${POWDER_BLUE}%-4s${NC} | " "${test_name:5:-3}${line_suffix}/${sr_suffix}" "${SPEC_TYPE}"
+	printf "| ${POWDER_BLUE}%-29s${NC} | ${POWDER_BLUE}%-4s${NC} | " \
+	       "${test_name:5:-3}${line_suffix}" "${SPEC_TYPE}"
+}
+
+print_spec_info() {
+	print_impl_info
+	[[ -z "$sr" ]] && SR_INFO="yes" || SR_INFO="no"
+	printf "${POWDER_BLUE}%-3s${NC} | " "${SR_INFO}"
 }
 
 print_spec_results() {
@@ -92,13 +98,15 @@ print_spec_results() {
 	outcome="${RED}ERROR ${NC}"
 	result=1
     elif test -n "${failure}"; then
-	outcome="${LIME_YELLOW}FAILED${NC}"
+	outcome="${YELLOW}FAILED${NC}"
 	result=1
+    elif test -n "${should_fail}"; then
+	outcome="N/A   "
     else
 	outcome="${GREEN}SAFE  ${NC}"
     fi
-    printf "${outcome} | % 10s | % 10s |\n" \
-	   "${col_execs}"  "${col_hints}"
+    printf "${outcome} | % 6s | % 6s | % 6s |\n" \
+	   "${col_execs}"  "${col_obs}" "${col_hints}"
 
     if test -n "${failure}" -o -n "${outcome_failure}"; then
 	echo "${failure_output}"
@@ -110,7 +118,7 @@ print_impl_results() {
 	outcome="${RED}ERROR ${NC}"
 	result=1
     elif test -n "${failure}"; then
-	outcome="${LIME_YELLOW}FAILED${NC}"
+	outcome="${YELLOW}FAILED${NC}"
 	result=1
     else
 	outcome="${GREEN}SAFE  ${NC}"
@@ -204,43 +212,43 @@ runspec() {
     client="${dir}/mpc.c"
     GENMCFLAGS="${GENMCFLAGS:--disable-estimation --disable-mm-detector --rc11}"
     for test_in in "${dir}"/args.*.in; do
-	for sr in "" "-disable-sr"; do
-	    # skip big tests
-	    if test -n "${fastrun}"; then
-		if [[ "${test_in}" =~ "NxN" ]]; then
-		    continue
-		fi
+	# skip big tests
+	if test -n "${fastrun}"; then
+	    if [[ "${test_in}" =~ "NxN" ]]; then
+	        continue
 	    fi
+	fi
 
-	    # filter tests
-	    case "${test_in}" in
-		${TESTFILTER}) ;;
-		*) continue;;
-	    esac
+	# filter tests
+	case "${test_in}" in
+	    ${TESTFILTER}) ;;
+	    *) continue;;
+	esac
 
-	    # check whether test is negative
-	    should_fail=""
-	    if [[ "${test_in}" =~ "fail" ]]; then
-		should_fail=1
-	    fi
-	    test_line_num=0
+	# check whether test is negative
+	should_fail=""
+	if [[ "${test_in}" =~ "fail" ]]; then
+	    should_fail=1
+	fi
+	test_line_num=0
 
-	    # find expected file and recreate it in --promote mode
-	    expected_file=$(echo "${test_in}" | sed 's/args\./expected./')
-	    if test -n "${promote_mode}"; then
-		[ -e "${expected_file}" ] && rm -v "${expected_file}";
-		touch "${expected_file}"
-	    fi
+	# find expected file and recreate it in --promote mode
+	expected_file=$(echo "${test_in}" | sed 's/args\./expected./')
+	if test -n "${promote_mode}"; then
+	    [ -e "${expected_file}" ] && rm -v "${expected_file}";
+	    touch "${expected_file}"
+	fi
 
-	    # run all subtest in the file
-	    while read args_in || [[ $args_in ]]; do
-		((test_line_num++))
-		failure=""
-		outcome_failure=""
-		failure_output=""
-		test_name="$(basename ${test_in})"
-		spec_file="${dir}/${test_name%.in}-${test_line_num}.spec"
+	# run all subtest in the file
+	while read args_in || [[ $args_in ]]; do
+	    ((test_line_num++))
+	    failure=""
+	    outcome_failure=""
+	    failure_output=""
+	    test_name="$(basename ${test_in})"
+	    spec_file="${dir}/${test_name%.in}-${test_line_num}.spec"
 
+	    for sr in "-disable-sr" ""; do
 		print_spec_info
 
 		# specification analysis
@@ -259,20 +267,21 @@ runspec() {
 		# result extraction
 		col_output_s=$(echo "${col_output}" | tr '\n' ' ')
 		col_execs=$(echo "${col_output_s}" | sed -n 's/.*Number of complete executions explored: \([0-9]\+\).*/\1/p')
+		col_obs=$(echo "${col_output_s}" | sed -n 's/.*Number of collected outcomes: \([0-9]\+\) (synchronizations: \([0-9]\+\).*/\1\/\2/p')
 		col_hints=$(echo "${col_output_s}" | sed -n 's/.*Number of hints found: \([0-9]\+\).*/\1/p')
 		col_time=$(echo "${col_output_s}" | sed -n 's/.*Total wall-clock time: \([0-9\.]\+\).*/\1/p')
 		# col_hint_time=$(echo "${col_output_s}" | sed -n 's/.*Relinche: Hint calculation complete, wall-clock time: \([0-9\.]\+\)s.*/\1/p')
 		# col_genmc_time=$(echo "${col_time}-${col_hint_time}" | bc -l)
 
-		if test "$ret_code" -ne 0; then
-		    check_spec_hints
+		if [[ -z "${should_fail}" ]]; then
+			check_spec_hints
 		fi
 
 		# update time counter
 		runtime=$(echo "scale=2; ${runtime}+${col_time}" | bc -l)
 		print_spec_results
-	    done <"${test_in}"
-	done
+	    done
+	done <"${test_in}"
     done
 }
 
@@ -322,7 +331,7 @@ runimpl() {
 	    test_name="$(basename ${test_in})"
 	    spec_file="${dir}/${test_name%.in}-${test_line_num}.spec"
 
-	    print_spec_info
+	    print_impl_info
 
 	    che_args=$(echo "${args_in}")
 
