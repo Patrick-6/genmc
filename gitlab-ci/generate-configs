@@ -167,7 +167,8 @@ relinche_stage() {
   echo ".test:llvm_job: &relinche"
   echo "  stage: relinche"
   echo "  script:"
-  echo "    - ./scripts/run-relinche-tests.sh"
+  echo "    - ./scripts/run-relinche-spec.sh"
+  echo "    - ./scripts/run-relinche-impl.sh"
   echo ""
 }
 
