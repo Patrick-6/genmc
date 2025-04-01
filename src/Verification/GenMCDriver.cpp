@@ -1302,6 +1302,13 @@ EventLabel *GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *>
 				    }),
 		     stores.end());
 
+	/* Not always extensible */
+	if (stores.empty()) {
+		BUG_ON(!getConf()->bound.has_value());
+		moot();
+		return nullptr;
+	}
+
 	MyDist dist(0, stores.size() - 1);
 	auto random = dist(estRng);
 	rLab->setRf(stores[random]);
