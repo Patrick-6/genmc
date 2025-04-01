@@ -22,5 +22,5 @@ UNDERLINE=$(tput smul)
 
 # Various printing utilities
 printline() {
-    for _ in {0..64}; do echo -n '-'; done; echo ''
+    for _ in {0..67}; do echo -n '-'; done; echo ''
 }
