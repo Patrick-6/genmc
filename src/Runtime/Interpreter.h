@@ -69,11 +69,17 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#ifdef LLVM_APINT_REQUIRES_EXPLICIT_TRUNCATION
+#define APINT_NOCHECK , true
+#else
+#define APINT_NOCHECK
+#endif
+
 /* Some helpers for GenericValues */
 #define INT_TO_GV(typ, val)                                                                        \
 	({                                                                                         \
 		llvm::GenericValue __ret;                                                          \
-		__ret.IntVal = llvm::APInt((typ)->getIntegerBitWidth(), (val), true);              \
+		__ret.IntVal = llvm::APInt((typ)->getIntegerBitWidth(), (val), true APINT_NOCHECK);\
 		__ret;                                                                             \
 	})
 
@@ -95,20 +101,6 @@
 	})
 
 class GenMCDriver;
-
-#define INT_TO_GV(typ, val)                                                                        \
-	({                                                                                         \
-		llvm::GenericValue __ret;                                                          \
-		__ret.IntVal = llvm::APInt((typ)->getIntegerBitWidth(), (val), true);              \
-		__ret;                                                                             \
-	})
-
-#define PTR_TO_GV(ptr)                                                                             \
-	({                                                                                         \
-		llvm::GenericValue __ret;                                                          \
-		__ret.PointerVal = (void *)(ptr);                                                  \
-		__ret;                                                                             \
-	})
 
 namespace llvm {
 
