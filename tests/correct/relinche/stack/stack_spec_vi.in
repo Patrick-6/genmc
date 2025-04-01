@@ -114,7 +114,7 @@
 ## RF:
 0
 ## HB:
-1   2 1
+1   1 2
 ## Hints:
 2
 1   2 0
@@ -126,7 +126,7 @@
 ## RF:
 0
 ## HB:
-1   1 2
+1   2 1
 ## Hints:
 2
 1   2 0
@@ -161,7 +161,7 @@
 ## RF:
 0
 ## HB:
-1   3 2
+1   2 3
 ## Hints:
 4
 1   3 1
@@ -175,13 +175,26 @@
 ## RF:
 0
 ## HB:
-1   2 3
+1   3 2
 ## Hints:
 4
 1   3 1
 1   3 0
 1   2 1
 1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+4   pop 0 0   pop 0 101   push 101 0   push 102 0
+## RF:
+0
+## HB:
+2   2 1   2 3
+## Hints:
+3
+1   3 1
+1   3 0
+2   0 1   2 0
 
 ## Observation (Lins: 1):
 ## Outcome:
@@ -198,16 +211,14 @@
 
 ## Observation (Lins: 2):
 ## Outcome:
-4   pop 0 0   pop 0 101   push 101 0   push 102 0
+4   pop 0 101   pop 0 102   push 101 0   push 102 0
 ## RF:
 0
 ## HB:
-2   2 1   2 3
+4   2 0   2 1   2 3   3 1
 ## Hints:
-3
-1   3 1
-1   3 0
-2   0 1   2 0
+1
+2   0 1   3 0
 
 ## Observation (Lins: 2):
 ## Outcome:
@@ -220,20 +231,25 @@
 1
 2   1 0   2 1
 
-## Observation (Lins: 2):
-## Outcome:
-4   pop 0 101   pop 0 102   push 101 0   push 102 0
-## RF:
-0
-## HB:
-4   2 0   2 1   2 3   3 1
-## Hints:
-1
-2   0 1   3 0
-
 # Specification
 # Statistics:  Size: 6  Hints: 35  Lins: 30
 # Observations:
+## Observation (Lins: 6):
+## Outcome:
+5   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0
+## RF:
+0
+## HB:
+1   3 4
+## Hints:
+6
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
 ## Observation (Lins: 6):
 ## Outcome:
 5   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0
@@ -252,19 +268,18 @@
 
 ## Observation (Lins: 6):
 ## Outcome:
-5   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0
+5   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0
 ## RF:
 0
 ## HB:
-1   3 4
+2   3 2   3 4
 ## Hints:
-6
+5
 1   4 2
 1   4 1
 1   4 0
-1   3 2
-1   3 1
-1   3 0
+2   1 2   3 1
+2   0 2   3 0
 
 ## Observation (Lins: 2):
 ## Outcome:
@@ -282,20 +297,21 @@
 1   2 1
 1   2 0
 
-## Observation (Lins: 6):
+## Observation (Lins: 5):
 ## Outcome:
-5   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0
+5   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0
 ## RF:
 0
 ## HB:
-2   3 2   3 4
+4   3 1   3 2   3 4   4 2
 ## Hints:
-5
-1   4 2
-1   4 1
-1   4 0
-2   1 2   3 1
-2   0 2   3 0
+6
+2   1 2   4 1
+2   0 2   4 0
+2   0 1   4 0
+2   0 1   3 0
+2   0 1   2 0
+3   0 2   3 0   4 1
 
 ## Observation (Lins: 5):
 ## Outcome:
@@ -313,25 +329,27 @@
 2   0 1   3 0
 3   0 1   3 2   4 0
 
-## Observation (Lins: 5):
-## Outcome:
-5   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0
-## RF:
-0
-## HB:
-4   3 1   3 2   3 4   4 2
-## Hints:
-6
-2   1 2   4 1
-2   0 2   4 0
-2   0 1   4 0
-2   0 1   3 0
-2   0 1   2 0
-3   0 2   3 0   4 1
-
 # Specification
 # Statistics:  Size: 6  Hints: 54  Lins: 114
 # Observations:
+## Observation (Lins: 24):
+## Outcome:
+6   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0
+## RF:
+0
+## HB:
+1   4 5
+## Hints:
+8
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
 ## Observation (Lins: 24):
 ## Outcome:
 6   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0
@@ -352,21 +370,20 @@
 
 ## Observation (Lins: 24):
 ## Outcome:
-6   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0
+6   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0
 ## RF:
 0
 ## HB:
-1   4 5
+2   4 3   4 5
 ## Hints:
-8
+7
 1   5 3
 1   5 2
 1   5 1
 1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
+2   2 3   4 2
+2   1 3   4 1
+2   0 3   4 0
 
 ## Observation (Lins: 6):
 ## Outcome:
@@ -386,44 +403,6 @@
 1   3 2
 1   3 1
 1   3 0
-
-## Observation (Lins: 24):
-## Outcome:
-6   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0
-## RF:
-0
-## HB:
-2   4 3   4 5
-## Hints:
-7
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-2   2 3   4 2
-2   1 3   4 1
-2   0 3   4 0
-
-## Observation (Lins: 18):
-## Outcome:
-6   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0
-## RF:
-0
-## HB:
-4   4 2   5 2   5 3   5 4
-## Hints:
-11
-2   3 2   4 3
-2   1 3   5 1
-2   1 3   4 1
-2   1 3   2 1
-2   1 2   4 1
-2   0 3   5 0
-2   0 3   4 0
-2   0 3   2 0
-2   0 2   4 0
-3   1 2   4 3   5 1
-3   0 2   4 3   5 0
 
 ## Observation (Lins: 18):
 ## Outcome:
@@ -446,6 +425,27 @@
 3   1 3   4 1   5 2
 3   0 3   4 0   5 2
 
+## Observation (Lins: 18):
+## Outcome:
+6   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0
+## RF:
+0
+## HB:
+4   4 2   5 2   5 3   5 4
+## Hints:
+11
+2   3 2   4 3
+2   1 3   5 1
+2   1 3   4 1
+2   1 3   2 1
+2   1 2   4 1
+2   0 3   5 0
+2   0 3   4 0
+2   0 3   2 0
+2   0 2   4 0
+3   1 2   4 3   5 1
+3   0 2   4 3   5 0
+
 # Specification
 # Statistics:  Size: 12  Hints: 24  Lins: 12
 # Observations:
@@ -455,46 +455,7 @@
 ## RF:
 0
 ## HB:
-3   2 1   3 1   3 2
-## Hints:
-3
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-4   pop 0 0   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-3   1 2   3 1   3 2
-## Hints:
-3
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-4   pop 0 0   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-3   2 1   2 3   3 1
-## Hints:
-3
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-4   pop 0 0   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-3   1 3   2 1   2 3
+3   1 2   1 3   2 3
 ## Hints:
 3
 1   3 0
@@ -520,7 +481,46 @@
 ## RF:
 0
 ## HB:
-3   1 2   1 3   2 3
+3   1 2   3 1   3 2
+## Hints:
+3
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+4   pop 0 0   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+3   1 3   2 1   2 3
+## Hints:
+3
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+4   pop 0 0   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+3   2 1   2 3   3 1
+## Hints:
+3
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+4   pop 0 0   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+3   2 1   3 1   3 2
 ## Hints:
 3
 1   3 0
@@ -533,7 +533,7 @@
 ## RF:
 0
 ## HB:
-4   1 0   1 2   1 3   3 2
+4   1 0   1 2   1 3   2 3
 ## Hints:
 2
 1   3 0
@@ -545,7 +545,7 @@
 ## RF:
 0
 ## HB:
-4   1 0   1 2   1 3   2 3
+4   1 0   1 2   1 3   3 2
 ## Hints:
 2
 1   3 0
@@ -632,6 +632,22 @@
 ## RF:
 0
 ## HB:
+3   2 3   4 2   4 3
+## Hints:
+6
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+5   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
 3   2 4   3 2   3 4
 ## Hints:
 6
@@ -664,22 +680,6 @@
 ## RF:
 0
 ## HB:
-3   2 3   4 2   4 3
-## Hints:
-6
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-5   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
 3   3 2   4 2   4 3
 ## Hints:
 6
@@ -689,20 +689,6 @@
 1   3 0
 1   2 1
 1   2 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-6   2 1   3 1   3 2   4 1   4 2   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
 
 ## Observation (Lins: 2):
 ## Outcome:
@@ -740,10 +726,11 @@
 ## RF:
 0
 ## HB:
-6   2 1   3 1   3 2   3 4   4 1   4 2
+5   2 1   2 3   4 1   4 2   4 3
 ## Hints:
-4
+5
 1   4 0
+1   3 1
 1   3 0
 1   2 0
 1   1 0
@@ -769,49 +756,27 @@
 ## RF:
 0
 ## HB:
-5   2 1   2 3   4 1   4 2   4 3
+6   2 1   3 1   3 2   3 4   4 1   4 2
 ## Hints:
-5
+4
 1   4 0
-1   3 1
 1   3 0
 1   2 0
 1   1 0
 
 ## Observation (Lins: 1):
 ## Outcome:
-5   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
+5   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0
 ## RF:
 0
 ## HB:
-7   2 0   3 0   3 1   3 2   3 4   4 0   4 2
+6   2 1   3 1   3 2   4 1   4 2   4 3
 ## Hints:
-3
-1   4 1
-1   2 1
-1   0 1
-
-## Observation (Lins: 2):
-## Outcome:
-5   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-8   2 0   2 1   2 3   3 1   4 0   4 1   4 2   4 3
-## Hints:
-1
-2   0 1   3 0
-
-## Observation (Lins: 2):
-## Outcome:
-5   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-8   2 0   3 0   3 1   3 2   4 0   4 1   4 2   4 3
-## Hints:
-1
-2   1 0   2 1
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
 
 ## Observation (Lins: 2):
 ## Outcome:
@@ -824,6 +789,30 @@
 3
 1   4 1
 1   4 0
+2   0 1   3 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+7   2 0   2 1   2 3   2 4   3 1   4 1   4 3
+## Hints:
+3
+1   4 0
+1   3 0
+1   1 0
+
+## Observation (Lins: 2):
+## Outcome:
+5   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+8   2 0   2 1   2 3   3 1   4 0   4 1   4 2   4 3
+## Hints:
+1
 2   0 1   3 0
 
 ## Observation (Lins: 2):
@@ -845,12 +834,23 @@
 ## RF:
 0
 ## HB:
-7   2 0   2 1   2 3   2 4   3 1   4 1   4 3
+7   2 0   3 0   3 1   3 2   3 4   4 0   4 2
 ## Hints:
 3
-1   4 0
-1   3 0
-1   1 0
+1   4 1
+1   2 1
+1   0 1
+
+## Observation (Lins: 2):
+## Outcome:
+5   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+8   2 0   3 0   3 1   3 2   4 0   4 1   4 2   4 3
+## Hints:
+1
+2   1 0   2 1
 
 # Specification
 # Statistics:  Size: 24  Hints: 184  Lins: 104
@@ -861,45 +861,7 @@
 ## RF:
 0
 ## HB:
-3   3 4   5 3   5 4
-## Hints:
-9
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-6   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-3   4 3   4 5   5 3
-## Hints:
-9
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-6   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-3   3 5   4 3   4 5
+3   3 4   3 5   4 5
 ## Hints:
 9
 1   5 2
@@ -937,7 +899,45 @@
 ## RF:
 0
 ## HB:
-3   3 4   3 5   4 5
+3   3 4   5 3   5 4
+## Hints:
+9
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+6   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+3   3 5   4 3   4 5
+## Hints:
+9
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+6   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+3   4 3   4 5   5 3
 ## Hints:
 9
 1   5 2
@@ -1011,9 +1011,29 @@
 ## RF:
 0
 ## HB:
-6   3 2   4 2   4 3   5 2   5 3   5 4
+5   3 2   3 4   5 2   5 3   5 4
 ## Hints:
-8
+9
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+5   3 2   3 5   4 2   4 3   4 5
+## Hints:
+9
+1   5 2
 1   5 1
 1   5 0
 1   4 1
@@ -1047,10 +1067,9 @@
 ## RF:
 0
 ## HB:
-5   3 2   3 5   4 2   4 3   4 5
+6   3 2   4 2   4 3   5 2   5 3   5 4
 ## Hints:
-9
-1   5 2
+8
 1   5 1
 1   5 0
 1   4 1
@@ -1060,24 +1079,41 @@
 1   2 1
 1   2 0
 
-## Observation (Lins: 2):
+## Observation (Lins: 5):
 ## Outcome:
-6   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0
+6   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
 ## RF:
 0
 ## HB:
-5   3 2   3 4   5 2   5 3   5 4
+6   3 1   3 2   3 4   3 5   4 2   4 5
 ## Hints:
 9
+1   5 2
 1   5 1
 1   5 0
-1   4 2
+2   1 2   4 1
+2   0 2   4 0
+2   0 1   4 0
+2   0 1   3 0
+2   0 1   2 0
+3   0 2   3 0   4 1
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+7   3 1   3 2   3 4   3 5   4 2   5 2   5 4
+## Hints:
+7
+1   5 1
+1   5 0
 1   4 1
 1   4 0
-1   3 1
-1   3 0
 1   2 1
 1   2 0
+2   0 1   3 0
 
 ## Observation (Lins: 2):
 ## Outcome:
@@ -1095,21 +1131,24 @@
 1   1 0
 2   1 2   4 1
 
-## Observation (Lins: 2):
+## Observation (Lins: 5):
 ## Outcome:
 6   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
 ## RF:
 0
 ## HB:
-8   3 1   4 1   4 2   4 3   5 1   5 2   5 3   5 4
+6   3 1   3 5   4 1   4 2   4 3   4 5
 ## Hints:
-6
+9
+1   5 2
+1   5 1
 1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
 2   2 1   3 2
+2   0 2   4 0
+2   0 2   3 0
+2   0 2   1 0
+2   0 1   3 0
+3   0 1   3 2   4 0
 
 ## Observation (Lins: 2):
 ## Outcome:
@@ -1134,54 +1173,15 @@
 ## RF:
 0
 ## HB:
-7   3 1   3 2   3 4   3 5   4 2   5 2   5 4
+8   3 1   4 1   4 2   4 3   5 1   5 2   5 3   5 4
 ## Hints:
-7
-1   5 1
+6
 1   5 0
-1   4 1
 1   4 0
-1   2 1
+1   3 0
 1   2 0
-2   0 1   3 0
-
-## Observation (Lins: 5):
-## Outcome:
-6   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-6   3 1   3 5   4 1   4 2   4 3   4 5
-## Hints:
-9
-1   5 2
-1   5 1
-1   5 0
+1   1 0
 2   2 1   3 2
-2   0 2   4 0
-2   0 2   3 0
-2   0 2   1 0
-2   0 1   3 0
-3   0 1   3 2   4 0
-
-## Observation (Lins: 5):
-## Outcome:
-6   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-6   3 1   3 2   3 4   3 5   4 2   4 5
-## Hints:
-9
-1   5 2
-1   5 1
-1   5 0
-2   1 2   4 1
-2   0 2   4 0
-2   0 1   4 0
-2   0 1   3 0
-2   0 1   2 0
-3   0 2   3 0   4 1
 
 ## Observation (Lins: 5):
 ## Outcome:
@@ -1221,6 +1221,22 @@
 ## RF:
 0
 ## HB:
+9   3 0   3 1   3 4   4 1   5 0   5 1   5 2   5 3   5 4
+## Hints:
+6
+2   2 1   4 2
+2   2 0   4 2
+2   2 0   3 2
+2   1 2   2 0
+2   0 1   4 0
+3   2 1   3 2   4 0
+
+## Observation (Lins: 5):
+## Outcome:
+6   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
 9   3 0   3 2   3 5   4 0   4 1   4 2   4 3   4 5   5 2
 ## Hints:
 6
@@ -1253,22 +1269,6 @@
 ## RF:
 0
 ## HB:
-9   3 0   3 1   3 4   4 1   5 0   5 1   5 2   5 3   5 4
-## Hints:
-6
-2   2 1   4 2
-2   2 0   4 2
-2   2 0   3 2
-2   1 2   2 0
-2   0 1   4 0
-3   2 1   3 2   4 0
-
-## Observation (Lins: 5):
-## Outcome:
-6   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
 9   3 0   4 0   4 1   4 3   5 0   5 1   5 2   5 3   5 4
 ## Hints:
 6
@@ -1288,73 +1288,7 @@
 ## RF:
 0
 ## HB:
-3   5 4   6 4   6 5
-## Hints:
-12
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-3   4 5   6 4   6 5
-## Hints:
-12
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-3   5 4   5 6   6 4
-## Hints:
-12
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-3   4 6   5 4   5 6
+3   4 5   4 6   5 6
 ## Hints:
 12
 1   6 3
@@ -1398,7 +1332,73 @@
 ## RF:
 0
 ## HB:
-3   4 5   4 6   5 6
+3   4 5   6 4   6 5
+## Hints:
+12
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+3   4 6   5 4   5 6
+## Hints:
+12
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+3   5 4   5 6   6 4
+## Hints:
+12
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+3   5 4   6 4   6 5
 ## Hints:
 12
 1   6 3
@@ -1462,9 +1462,33 @@
 ## RF:
 0
 ## HB:
-6   4 3   5 3   5 4   6 3   6 4   6 5
+5   4 3   4 5   6 3   6 4   6 5
 ## Hints:
-12
+13
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+5   4 3   4 6   5 3   5 4   5 6
+## Hints:
+13
+1   6 3
 1   6 2
 1   6 1
 1   6 0
@@ -1506,10 +1530,9 @@
 ## RF:
 0
 ## HB:
-5   4 3   4 6   5 3   5 4   5 6
+6   4 3   5 3   5 4   6 3   6 4   6 5
 ## Hints:
-13
-1   6 3
+12
 1   6 2
 1   6 1
 1   6 0
@@ -1523,28 +1546,51 @@
 1   3 1
 1   3 0
 
-## Observation (Lins: 6):
+## Observation (Lins: 18):
 ## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0
+7   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
 ## RF:
 0
 ## HB:
-5   4 3   4 5   6 3   6 4   6 5
+6   4 2   4 3   4 5   4 6   5 3   5 6
 ## Hints:
-13
+15
+1   6 3
 1   6 2
 1   6 1
 1   6 0
-1   5 3
+2   2 3   5 2
+2   1 3   5 1
+2   1 2   5 1
+2   1 2   4 1
+2   1 2   3 1
+2   0 3   5 0
+2   0 2   5 0
+2   0 2   4 0
+2   0 2   3 0
+3   1 3   4 1   5 2
+3   0 3   4 0   5 2
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
+7   4 2   4 3   4 5   4 6   5 3   6 3   6 5
+## Hints:
+11
+1   6 2
+1   6 1
+1   6 0
 1   5 2
 1   5 1
 1   5 0
-1   4 2
-1   4 1
-1   4 0
 1   3 2
 1   3 1
 1   3 0
+2   1 2   4 1
+2   0 2   4 0
 
 ## Observation (Lins: 4):
 ## Outcome:
@@ -1573,31 +1619,6 @@
 ## RF:
 0
 ## HB:
-6   4 2   4 3   4 5   4 6   5 3   5 6
-## Hints:
-15
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-2   2 3   5 2
-2   1 3   5 1
-2   1 2   5 1
-2   1 2   4 1
-2   1 2   3 1
-2   0 3   5 0
-2   0 2   5 0
-2   0 2   4 0
-2   0 2   3 0
-3   1 3   4 1   5 2
-3   0 3   4 0   5 2
-
-## Observation (Lins: 18):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
 6   4 2   4 6   5 2   5 3   5 4   5 6
 ## Hints:
 15
@@ -1616,27 +1637,6 @@
 2   0 2   4 0
 3   1 2   4 3   5 1
 3   0 2   4 3   5 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-7   4 2   4 3   4 5   4 6   5 3   6 3   6 5
-## Hints:
-11
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   3 2
-1   3 1
-1   3 0
-2   1 2   4 1
-2   0 2   4 0
 
 ## Observation (Lins: 6):
 ## Outcome:
@@ -1679,39 +1679,6 @@
 1   2 1
 1   2 0
 2   3 2   4 3
-
-## Observation (Lins: 14):
-## Outcome:
-7   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0
-## RF:
-0
-## HB:
-9   4 1   5 1   5 2   5 4   6 1   6 2   6 3   6 4   6 5
-## Hints:
-23
-2   3 2   5 3
-2   3 2   4 3
-2   3 1   4 3
-2   2 1   4 2
-2   1 3   3 2
-2   0 3   6 0
-2   0 3   5 0
-2   0 3   4 0
-2   0 3   2 0
-2   0 3   1 0
-2   0 2   5 0
-2   0 2   4 0
-2   0 2   1 0
-2   0 1   4 0
-3   3 1   4 2   5 3
-3   0 2   5 3   6 0
-3   0 2   4 3   6 0
-3   0 2   1 3   6 0
-3   0 1   4 3   6 0
-3   0 1   4 3   5 0
-3   0 1   4 2   5 0
-3   0 1   2 0   4 3
-4   0 1   4 2   5 3   6 0
 
 ## Observation (Lins: 14):
 ## Outcome:
@@ -1785,6 +1752,39 @@
 ## RF:
 0
 ## HB:
+9   4 1   4 2   4 5   5 2   6 1   6 2   6 3   6 4   6 5
+## Hints:
+23
+2   3 2   5 3
+2   3 1   5 3
+2   3 1   4 3
+2   2 3   3 1
+2   1 2   5 1
+2   0 3   6 0
+2   0 3   5 0
+2   0 3   4 0
+2   0 3   2 0
+2   0 3   1 0
+2   0 2   5 0
+2   0 1   5 0
+2   0 1   4 0
+2   0 1   2 0
+3   3 2   4 3   5 1
+3   0 2   5 3   6 0
+3   0 2   4 0   5 3
+3   0 2   4 0   5 1
+3   0 2   1 0   5 3
+3   0 1   5 3   6 0
+3   0 1   4 3   6 0
+3   0 1   2 3   6 0
+4   0 2   4 3   5 1   6 0
+
+## Observation (Lins: 14):
+## Outcome:
+7   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0
+## RF:
+0
+## HB:
 9   4 1   4 3   4 6   5 1   5 2   5 3   5 4   5 6   6 3
 ## Hints:
 23
@@ -1851,32 +1851,32 @@
 ## RF:
 0
 ## HB:
-9   4 1   4 2   4 5   5 2   6 1   6 2   6 3   6 4   6 5
+9   4 1   5 1   5 2   5 4   6 1   6 2   6 3   6 4   6 5
 ## Hints:
 23
 2   3 2   5 3
-2   3 1   5 3
+2   3 2   4 3
 2   3 1   4 3
-2   2 3   3 1
-2   1 2   5 1
+2   2 1   4 2
+2   1 3   3 2
 2   0 3   6 0
 2   0 3   5 0
 2   0 3   4 0
 2   0 3   2 0
 2   0 3   1 0
 2   0 2   5 0
-2   0 1   5 0
+2   0 2   4 0
+2   0 2   1 0
 2   0 1   4 0
-2   0 1   2 0
-3   3 2   4 3   5 1
+3   3 1   4 2   5 3
 3   0 2   5 3   6 0
-3   0 2   4 0   5 3
-3   0 2   4 0   5 1
-3   0 2   1 0   5 3
-3   0 1   5 3   6 0
+3   0 2   4 3   6 0
+3   0 2   1 3   6 0
 3   0 1   4 3   6 0
-3   0 1   2 3   6 0
-4   0 2   4 3   5 1   6 0
+3   0 1   4 3   5 0
+3   0 1   4 2   5 0
+3   0 1   2 0   4 3
+4   0 1   4 2   5 3   6 0
 
 # Specification
 # Statistics:  Size: 48  Hints: 132  Lins: 48
@@ -1887,301 +1887,7 @@
 ## RF:
 0
 ## HB:
-6   2 1   2 3   2 4   3 1   4 1   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 2   3 1   3 2   4 1   4 2   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 1   2 3   3 1   4 1   4 2   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 3   2 1   2 3   4 1   4 2   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 2   1 3   3 2   4 1   4 2   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 2   1 3   2 3   4 1   4 2   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 1   3 1   3 2   3 4   4 1   4 2
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 2   3 1   3 2   3 4   4 1   4 2
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 1   2 4   3 1   3 2   3 4   4 1
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 4   2 1   2 4   3 1   3 2   3 4
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 2   1 4   3 1   3 2   3 4   4 2
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 2   1 4   2 4   3 1   3 2   3 4
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 1   3 1   3 2   4 1   4 2   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 3   2 1   2 3   2 4   4 1   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 1   2 3   2 4   3 1   3 4   4 1
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 4   2 1   2 3   2 4   3 1   3 4
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 3   1 4   2 1   2 3   2 4   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 3   1 4   2 1   2 3   2 4   3 4
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 2   1 3   1 4   3 2   4 2   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 2   1 3   1 4   2 3   4 2   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 2   1 3   1 4   3 2   3 4   4 2
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   1 2   1 3   1 4   2 4   3 2   3 4
+6   1 2   1 3   1 4   2 3   2 4   3 4
 ## Hints:
 4
 1   4 0
@@ -2209,7 +1915,301 @@
 ## RF:
 0
 ## HB:
-6   1 2   1 3   1 4   2 3   2 4   3 4
+6   1 2   1 3   1 4   2 3   4 2   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 2   1 3   1 4   2 4   3 2   3 4
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 2   1 3   1 4   3 2   3 4   4 2
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 2   1 3   1 4   3 2   4 2   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 2   1 3   2 3   4 1   4 2   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 2   1 3   3 2   4 1   4 2   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 2   1 4   2 4   3 1   3 2   3 4
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 2   1 4   3 1   3 2   3 4   4 2
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 2   3 1   3 2   3 4   4 1   4 2
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 2   3 1   3 2   4 1   4 2   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 3   1 4   2 1   2 3   2 4   3 4
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 3   1 4   2 1   2 3   2 4   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 3   2 1   2 3   2 4   4 1   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 3   2 1   2 3   4 1   4 2   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 4   2 1   2 3   2 4   3 1   3 4
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   1 4   2 1   2 4   3 1   3 2   3 4
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 1   2 3   2 4   3 1   3 4   4 1
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 1   2 3   2 4   3 1   4 1   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 1   2 3   3 1   4 1   4 2   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 1   2 4   3 1   3 2   3 4   4 1
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 1   3 1   3 2   3 4   4 1   4 2
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 1   3 1   3 2   4 1   4 2   4 3
 ## Hints:
 4
 1   4 0
@@ -2223,44 +2223,7 @@
 ## RF:
 0
 ## HB:
-9   1 0   1 2   3 0   3 1   3 2   3 4   4 0   4 1   4 2
-## Hints:
-1
-1   2 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   1 0   1 2   1 3   1 4   2 3   4 2   4 3
-## Hints:
-3
-1   4 0
-1   3 0
-1   2 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   1 0   1 2   1 3   1 4   3 2   3 4   4 2
-## Hints:
-3
-1   4 0
-1   3 0
-1   2 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   1 0   1 2   1 3   1 4   2 4   3 2   3 4
+7   1 0   1 2   1 3   1 4   2 3   2 4   3 4
 ## Hints:
 3
 1   4 0
@@ -2286,7 +2249,7 @@
 ## RF:
 0
 ## HB:
-7   1 0   1 2   1 3   1 4   2 3   2 4   3 4
+7   1 0   1 2   1 3   1 4   2 3   4 2   4 3
 ## Hints:
 3
 1   4 0
@@ -2299,9 +2262,36 @@
 ## RF:
 0
 ## HB:
-8   1 0   1 2   1 3   3 2   4 0   4 1   4 2   4 3
+7   1 0   1 2   1 3   1 4   2 4   3 2   3 4
 ## Hints:
-2
+3
+1   4 0
+1   3 0
+1   2 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   1 0   1 2   1 3   1 4   3 2   3 4   4 2
+## Hints:
+3
+1   4 0
+1   3 0
+1   2 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   1 0   1 2   1 3   1 4   3 2   4 2   4 3
+## Hints:
+3
+1   4 0
 1   3 0
 1   2 0
 
@@ -2323,10 +2313,10 @@
 ## RF:
 0
 ## HB:
-8   1 0   1 2   1 4   3 0   3 1   3 2   3 4   4 2
+8   1 0   1 2   1 3   3 2   4 0   4 1   4 2   4 3
 ## Hints:
 2
-1   4 0
+1   3 0
 1   2 0
 
 ## Observation (Lins: 1):
@@ -2347,11 +2337,33 @@
 ## RF:
 0
 ## HB:
-8   1 0   1 3   1 4   2 0   2 1   2 3   2 4   4 3
+8   1 0   1 2   1 4   3 0   3 1   3 2   3 4   4 2
 ## Hints:
 2
 1   4 0
-1   3 0
+1   2 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+9   1 0   1 2   3 0   3 1   3 2   3 4   4 0   4 1   4 2
+## Hints:
+1
+1   2 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+9   1 0   1 2   3 0   3 1   3 2   4 0   4 1   4 2   4 3
+## Hints:
+1
+1   2 0
 
 ## Observation (Lins: 1):
 ## Outcome:
@@ -2371,12 +2383,11 @@
 ## RF:
 0
 ## HB:
-7   1 0   1 2   1 3   1 4   3 2   4 2   4 3
+8   1 0   1 3   1 4   2 0   2 1   2 3   2 4   4 3
 ## Hints:
-3
+2
 1   4 0
 1   3 0
-1   2 0
 
 ## Observation (Lins: 1):
 ## Outcome:
@@ -2395,10 +2406,10 @@
 ## RF:
 0
 ## HB:
-9   1 0   1 2   3 0   3 1   3 2   4 0   4 1   4 2   4 3
+9   1 0   1 3   2 0   2 1   2 3   4 0   4 1   4 2   4 3
 ## Hints:
 1
-1   2 0
+1   3 0
 
 ## Observation (Lins: 1):
 ## Outcome:
@@ -2417,40 +2428,11 @@
 ## RF:
 0
 ## HB:
-9   1 0   1 3   2 0   2 1   2 3   4 0   4 1   4 2   4 3
-## Hints:
-1
-1   3 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
 9   1 0   1 4   2 0   2 1   2 4   3 0   3 1   3 2   3 4
 ## Hints:
 1
 1   4 0
 
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-10   1 0   2 0   2 1   2 3   2 4   3 0   3 1   4 0   4 1   4 3
-## Hints:
-0
-## Observation (Lins: 1):
-## Outcome:
-5   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-10   1 0   2 0   2 1   3 0   3 1   3 2   3 4   4 0   4 1   4 2
-## Hints:
-0
 ## Observation (Lins: 1):
 ## Outcome:
 5   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
@@ -2466,7 +2448,16 @@
 ## RF:
 0
 ## HB:
-10   1 0   2 0   2 1   3 0   3 1   3 2   4 0   4 1   4 2   4 3
+10   1 0   2 0   2 1   2 3   2 4   3 0   3 1   4 0   4 1   4 3
+## Hints:
+0
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   1 0   2 0   2 1   2 3   3 0   3 1   4 0   4 1   4 2   4 3
 ## Hints:
 0
 ## Observation (Lins: 1):
@@ -2484,7 +2475,16 @@
 ## RF:
 0
 ## HB:
-10   1 0   2 0   2 1   2 3   3 0   3 1   4 0   4 1   4 2   4 3
+10   1 0   2 0   2 1   3 0   3 1   3 2   3 4   4 0   4 1   4 2
+## Hints:
+0
+## Observation (Lins: 1):
+## Outcome:
+5   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   1 0   2 0   2 1   3 0   3 1   3 2   4 0   4 1   4 2   4 3
 ## Hints:
 0
 # Specification
@@ -2496,385 +2496,7 @@
 ## RF:
 0
 ## HB:
-6   3 2   3 4   3 5   4 2   5 2   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   3 2   4 2   4 3   5 2   5 3   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 3   4 2   4 3   5 2   5 3   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   3 2   3 4   4 2   5 2   5 3   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 4   3 2   3 4   5 2   5 3   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 3   2 4   4 3   5 2   5 3   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 3   2 4   3 4   5 2   5 3   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   3 2   4 2   4 3   4 5   5 2   5 3
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 3   4 2   4 3   4 5   5 2   5 3
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   3 2   3 5   4 2   4 3   4 5   5 2
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 5   3 2   3 5   4 2   4 3   4 5
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 3   2 5   4 2   4 3   4 5   5 3
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 3   2 5   3 5   4 2   4 3   4 5
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 4   3 2   3 4   3 5   5 2   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   3 2   3 4   3 5   4 2   4 5   5 2
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 5   3 2   3 4   3 5   4 2   4 5
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 4   2 5   3 2   3 4   3 5   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 4   2 5   3 2   3 4   3 5   4 5
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 3   2 4   2 5   4 3   5 3   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 3   2 4   2 5   3 4   5 3   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 3   2 4   2 5   4 3   4 5   5 3
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   2 3   2 4   2 5   3 5   4 3   4 5
+6   2 3   2 4   2 5   3 4   3 5   4 5
 ## Hints:
 8
 1   5 1
@@ -2910,7 +2532,7 @@
 ## RF:
 0
 ## HB:
-6   2 3   2 4   2 5   3 4   3 5   4 5
+6   2 3   2 4   2 5   3 4   5 3   5 4
 ## Hints:
 8
 1   5 1
@@ -2922,37 +2544,383 @@
 1   2 1
 1   2 0
 
-## Observation (Lins: 1):
+## Observation (Lins: 2):
 ## Outcome:
-6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-8   2 1   2 3   2 4   3 4   5 1   5 2   5 3   5 4
+6   2 3   2 4   2 5   3 5   4 3   4 5
 ## Hints:
-7
+8
+1   5 1
 1   5 0
 1   4 1
 1   4 0
 1   3 1
 1   3 0
+1   2 1
 1   2 0
-1   1 0
 
-## Observation (Lins: 1):
+## Observation (Lins: 2):
 ## Outcome:
-6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-10   2 1   3 1   3 2   3 4   3 5   4 1   4 2   5 1   5 2   5 4
+6   2 3   2 4   2 5   4 3   4 5   5 3
 ## Hints:
-5
+8
+1   5 1
 1   5 0
+1   4 1
 1   4 0
+1   3 1
 1   3 0
+1   2 1
 1   2 0
-1   1 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 3   2 4   2 5   4 3   5 3   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 3   2 4   3 4   5 2   5 3   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 3   2 4   4 3   5 2   5 3   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 3   2 5   3 5   4 2   4 3   4 5
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 3   2 5   4 2   4 3   4 5   5 3
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 3   4 2   4 3   4 5   5 2   5 3
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 3   4 2   4 3   5 2   5 3   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 4   2 5   3 2   3 4   3 5   4 5
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 4   2 5   3 2   3 4   3 5   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 4   3 2   3 4   3 5   5 2   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 4   3 2   3 4   5 2   5 3   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 5   3 2   3 4   3 5   4 2   4 5
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   2 5   3 2   3 5   4 2   4 3   4 5
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 2   3 4   3 5   4 2   4 5   5 2
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 2   3 4   3 5   4 2   5 2   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 2   3 4   4 2   5 2   5 3   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 2   3 5   4 2   4 3   4 5   5 2
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 2   4 2   4 3   4 5   5 2   5 3
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 2   4 2   4 3   5 2   5 3   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
 
 ## Observation (Lins: 2):
 ## Outcome:
@@ -2978,6 +2946,23 @@
 0
 ## HB:
 7   2 1   2 3   2 4   2 5   3 4   3 5   5 4
+## Hints:
+7
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+2   0 1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   2 1   2 3   2 4   2 5   3 4   5 3   5 4
 ## Hints:
 7
 1   5 1
@@ -3028,23 +3013,6 @@
 ## RF:
 0
 ## HB:
-7   2 1   2 3   2 4   2 5   3 4   5 3   5 4
-## Hints:
-7
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-2   0 1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
 7   2 1   2 3   2 4   2 5   4 3   5 3   5 4
 ## Hints:
 7
@@ -3062,103 +3030,13 @@
 ## RF:
 0
 ## HB:
-10   2 1   3 1   3 2   3 4   4 1   4 2   5 1   5 2   5 3   5 4
+8   2 1   2 3   2 4   3 4   5 1   5 2   5 3   5 4
 ## Hints:
-5
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-10   2 1   3 1   3 2   3 5   4 1   4 2   4 3   4 5   5 1   5 2
-## Hints:
-5
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-10   2 1   3 1   3 2   4 1   4 2   4 3   5 1   5 2   5 3   5 4
-## Hints:
-5
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-10   2 1   3 1   3 2   3 4   3 5   4 1   4 2   4 5   5 1   5 2
-## Hints:
-5
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-10   2 1   3 1   3 2   4 1   4 2   4 3   4 5   5 1   5 2   5 3
-## Hints:
-5
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-9   2 1   2 5   3 1   3 2   3 5   4 1   4 2   4 3   4 5
-## Hints:
-6
-1   5 1
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-9   2 1   2 4   3 1   3 2   3 4   5 1   5 2   5 3   5 4
-## Hints:
-6
+7
 1   5 0
 1   4 1
 1   4 0
+1   3 1
 1   3 0
 1   2 0
 1   1 0
@@ -3169,12 +3047,30 @@
 ## RF:
 0
 ## HB:
-9   2 1   2 5   3 1   3 2   3 4   3 5   4 1   4 2   4 5
+8   2 1   2 3   2 4   4 3   5 1   5 2   5 3   5 4
 ## Hints:
-6
+7
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+8   2 1   2 3   2 5   3 5   4 1   4 2   4 3   4 5
+## Hints:
+7
 1   5 1
 1   5 0
 1   4 0
+1   3 1
 1   3 0
 1   2 0
 1   1 0
@@ -3185,7 +3081,24 @@
 ## RF:
 0
 ## HB:
-9   2 1   2 3   4 1   4 2   4 3   5 1   5 2   5 3   5 4
+8   2 1   2 3   2 5   4 1   4 2   4 3   4 5   5 3
+## Hints:
+7
+1   5 1
+1   5 0
+1   4 0
+1   3 1
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+9   2 1   2 3   4 1   4 2   4 3   4 5   5 1   5 2   5 3
 ## Hints:
 6
 1   5 0
@@ -3201,23 +3114,7 @@
 ## RF:
 0
 ## HB:
-9   2 1   2 4   3 1   3 2   3 4   3 5   5 1   5 2   5 4
-## Hints:
-6
-1   5 0
-1   4 1
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-9   2 1   2 3   4 1   4 2   4 3   4 5   5 1   5 2   5 3
+9   2 1   2 3   4 1   4 2   4 3   5 1   5 2   5 3   5 4
 ## Hints:
 6
 1   5 0
@@ -3267,78 +3164,183 @@
 ## RF:
 0
 ## HB:
-8   2 1   2 3   2 5   3 5   4 1   4 2   4 3   4 5
+9   2 1   2 4   3 1   3 2   3 4   3 5   5 1   5 2   5 4
 ## Hints:
-7
-1   5 1
-1   5 0
-1   4 0
-1   3 1
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-8   2 1   2 3   2 5   4 1   4 2   4 3   4 5   5 3
-## Hints:
-7
-1   5 1
-1   5 0
-1   4 0
-1   3 1
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-8   2 1   2 3   2 4   4 3   5 1   5 2   5 3   5 4
-## Hints:
-7
+6
 1   5 0
 1   4 1
 1   4 0
-1   3 1
 1   3 0
 1   2 0
 1   1 0
 
 ## Observation (Lins: 1):
+## Outcome:
+6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+9   2 1   2 4   3 1   3 2   3 4   5 1   5 2   5 3   5 4
+## Hints:
+6
+1   5 0
+1   4 1
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+9   2 1   2 5   3 1   3 2   3 4   3 5   4 1   4 2   4 5
+## Hints:
+6
+1   5 1
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+9   2 1   2 5   3 1   3 2   3 5   4 1   4 2   4 3   4 5
+## Hints:
+6
+1   5 1
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   2 1   3 1   3 2   3 4   3 5   4 1   4 2   4 5   5 1   5 2
+## Hints:
+5
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   2 1   3 1   3 2   3 4   3 5   4 1   4 2   5 1   5 2   5 4
+## Hints:
+5
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   2 1   3 1   3 2   3 4   4 1   4 2   5 1   5 2   5 3   5 4
+## Hints:
+5
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   2 1   3 1   3 2   3 5   4 1   4 2   4 3   4 5   5 1   5 2
+## Hints:
+5
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   2 1   3 1   3 2   4 1   4 2   4 3   4 5   5 1   5 2   5 3
+## Hints:
+5
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   2 1   3 1   3 2   4 1   4 2   4 3   5 1   5 2   5 3   5 4
+## Hints:
+5
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 2):
 ## Outcome:
 6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-10   2 0   2 4   3 0   3 1   3 2   3 4   3 5   5 0   5 2   5 4
+9   2 0   2 1   2 3   2 4   2 5   3 1   3 4   3 5   4 5
 ## Hints:
 5
 1   5 1
+1   5 0
 1   4 1
 1   4 0
-1   2 1
-1   0 1
+2   0 1   3 0
 
-## Observation (Lins: 1):
+## Observation (Lins: 2):
 ## Outcome:
 6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-12   2 0   3 0   3 1   3 2   3 4   4 0   4 2   5 0   5 1   5 2   5 3   5 4
+9   2 0   2 1   2 3   2 4   2 5   3 1   3 4   3 5   5 4
 ## Hints:
-3
+5
+1   5 1
+1   5 0
 1   4 1
-1   2 1
-1   0 1
+1   4 0
+2   0 1   3 0
 
 ## Observation (Lins: 1):
 ## Outcome:
@@ -3376,34 +3378,6 @@
 ## RF:
 0
 ## HB:
-11   2 0   3 0   3 1   3 2   3 4   3 5   4 0   4 2   4 5   5 0   5 2
-## Hints:
-4
-1   5 1
-1   4 1
-1   2 1
-1   0 1
-
-## Observation (Lins: 1):
-## Outcome:
-6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-11   2 0   3 0   3 1   3 2   3 4   3 5   4 0   4 2   5 0   5 2   5 4
-## Hints:
-4
-1   5 1
-1   4 1
-1   2 1
-1   0 1
-
-## Observation (Lins: 1):
-## Outcome:
-6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
 11   2 0   2 1   2 3   2 4   2 5   3 1   4 1   4 3   4 5   5 1   5 3
 ## Hints:
 4
@@ -3432,14 +3406,73 @@
 ## RF:
 0
 ## HB:
-9   2 0   2 4   2 5   3 0   3 1   3 2   3 4   3 5   5 4
+11   2 0   2 1   2 3   2 4   3 1   3 4   5 0   5 1   5 2   5 3   5 4
 ## Hints:
-5
-1   5 1
-1   5 0
+3
 1   4 1
 1   4 0
-2   1 0   2 1
+2   0 1   3 0
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   2 0   2 1   2 3   2 4   3 1   4 1   4 3   5 0   5 1   5 2   5 3   5 4
+## Hints:
+3
+1   4 0
+1   3 0
+1   1 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+11   2 0   2 1   2 3   2 5   3 1   3 5   4 0   4 1   4 2   4 3   4 5
+## Hints:
+3
+1   5 1
+1   5 0
+2   0 1   3 0
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   2 0   2 1   2 3   2 5   3 1   4 0   4 1   4 2   4 3   4 5   5 1   5 3
+## Hints:
+3
+1   5 0
+1   3 0
+1   1 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   2 0   2 1   2 3   3 1   4 0   4 1   4 2   4 3   4 5   5 0   5 1   5 2   5 3
+## Hints:
+1
+2   0 1   3 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   2 0   2 1   2 3   3 1   4 0   4 1   4 2   4 3   5 0   5 1   5 2   5 3   5 4
+## Hints:
+1
+2   0 1   3 0
 
 ## Observation (Lins: 2):
 ## Outcome:
@@ -3462,29 +3495,14 @@
 ## RF:
 0
 ## HB:
-9   2 0   2 1   2 3   2 4   2 5   3 1   3 4   3 5   5 4
+9   2 0   2 4   2 5   3 0   3 1   3 2   3 4   3 5   5 4
 ## Hints:
 5
 1   5 1
 1   5 0
 1   4 1
 1   4 0
-2   0 1   3 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-9   2 0   2 1   2 3   2 4   2 5   3 1   3 4   3 5   4 5
-## Hints:
-5
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-2   0 1   3 0
+2   1 0   2 1
 
 ## Observation (Lins: 1):
 ## Outcome:
@@ -3492,12 +3510,27 @@
 ## RF:
 0
 ## HB:
-12   2 0   3 0   3 1   3 2   3 5   4 0   4 1   4 2   4 3   4 5   5 0   5 2
+10   2 0   2 4   3 0   3 1   3 2   3 4   3 5   5 0   5 2   5 4
 ## Hints:
-3
+5
 1   5 1
+1   4 1
+1   4 0
 1   2 1
 1   0 1
+
+## Observation (Lins: 2):
+## Outcome:
+6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+11   2 0   2 4   3 0   3 1   3 2   3 4   5 0   5 1   5 2   5 3   5 4
+## Hints:
+3
+1   4 1
+1   4 0
+2   1 0   2 1
 
 ## Observation (Lins: 1):
 ## Outcome:
@@ -3514,71 +3547,6 @@
 1   2 1
 1   0 1
 
-## Observation (Lins: 1):
-## Outcome:
-6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-12   2 0   2 1   2 3   2 5   3 1   4 0   4 1   4 2   4 3   4 5   5 1   5 3
-## Hints:
-3
-1   5 0
-1   3 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-12   2 0   2 1   2 3   2 4   3 1   4 1   4 3   5 0   5 1   5 2   5 3   5 4
-## Hints:
-3
-1   4 0
-1   3 0
-1   1 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-11   2 0   2 1   2 3   2 4   3 1   3 4   5 0   5 1   5 2   5 3   5 4
-## Hints:
-3
-1   4 1
-1   4 0
-2   0 1   3 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-11   2 0   2 1   2 3   2 5   3 1   3 5   4 0   4 1   4 2   4 3   4 5
-## Hints:
-3
-1   5 1
-1   5 0
-2   0 1   3 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-11   2 0   2 4   3 0   3 1   3 2   3 4   5 0   5 1   5 2   5 3   5 4
-## Hints:
-3
-1   4 1
-1   4 0
-2   1 0   2 1
-
 ## Observation (Lins: 2):
 ## Outcome:
 6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
@@ -3592,16 +3560,59 @@
 1   5 0
 2   1 0   2 1
 
-## Observation (Lins: 2):
+## Observation (Lins: 1):
 ## Outcome:
 6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-13   2 0   3 0   3 1   3 2   4 0   4 1   4 2   4 3   5 0   5 1   5 2   5 3   5 4
+11   2 0   3 0   3 1   3 2   3 4   3 5   4 0   4 2   4 5   5 0   5 2
 ## Hints:
-1
-2   1 0   2 1
+4
+1   5 1
+1   4 1
+1   2 1
+1   0 1
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+11   2 0   3 0   3 1   3 2   3 4   3 5   4 0   4 2   5 0   5 2   5 4
+## Hints:
+4
+1   5 1
+1   4 1
+1   2 1
+1   0 1
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   2 0   3 0   3 1   3 2   3 4   4 0   4 2   5 0   5 1   5 2   5 3   5 4
+## Hints:
+3
+1   4 1
+1   2 1
+1   0 1
+
+## Observation (Lins: 1):
+## Outcome:
+6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   2 0   3 0   3 1   3 2   3 5   4 0   4 1   4 2   4 3   4 5   5 0   5 2
+## Hints:
+3
+1   5 1
+1   2 1
+1   0 1
 
 ## Observation (Lins: 2):
 ## Outcome:
@@ -3620,69 +3631,14 @@
 ## RF:
 0
 ## HB:
-13   2 0   2 1   2 3   3 1   4 0   4 1   4 2   4 3   5 0   5 1   5 2   5 3   5 4
+13   2 0   3 0   3 1   3 2   4 0   4 1   4 2   4 3   5 0   5 1   5 2   5 3   5 4
 ## Hints:
 1
-2   0 1   3 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   2 0   2 1   2 3   3 1   4 0   4 1   4 2   4 3   4 5   5 0   5 1   5 2   5 3
-## Hints:
-1
-2   0 1   3 0
+2   1 0   2 1
 
 # Specification
 # Statistics:  Size: 96  Hints: 944  Lins: 356
 # Observations:
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   3 4   5 3   5 4   6 3   6 4   6 5
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   4 3   5 3   5 4   6 3   6 4   6 5
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
 ## Observation (Lins: 6):
 ## Outcome:
 7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
@@ -3712,6 +3668,28 @@
 0
 ## HB:
 6   3 4   3 5   3 6   4 5   4 6   6 5
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 4   3 5   3 6   4 5   6 4   6 5
 ## Hints:
 12
 1   6 2
@@ -3777,7 +3755,7 @@
 ## RF:
 0
 ## HB:
-6   3 4   3 5   3 6   4 5   6 4   6 5
+6   3 4   3 5   3 6   5 4   6 4   6 5
 ## Hints:
 12
 1   6 2
@@ -3799,7 +3777,117 @@
 ## RF:
 0
 ## HB:
-6   3 4   3 5   3 6   5 4   6 4   6 5
+6   3 4   3 5   4 5   6 3   6 4   6 5
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 4   3 5   5 4   6 3   6 4   6 5
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 4   3 6   4 6   5 3   5 4   5 6
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 4   3 6   5 3   5 4   5 6   6 4
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 4   5 3   5 4   5 6   6 3   6 4
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 4   5 3   5 4   6 3   6 4   6 5
 ## Hints:
 12
 1   6 2
@@ -3865,50 +3953,6 @@
 ## RF:
 0
 ## HB:
-6   3 6   4 3   4 5   4 6   5 3   5 6
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   4 3   4 5   4 6   5 3   5 6   6 3
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
 6   3 5   4 3   4 5   4 6   6 3   6 5
 ## Hints:
 12
@@ -3931,7 +3975,73 @@
 ## RF:
 0
 ## HB:
-6   3 4   3 6   4 6   5 3   5 4   5 6
+6   3 5   4 3   4 5   6 3   6 4   6 5
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 6   4 3   4 5   4 6   5 3   5 6
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   3 6   4 3   4 6   5 3   5 4   5 6
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   4 3   4 5   4 6   5 3   5 6   6 3
 ## Hints:
 12
 1   6 2
@@ -3997,139 +4107,7 @@
 ## RF:
 0
 ## HB:
-6   3 5   4 3   4 5   6 3   6 4   6 5
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   3 4   3 5   5 4   6 3   6 4   6 5
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   3 4   3 5   4 5   6 3   6 4   6 5
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   3 4   5 3   5 4   5 6   6 3   6 4
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
 6   4 3   4 6   5 3   5 4   5 6   6 3
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   3 6   4 3   4 6   5 3   5 4   5 6
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   3 4   3 6   5 3   5 4   5 6   6 4
 ## Hints:
 12
 1   6 2
@@ -4167,62 +4145,169 @@
 1   3 1
 1   3 0
 
-## Observation (Lins: 2):
+## Observation (Lins: 6):
 ## Outcome:
-7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+7   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-9   3 2   3 6   4 2   4 3   4 6   5 2   5 3   5 4   5 6
+6   4 3   5 3   5 4   6 3   6 4   6 5
 ## Hints:
-11
+12
 1   6 2
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-9   3 2   3 5   4 2   4 3   4 5   6 2   6 3   6 4   6 5
-## Hints:
-11
 1   6 1
 1   6 0
 1   5 2
 1   5 1
 1   5 0
+1   4 2
 1   4 1
 1   4 0
+1   3 2
 1   3 1
 1   3 0
-1   2 1
-1   2 0
 
-## Observation (Lins: 2):
+## Observation (Lins: 6):
 ## Outcome:
 7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-9   3 2   3 6   4 2   4 3   4 5   4 6   5 2   5 3   5 6
+7   3 2   3 4   3 5   3 6   4 5   4 6   5 6
 ## Hints:
 11
 1   6 2
 1   6 1
 1   6 0
+1   5 2
 1   5 1
 1   5 0
+1   4 2
+1   4 1
+1   4 0
+2   1 2   3 1
+2   0 2   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   3 2   3 4   3 5   3 6   4 5   4 6   6 5
+## Hints:
+11
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+2   1 2   3 1
+2   0 2   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   3 2   3 4   3 5   3 6   4 5   6 4   6 5
+## Hints:
+11
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+2   1 2   3 1
+2   0 2   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   3 2   3 4   3 5   3 6   4 6   5 4   5 6
+## Hints:
+11
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+2   1 2   3 1
+2   0 2   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   3 2   3 4   3 5   3 6   5 4   5 6   6 4
+## Hints:
+11
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+2   1 2   3 1
+2   0 2   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   3 2   3 4   3 5   3 6   5 4   6 4   6 5
+## Hints:
+11
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+2   1 2   3 1
+2   0 2   3 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+8   3 2   3 4   3 5   4 5   6 2   6 3   6 4   6 5
+## Hints:
+12
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
 1   4 1
 1   4 0
 1   3 1
@@ -4236,7 +4321,73 @@
 ## RF:
 0
 ## HB:
-9   3 2   3 4   5 2   5 3   5 4   6 2   6 3   6 4   6 5
+8   3 2   3 4   3 5   5 4   6 2   6 3   6 4   6 5
+## Hints:
+12
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+8   3 2   3 4   3 6   4 6   5 2   5 3   5 4   5 6
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+8   3 2   3 4   3 6   5 2   5 3   5 4   5 6   6 4
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+9   3 2   3 4   5 2   5 3   5 4   5 6   6 2   6 3   6 4
 ## Hints:
 11
 1   6 1
@@ -4257,28 +4408,7 @@
 ## RF:
 0
 ## HB:
-9   3 2   3 5   4 2   4 3   4 5   4 6   6 2   6 3   6 5
-## Hints:
-11
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-9   3 2   3 4   5 2   5 3   5 4   5 6   6 2   6 3   6 4
+9   3 2   3 4   5 2   5 3   5 4   6 2   6 3   6 4   6 5
 ## Hints:
 11
 1   6 1
@@ -4343,59 +4473,14 @@
 ## RF:
 0
 ## HB:
-8   3 2   3 4   3 6   4 6   5 2   5 3   5 4   5 6
+9   3 2   3 5   4 2   4 3   4 5   4 6   6 2   6 3   6 5
 ## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-8   3 2   3 4   3 6   5 2   5 3   5 4   5 6   6 4
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-8   3 2   3 4   3 5   4 5   6 2   6 3   6 4   6 5
-## Hints:
-12
+11
 1   6 1
 1   6 0
 1   5 2
 1   5 1
 1   5 0
-1   4 2
 1   4 1
 1   4 0
 1   3 1
@@ -4409,15 +4494,14 @@
 ## RF:
 0
 ## HB:
-8   3 2   3 4   3 5   5 4   6 2   6 3   6 4   6 5
+9   3 2   3 5   4 2   4 3   4 5   6 2   6 3   6 4   6 5
 ## Hints:
-12
+11
 1   6 1
 1   6 0
 1   5 2
 1   5 1
 1   5 0
-1   4 2
 1   4 1
 1   4 0
 1   3 1
@@ -4431,9 +4515,10 @@
 ## RF:
 0
 ## HB:
-10   3 2   4 2   4 3   4 5   4 6   5 2   5 3   6 2   6 3   6 5
+9   3 2   3 6   4 2   4 3   4 5   4 6   5 2   5 3   5 6
 ## Hints:
-10
+11
+1   6 2
 1   6 1
 1   6 0
 1   5 1
@@ -4451,9 +4536,10 @@
 ## RF:
 0
 ## HB:
-10   3 2   4 2   4 3   5 2   5 3   5 4   5 6   6 2   6 3   6 4
+9   3 2   3 6   4 2   4 3   4 6   5 2   5 3   5 4   5 6
 ## Hints:
-10
+11
+1   6 2
 1   6 1
 1   6 0
 1   5 1
@@ -4491,7 +4577,27 @@
 ## RF:
 0
 ## HB:
-10   3 2   4 2   4 3   5 2   5 3   5 4   6 2   6 3   6 4   6 5
+10   3 2   4 2   4 3   4 5   4 6   5 2   5 3   6 2   6 3   6 5
+## Hints:
+10
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   3 2   4 2   4 3   4 5   5 2   5 3   6 2   6 3   6 4   6 5
 ## Hints:
 10
 1   6 1
@@ -4531,7 +4637,7 @@
 ## RF:
 0
 ## HB:
-10   3 2   4 2   4 3   4 5   5 2   5 3   6 2   6 3   6 4   6 5
+10   3 2   4 2   4 3   5 2   5 3   5 4   5 6   6 2   6 3   6 4
 ## Hints:
 10
 1   6 1
@@ -4545,148 +4651,47 @@
 1   2 1
 1   2 0
 
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   3 2   3 4   3 5   3 6   5 4   6 4   6 5
-## Hints:
-11
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-2   1 2   3 1
-2   0 2   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   3 2   3 4   3 5   3 6   4 5   6 4   6 5
-## Hints:
-11
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-2   1 2   3 1
-2   0 2   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   3 2   3 4   3 5   3 6   5 4   5 6   6 4
-## Hints:
-11
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-2   1 2   3 1
-2   0 2   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   3 2   3 4   3 5   3 6   4 6   5 4   5 6
-## Hints:
-11
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-2   1 2   3 1
-2   0 2   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   3 2   3 4   3 5   3 6   4 5   4 6   6 5
-## Hints:
-11
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-2   1 2   3 1
-2   0 2   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   3 2   3 4   3 5   3 6   4 5   4 6   5 6
-## Hints:
-11
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-2   1 2   3 1
-2   0 2   3 0
-
 ## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   3 2   4 2   4 3   5 2   5 3   5 4   6 2   6 3   6 4   6 5
+## Hints:
+10
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 5):
 ## Outcome:
 7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-13   3 1   4 1   4 2   4 3   5 1   5 2   5 3   5 4   6 1   6 2   6 3   6 4   6 5
+9   3 1   3 2   3 4   3 5   3 6   4 2   4 5   4 6   5 6
 ## Hints:
-7
+12
+1   6 2
+1   6 1
 1   6 0
+1   5 2
+1   5 1
 1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-2   2 1   3 2
+2   1 2   4 1
+2   0 2   4 0
+2   0 1   4 0
+2   0 1   3 0
+2   0 1   2 0
+3   0 2   3 0   4 1
 
 ## Observation (Lins: 5):
 ## Outcome:
@@ -4709,6 +4714,194 @@
 2   0 1   3 0
 2   0 1   2 0
 3   0 2   3 0   4 1
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   3 1   3 2   3 4   3 5   3 6   4 2   4 5   6 2   6 4   6 5
+## Hints:
+10
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   2 1
+1   2 0
+2   0 1   3 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   3 1   3 2   3 4   3 5   3 6   4 2   4 6   5 2   5 4   5 6
+## Hints:
+10
+1   6 2
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   2 1
+1   2 0
+2   0 1   3 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+11   3 1   3 2   3 4   3 5   3 6   4 2   5 2   5 4   5 6   6 2   6 4
+## Hints:
+9
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   2 1
+1   2 0
+2   0 1   3 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+11   3 1   3 2   3 4   3 5   3 6   4 2   5 2   5 4   6 2   6 4   6 5
+## Hints:
+9
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   2 1
+1   2 0
+2   0 1   3 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+11   3 1   3 2   3 4   3 5   4 2   4 5   6 1   6 2   6 3   6 4   6 5
+## Hints:
+9
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+2   1 2   4 1
+
+## Observation (Lins: 1):
+## Outcome:
+7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   3 1   3 2   3 4   3 5   4 2   5 2   5 4   6 1   6 2   6 3   6 4   6 5
+## Hints:
+9
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 0
+1   2 1
+1   2 0
+1   1 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+11   3 1   3 2   3 4   3 6   4 2   4 6   5 1   5 2   5 3   5 4   5 6
+## Hints:
+9
+1   6 2
+1   6 1
+1   6 0
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+2   1 2   4 1
+
+## Observation (Lins: 1):
+## Outcome:
+7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   3 1   3 2   3 4   3 6   4 2   5 1   5 2   5 3   5 4   5 6   6 2   6 4
+## Hints:
+9
+1   6 1
+1   6 0
+1   5 0
+1   4 1
+1   4 0
+1   3 0
+1   2 1
+1   2 0
+1   1 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   3 1   3 2   3 4   4 2   5 1   5 2   5 3   5 4   5 6   6 1   6 2   6 3   6 4
+## Hints:
+7
+1   6 0
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+2   1 2   4 1
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   3 1   3 2   3 4   4 2   5 1   5 2   5 3   5 4   6 1   6 2   6 3   6 4   6 5
+## Hints:
+7
+1   6 0
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+2   1 2   4 1
 
 ## Observation (Lins: 5):
 ## Outcome:
@@ -4760,50 +4953,13 @@
 ## RF:
 0
 ## HB:
-11   3 1   3 2   3 4   3 5   3 6   4 2   5 2   5 4   6 2   6 4   6 5
+10   3 1   3 5   4 1   4 2   4 3   4 5   4 6   6 1   6 3   6 5
 ## Hints:
-9
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   2 1
-1   2 0
-2   0 1   3 0
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-11   3 1   3 2   3 4   3 5   3 6   4 2   5 2   5 4   5 6   6 2   6 4
-## Hints:
-9
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   2 1
-1   2 0
-2   0 1   3 0
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-11   3 1   4 1   4 2   4 3   4 5   4 6   5 1   5 3   6 1   6 3   6 5
-## Hints:
-9
+10
 1   6 2
 1   6 0
 1   5 2
+1   5 1
 1   5 0
 1   3 2
 1   3 0
@@ -4817,58 +4973,18 @@
 ## RF:
 0
 ## HB:
-11   3 1   4 1   4 2   4 3   4 5   4 6   5 1   5 3   5 6   6 1   6 3
+11   3 1   3 5   4 1   4 2   4 3   4 5   6 1   6 2   6 3   6 4   6 5
 ## Hints:
 9
-1   6 2
 1   6 0
 1   5 2
+1   5 1
 1   5 0
-1   3 2
+1   4 0
 1   3 0
-1   1 2
+1   2 0
 1   1 0
-2   0 2   4 0
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-10   3 1   3 2   3 4   3 5   3 6   4 2   4 6   5 2   5 4   5 6
-## Hints:
-10
-1   6 2
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   2 1
-1   2 0
-2   0 1   3 0
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-10   3 1   3 2   3 4   3 5   3 6   4 2   4 5   6 2   6 4   6 5
-## Hints:
-10
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   2 1
-1   2 0
-2   0 1   3 0
+2   2 1   3 2
 
 ## Observation (Lins: 2):
 ## Outcome:
@@ -4896,99 +5012,6 @@
 ## RF:
 0
 ## HB:
-10   3 1   3 5   4 1   4 2   4 3   4 5   4 6   6 1   6 3   6 5
-## Hints:
-10
-1   6 2
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   3 2
-1   3 0
-1   1 2
-1   1 0
-2   0 2   4 0
-
-## Observation (Lins: 5):
-## Outcome:
-7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-9   3 1   3 2   3 4   3 5   3 6   4 2   4 5   4 6   5 6
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-2   1 2   4 1
-2   0 2   4 0
-2   0 1   4 0
-2   0 1   3 0
-2   0 1   2 0
-3   0 2   3 0   4 1
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   3 1   4 1   4 2   4 3   5 1   5 2   5 3   5 4   5 6   6 1   6 2   6 3   6 4
-## Hints:
-7
-1   6 0
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-2   2 1   3 2
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   3 1   3 2   3 4   4 2   5 1   5 2   5 3   5 4   6 1   6 2   6 3   6 4   6 5
-## Hints:
-7
-1   6 0
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-2   1 2   4 1
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   3 1   3 2   3 4   4 2   5 1   5 2   5 3   5 4   5 6   6 1   6 2   6 3   6 4
-## Hints:
-7
-1   6 0
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-2   1 2   4 1
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
 11   3 1   3 6   4 1   4 2   4 3   4 6   5 1   5 2   5 3   5 4   5 6
 ## Hints:
 9
@@ -5008,37 +5031,18 @@
 ## RF:
 0
 ## HB:
-11   3 1   3 5   4 1   4 2   4 3   4 5   6 1   6 2   6 3   6 4   6 5
-## Hints:
-9
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-2   2 1   3 2
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-11   3 1   3 2   3 4   3 6   4 2   4 6   5 1   5 2   5 3   5 4   5 6
+11   3 1   4 1   4 2   4 3   4 5   4 6   5 1   5 3   5 6   6 1   6 3
 ## Hints:
 9
 1   6 2
-1   6 1
 1   6 0
+1   5 2
 1   5 0
-1   4 0
+1   3 2
 1   3 0
-1   2 0
+1   1 2
 1   1 0
-2   1 2   4 1
+2   0 2   4 0
 
 ## Observation (Lins: 2):
 ## Outcome:
@@ -5046,56 +5050,18 @@
 ## RF:
 0
 ## HB:
-11   3 1   3 2   3 4   3 5   4 2   4 5   6 1   6 2   6 3   6 4   6 5
+11   3 1   4 1   4 2   4 3   4 5   4 6   5 1   5 3   6 1   6 3   6 5
 ## Hints:
 9
+1   6 2
 1   6 0
 1   5 2
-1   5 1
 1   5 0
-1   4 0
+1   3 2
 1   3 0
-1   2 0
+1   1 2
 1   1 0
-2   1 2   4 1
-
-## Observation (Lins: 1):
-## Outcome:
-7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-12   3 1   3 2   3 4   3 5   4 2   5 2   5 4   6 1   6 2   6 3   6 4   6 5
-## Hints:
-9
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 0
-1   2 1
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-12   3 1   3 2   3 4   3 6   4 2   5 1   5 2   5 3   5 4   5 6   6 2   6 4
-## Hints:
-9
-1   6 1
-1   6 0
-1   5 0
-1   4 1
-1   4 0
-1   3 0
-1   2 1
-1   2 0
-1   1 0
+2   0 2   4 0
 
 ## Observation (Lins: 1):
 ## Outcome:
@@ -5135,189 +5101,58 @@
 1   1 2
 1   1 0
 
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   3 1   4 1   4 2   4 3   5 1   5 2   5 3   5 4   5 6   6 1   6 2   6 3   6 4
+## Hints:
+7
+1   6 0
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+2   2 1   3 2
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   3 1   4 1   4 2   4 3   5 1   5 2   5 3   5 4   6 1   6 2   6 3   6 4   6 5
+## Hints:
+7
+1   6 0
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+2   2 1   3 2
+
 ## Observation (Lins: 5):
 ## Outcome:
 7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-12   3 0   3 6   4 0   4 1   4 3   4 6   5 0   5 1   5 2   5 3   5 4   5 6
+12   3 0   3 1   3 2   3 4   3 5   3 6   4 1   4 2   4 5   4 6   5 2   5 6
 ## Hints:
 9
 1   6 2
 1   6 1
 1   6 0
-2   2 1   4 2
-2   2 1   3 2
-2   2 0   3 2
-2   1 0   3 1
-2   0 2   2 1
-3   2 0   3 1   4 2
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-14   3 0   4 0   4 1   4 3   5 0   5 1   5 2   5 3   5 4   5 6   6 0   6 1   6 3   6 4
-## Hints:
-6
-1   6 2
-1   4 2
-1   3 2
-1   1 2
-1   0 2
-2   1 0   3 1
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-14   3 0   3 2   3 5   4 0   4 1   4 2   4 3   4 5   4 6   5 2   6 0   6 2   6 3   6 5
-## Hints:
-6
-1   6 1
-1   5 1
-1   3 1
-1   2 1
-1   0 1
-2   0 2   5 0
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-14   3 0   4 0   4 1   4 2   4 3   4 5   4 6   5 0   5 2   5 3   6 0   6 2   6 3   6 5
-## Hints:
-6
-1   6 1
-1   5 1
-1   3 1
-1   2 1
-1   0 1
-2   2 0   3 2
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-14   3 0   3 1   3 2   3 4   3 5   3 6   4 1   4 2   4 5   5 2   6 1   6 2   6 4   6 5
-## Hints:
-6
-1   6 0
-1   5 0
-1   4 0
-1   2 0
-1   1 0
 2   1 2   5 1
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-14   3 0   3 1   3 2   3 4   3 5   3 6   4 1   5 1   5 2   5 4   6 1   6 2   6 4   6 5
-## Hints:
-6
-1   6 0
-1   5 0
-1   4 0
-1   2 0
-1   1 0
-2   2 1   4 2
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   3 0   4 0   4 1   4 3   4 6   5 0   5 1   5 2   5 3   5 4   5 6   6 0   6 3
-## Hints:
-7
-1   6 2
-1   6 1
-1   3 2
-1   3 1
-1   0 2
-1   0 1
-2   2 1   4 2
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   3 0   3 1   3 4   3 6   4 1   5 0   5 1   5 2   5 3   5 4   5 6   6 1   6 4
-## Hints:
-7
-1   6 2
-1   6 0
-1   4 2
-1   4 0
-1   1 2
-1   1 0
-2   2 0   3 2
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   3 0   4 0   4 1   4 2   4 3   4 5   4 6   5 0   5 2   5 3   5 6   6 0   6 3
-## Hints:
-7
-1   6 2
-1   6 1
-1   3 2
-1   3 1
-1   0 2
-1   0 1
-2   1 2   5 1
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   3 0   3 2   3 5   3 6   4 0   4 1   4 2   4 3   4 5   4 6   5 2   6 2   6 5
-## Hints:
-7
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   2 1
-1   2 0
-2   1 0   3 1
-
-## Observation (Lins: 2):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   3 0   3 1   3 2   3 4   3 5   3 6   4 1   5 1   5 2   5 4   5 6   6 1   6 4
-## Hints:
-7
-1   6 2
-1   6 0
-1   4 2
-1   4 0
-1   1 2
-1   1 0
 2   0 2   5 0
+2   0 1   5 0
+2   0 1   4 0
+2   0 1   2 0
+3   0 2   4 0   5 1
 
 ## Observation (Lins: 2):
 ## Outcome:
@@ -5342,15 +5177,99 @@
 ## RF:
 0
 ## HB:
-14   3 0   3 1   3 4   4 1   5 0   5 1   5 2   5 3   5 4   5 6   6 0   6 1   6 3   6 4
+14   3 0   3 1   3 2   3 4   3 5   3 6   4 1   4 2   4 5   5 2   6 1   6 2   6 4   6 5
 ## Hints:
 6
+1   6 0
+1   5 0
+1   4 0
+1   2 0
+1   1 0
+2   1 2   5 1
+
+## Observation (Lins: 5):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   3 0   3 1   3 2   3 4   3 5   3 6   4 1   4 6   5 1   5 2   5 4   5 6
+## Hints:
+9
 1   6 2
-1   4 2
-1   3 2
-1   1 2
-1   0 2
+1   6 1
+1   6 0
+2   2 1   4 2
+2   0 2   5 0
+2   0 2   4 0
+2   0 2   1 0
 2   0 1   4 0
+3   0 1   4 2   5 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   3 0   3 1   3 2   3 4   3 5   3 6   4 1   5 1   5 2   5 4   5 6   6 1   6 4
+## Hints:
+7
+1   6 2
+1   6 0
+1   4 2
+1   4 0
+1   1 2
+1   1 0
+2   0 2   5 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+14   3 0   3 1   3 2   3 4   3 5   3 6   4 1   5 1   5 2   5 4   6 1   6 2   6 4   6 5
+## Hints:
+6
+1   6 0
+1   5 0
+1   4 0
+1   2 0
+1   1 0
+2   2 1   4 2
+
+## Observation (Lins: 5):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+15   3 0   3 1   3 2   3 4   3 5   4 1   4 2   4 5   5 2   6 0   6 1   6 2   6 3   6 4   6 5
+## Hints:
+6
+2   1 2   5 1
+2   0 2   5 0
+2   0 1   5 0
+2   0 1   4 0
+2   0 1   2 0
+3   0 2   4 0   5 1
+
+## Observation (Lins: 5):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+15   3 0   3 1   3 2   3 4   3 5   4 1   5 1   5 2   5 4   6 0   6 1   6 2   6 3   6 4   6 5
+## Hints:
+6
+2   2 1   4 2
+2   0 2   5 0
+2   0 2   4 0
+2   0 2   1 0
+2   0 1   4 0
+3   0 1   4 2   5 0
 
 ## Observation (Lins: 5):
 ## Outcome:
@@ -5370,6 +5289,123 @@
 2   1 2   2 0
 2   0 1   4 0
 3   2 1   3 2   4 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   3 0   3 1   3 4   3 6   4 1   5 0   5 1   5 2   5 3   5 4   5 6   6 1   6 4
+## Hints:
+7
+1   6 2
+1   6 0
+1   4 2
+1   4 0
+1   1 2
+1   1 0
+2   2 0   3 2
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+14   3 0   3 1   3 4   4 1   5 0   5 1   5 2   5 3   5 4   5 6   6 0   6 1   6 3   6 4
+## Hints:
+6
+1   6 2
+1   4 2
+1   3 2
+1   1 2
+1   0 2
+2   0 1   4 0
+
+## Observation (Lins: 5):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+15   3 0   3 1   3 4   4 1   5 0   5 1   5 2   5 3   5 4   6 0   6 1   6 2   6 3   6 4   6 5
+## Hints:
+6
+2   2 1   4 2
+2   2 0   4 2
+2   2 0   3 2
+2   1 2   2 0
+2   0 1   4 0
+3   2 1   3 2   4 0
+
+## Observation (Lins: 5):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   3 0   3 2   3 5   3 6   4 0   4 1   4 2   4 3   4 5   4 6   5 2   5 6
+## Hints:
+9
+1   6 2
+1   6 1
+1   6 0
+2   1 2   5 1
+2   1 0   5 1
+2   1 0   3 1
+2   1 0   2 1
+2   0 2   5 0
+3   1 2   3 1   5 0
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   3 0   3 2   3 5   3 6   4 0   4 1   4 2   4 3   4 5   4 6   5 2   6 2   6 5
+## Hints:
+7
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   2 1
+1   2 0
+2   1 0   3 1
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+14   3 0   3 2   3 5   4 0   4 1   4 2   4 3   4 5   4 6   5 2   6 0   6 2   6 3   6 5
+## Hints:
+6
+1   6 1
+1   5 1
+1   3 1
+1   2 1
+1   0 1
+2   0 2   5 0
+
+## Observation (Lins: 5):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+15   3 0   3 2   3 5   4 0   4 1   4 2   4 3   4 5   5 2   6 0   6 1   6 2   6 3   6 4   6 5
+## Hints:
+6
+2   1 2   5 1
+2   1 0   5 1
+2   1 0   3 1
+2   1 0   2 1
+2   0 2   5 0
+3   1 2   3 1   5 0
 
 ## Observation (Lins: 5):
 ## Outcome:
@@ -5396,56 +5432,51 @@
 ## RF:
 0
 ## HB:
-12   3 0   3 2   3 5   3 6   4 0   4 1   4 2   4 3   4 5   4 6   5 2   5 6
-## Hints:
-9
-1   6 2
-1   6 1
-1   6 0
-2   1 2   5 1
-2   1 0   5 1
-2   1 0   3 1
-2   1 0   2 1
-2   0 2   5 0
-3   1 2   3 1   5 0
-
-## Observation (Lins: 5):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-12   3 0   3 1   3 2   3 4   3 5   3 6   4 1   4 6   5 1   5 2   5 4   5 6
+12   3 0   3 6   4 0   4 1   4 3   4 6   5 0   5 1   5 2   5 3   5 4   5 6
 ## Hints:
 9
 1   6 2
 1   6 1
 1   6 0
 2   2 1   4 2
-2   0 2   5 0
-2   0 2   4 0
-2   0 2   1 0
-2   0 1   4 0
-3   0 1   4 2   5 0
+2   2 1   3 2
+2   2 0   3 2
+2   1 0   3 1
+2   0 2   2 1
+3   2 0   3 1   4 2
 
-## Observation (Lins: 5):
+## Observation (Lins: 2):
 ## Outcome:
 7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-12   3 0   3 1   3 2   3 4   3 5   3 6   4 1   4 2   4 5   4 6   5 2   5 6
+13   3 0   4 0   4 1   4 2   4 3   4 5   4 6   5 0   5 2   5 3   5 6   6 0   6 3
 ## Hints:
-9
+7
 1   6 2
 1   6 1
-1   6 0
+1   3 2
+1   3 1
+1   0 2
+1   0 1
 2   1 2   5 1
-2   0 2   5 0
-2   0 1   5 0
-2   0 1   4 0
-2   0 1   2 0
-3   0 2   4 0   5 1
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+14   3 0   4 0   4 1   4 2   4 3   4 5   4 6   5 0   5 2   5 3   6 0   6 2   6 3   6 5
+## Hints:
+6
+1   6 1
+1   5 1
+1   3 1
+1   2 1
+1   0 1
+2   2 0   3 2
 
 ## Observation (Lins: 5):
 ## Outcome:
@@ -5463,21 +5494,38 @@
 2   0 1   1 2
 3   1 0   3 2   5 1
 
-## Observation (Lins: 5):
+## Observation (Lins: 2):
 ## Outcome:
 7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-15   3 0   3 1   3 2   3 4   3 5   4 1   5 1   5 2   5 4   6 0   6 1   6 2   6 3   6 4   6 5
+13   3 0   4 0   4 1   4 3   4 6   5 0   5 1   5 2   5 3   5 4   5 6   6 0   6 3
+## Hints:
+7
+1   6 2
+1   6 1
+1   3 2
+1   3 1
+1   0 2
+1   0 1
+2   2 1   4 2
+
+## Observation (Lins: 2):
+## Outcome:
+7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+14   3 0   4 0   4 1   4 3   5 0   5 1   5 2   5 3   5 4   5 6   6 0   6 1   6 3   6 4
 ## Hints:
 6
-2   2 1   4 2
-2   0 2   5 0
-2   0 2   4 0
-2   0 2   1 0
-2   0 1   4 0
-3   0 1   4 2   5 0
+1   6 2
+1   4 2
+1   3 2
+1   1 2
+1   0 2
+2   1 0   3 1
 
 ## Observation (Lins: 5):
 ## Outcome:
@@ -5495,109 +5543,9 @@
 2   0 2   2 1
 3   2 0   3 1   4 2
 
-## Observation (Lins: 5):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-15   3 0   3 1   3 2   3 4   3 5   4 1   4 2   4 5   5 2   6 0   6 1   6 2   6 3   6 4   6 5
-## Hints:
-6
-2   1 2   5 1
-2   0 2   5 0
-2   0 1   5 0
-2   0 1   4 0
-2   0 1   2 0
-3   0 2   4 0   5 1
-
-## Observation (Lins: 5):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-15   3 0   3 1   3 4   4 1   5 0   5 1   5 2   5 3   5 4   6 0   6 1   6 2   6 3   6 4   6 5
-## Hints:
-6
-2   2 1   4 2
-2   2 0   4 2
-2   2 0   3 2
-2   1 2   2 0
-2   0 1   4 0
-3   2 1   3 2   4 0
-
-## Observation (Lins: 5):
-## Outcome:
-7   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-15   3 0   3 2   3 5   4 0   4 1   4 2   4 3   4 5   5 2   6 0   6 1   6 2   6 3   6 4   6 5
-## Hints:
-6
-2   1 2   5 1
-2   1 0   5 1
-2   1 0   3 1
-2   1 0   2 1
-2   0 2   5 0
-3   1 2   3 1   5 0
-
 # Specification
 # Statistics:  Size: 120  Hints: 2080  Lins: 1492
 # Observations:
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   4 5   6 4   6 5   7 4   7 5   7 6
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   5 4   6 4   6 5   7 4   7 5   7 6
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
 ## Observation (Lins: 24):
 ## Outcome:
 8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
@@ -5631,6 +5579,32 @@
 0
 ## HB:
 6   4 5   4 6   4 7   5 6   5 7   7 6
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   4 5   4 6   4 7   5 6   7 5   7 6
 ## Hints:
 16
 1   7 3
@@ -5708,7 +5682,7 @@
 ## RF:
 0
 ## HB:
-6   4 5   4 6   4 7   5 6   7 5   7 6
+6   4 5   4 6   4 7   6 5   7 5   7 6
 ## Hints:
 16
 1   7 3
@@ -5734,7 +5708,137 @@
 ## RF:
 0
 ## HB:
-6   4 5   4 6   4 7   6 5   7 5   7 6
+6   4 5   4 6   5 6   7 4   7 5   7 6
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   4 5   4 6   6 5   7 4   7 5   7 6
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   4 5   4 7   5 7   6 4   6 5   6 7
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   4 5   4 7   6 4   6 5   6 7   7 5
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   4 5   6 4   6 5   6 7   7 4   7 5
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   4 5   6 4   6 5   7 4   7 5   7 6
 ## Hints:
 16
 1   7 3
@@ -5812,58 +5916,6 @@
 ## RF:
 0
 ## HB:
-6   4 7   5 4   5 6   5 7   6 4   6 7
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   5 4   5 6   5 7   6 4   6 7   7 4
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
 6   4 6   5 4   5 6   5 7   7 4   7 6
 ## Hints:
 16
@@ -5890,7 +5942,85 @@
 ## RF:
 0
 ## HB:
-6   4 5   4 7   5 7   6 4   6 5   6 7
+6   4 6   5 4   5 6   7 4   7 5   7 6
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   4 7   5 4   5 6   5 7   6 4   6 7
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   4 7   5 4   5 7   6 4   6 5   6 7
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+6   5 4   5 6   5 7   6 4   6 7   7 4
 ## Hints:
 16
 1   7 3
@@ -5968,163 +6098,7 @@
 ## RF:
 0
 ## HB:
-6   4 6   5 4   5 6   7 4   7 5   7 6
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   4 5   4 6   6 5   7 4   7 5   7 6
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   4 5   4 6   5 6   7 4   7 5   7 6
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   4 5   6 4   6 5   6 7   7 4   7 5
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
 6   5 4   5 7   6 4   6 5   6 7   7 4
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   4 7   5 4   5 7   6 4   6 5   6 7
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-6   4 5   4 7   6 4   6 5   6 7   7 5
 ## Hints:
 16
 1   7 3
@@ -6170,41 +6144,16 @@
 1   4 1
 1   4 0
 
-## Observation (Lins: 6):
+## Observation (Lins: 24):
 ## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 0   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-9   4 3   4 7   5 3   5 4   5 7   6 3   6 4   6 5   6 7
+6   5 4   6 4   6 5   7 4   7 5   7 6
 ## Hints:
 16
 1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-9   4 3   4 6   5 3   5 4   5 6   7 3   7 4   7 5   7 6
-## Hints:
-16
 1   7 2
 1   7 1
 1   7 0
@@ -6212,6 +6161,182 @@
 1   6 2
 1   6 1
 1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   4 3   4 5   4 6   4 7   5 6   5 7   6 7
+## Hints:
+15
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+2   2 3   4 2
+2   1 3   4 1
+2   0 3   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   4 3   4 5   4 6   4 7   5 6   5 7   7 6
+## Hints:
+15
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+2   2 3   4 2
+2   1 3   4 1
+2   0 3   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   4 3   4 5   4 6   4 7   5 6   7 5   7 6
+## Hints:
+15
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+2   2 3   4 2
+2   1 3   4 1
+2   0 3   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   4 3   4 5   4 6   4 7   5 7   6 5   6 7
+## Hints:
+15
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+2   2 3   4 2
+2   1 3   4 1
+2   0 3   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   4 3   4 5   4 6   4 7   6 5   6 7   7 5
+## Hints:
+15
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+2   2 3   4 2
+2   1 3   4 1
+2   0 3   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+7   4 3   4 5   4 6   4 7   6 5   7 5   7 6
+## Hints:
+15
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+2   2 3   4 2
+2   1 3   4 1
+2   0 3   4 0
+
+## Observation (Lins: 6):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+8   4 3   4 5   4 6   5 6   7 3   7 4   7 5   7 6
+## Hints:
+17
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
 1   5 2
 1   5 1
 1   5 0
@@ -6228,9 +6353,36 @@
 ## RF:
 0
 ## HB:
-9   4 3   4 7   5 3   5 4   5 6   5 7   6 3   6 4   6 7
+8   4 3   4 5   4 6   6 5   7 3   7 4   7 5   7 6
 ## Hints:
-16
+17
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+8   4 3   4 5   4 7   5 7   6 3   6 4   6 5   6 7
+## Hints:
+17
 1   7 3
 1   7 2
 1   7 1
@@ -6238,6 +6390,7 @@
 1   6 2
 1   6 1
 1   6 0
+1   5 3
 1   5 2
 1   5 1
 1   5 0
@@ -6254,7 +6407,34 @@
 ## RF:
 0
 ## HB:
-9   4 3   4 5   6 3   6 4   6 5   7 3   7 4   7 5   7 6
+8   4 3   4 5   4 7   6 3   6 4   6 5   6 7   7 5
+## Hints:
+17
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+9   4 3   4 5   6 3   6 4   6 5   6 7   7 3   7 4   7 5
 ## Hints:
 16
 1   7 2
@@ -6280,33 +6460,7 @@
 ## RF:
 0
 ## HB:
-9   4 3   4 6   5 3   5 4   5 6   5 7   7 3   7 4   7 6
-## Hints:
-16
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-9   4 3   4 5   6 3   6 4   6 5   6 7   7 3   7 4   7 5
+9   4 3   4 5   6 3   6 4   6 5   7 3   7 4   7 5   7 6
 ## Hints:
 16
 1   7 2
@@ -6386,63 +6540,9 @@
 ## RF:
 0
 ## HB:
-8   4 3   4 5   4 7   5 7   6 3   6 4   6 5   6 7
+9   4 3   4 6   5 3   5 4   5 6   5 7   7 3   7 4   7 6
 ## Hints:
-17
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-8   4 3   4 5   4 7   6 3   6 4   6 5   6 7   7 5
-## Hints:
-17
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-8   4 3   4 5   4 6   5 6   7 3   7 4   7 5   7 6
-## Hints:
-17
+16
 1   7 2
 1   7 1
 1   7 0
@@ -6450,7 +6550,6 @@
 1   6 2
 1   6 1
 1   6 0
-1   5 3
 1   5 2
 1   5 1
 1   5 0
@@ -6467,9 +6566,9 @@
 ## RF:
 0
 ## HB:
-8   4 3   4 5   4 6   6 5   7 3   7 4   7 5   7 6
+9   4 3   4 6   5 3   5 4   5 6   7 3   7 4   7 5   7 6
 ## Hints:
-17
+16
 1   7 2
 1   7 1
 1   7 0
@@ -6477,7 +6576,6 @@
 1   6 2
 1   6 1
 1   6 0
-1   5 3
 1   5 2
 1   5 1
 1   5 0
@@ -6494,9 +6592,10 @@
 ## RF:
 0
 ## HB:
-10   4 3   5 3   5 4   5 6   5 7   6 3   6 4   7 3   7 4   7 6
+9   4 3   4 7   5 3   5 4   5 6   5 7   6 3   6 4   6 7
 ## Hints:
-15
+16
+1   7 3
 1   7 2
 1   7 1
 1   7 0
@@ -6519,9 +6618,10 @@
 ## RF:
 0
 ## HB:
-10   4 3   5 3   5 4   6 3   6 4   6 5   6 7   7 3   7 4   7 5
+9   4 3   4 7   5 3   5 4   5 7   6 3   6 4   6 5   6 7
 ## Hints:
-15
+16
+1   7 3
 1   7 2
 1   7 1
 1   7 0
@@ -6569,7 +6669,32 @@
 ## RF:
 0
 ## HB:
-10   4 3   5 3   5 4   6 3   6 4   6 5   7 3   7 4   7 5   7 6
+10   4 3   5 3   5 4   5 6   5 7   6 3   6 4   7 3   7 4   7 6
+## Hints:
+15
+1   7 2
+1   7 1
+1   7 0
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   4 3   5 3   5 4   5 6   6 3   6 4   7 3   7 4   7 5   7 6
 ## Hints:
 15
 1   7 2
@@ -6619,7 +6744,7 @@
 ## RF:
 0
 ## HB:
-10   4 3   5 3   5 4   5 6   6 3   6 4   7 3   7 4   7 5   7 6
+10   4 3   5 3   5 4   6 3   6 4   6 5   6 7   7 3   7 4   7 5
 ## Hints:
 15
 1   7 2
@@ -6638,497 +6763,88 @@
 1   3 1
 1   3 0
 
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   4 3   4 5   4 6   4 7   6 5   7 5   7 6
-## Hints:
-15
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-2   2 3   4 2
-2   1 3   4 1
-2   0 3   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   4 3   4 5   4 6   4 7   5 6   7 5   7 6
-## Hints:
-15
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-2   2 3   4 2
-2   1 3   4 1
-2   0 3   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   4 3   4 5   4 6   4 7   6 5   6 7   7 5
-## Hints:
-15
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-2   2 3   4 2
-2   1 3   4 1
-2   0 3   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   4 3   4 5   4 6   4 7   5 7   6 5   6 7
-## Hints:
-15
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-2   2 3   4 2
-2   1 3   4 1
-2   0 3   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   4 3   4 5   4 6   4 7   5 6   5 7   7 6
-## Hints:
-15
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-2   2 3   4 2
-2   1 3   4 1
-2   0 3   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-7   4 3   4 5   4 6   4 7   5 6   5 7   6 7
-## Hints:
-15
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-2   2 3   4 2
-2   1 3   4 1
-2   0 3   4 0
-
 ## Observation (Lins: 6):
 ## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+8   pop 0 0   pop 0 0   pop 0 0   pop 0 101   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-10   4 2   4 6   5 2   5 3   5 4   5 6   5 7   7 2   7 4   7 6
-## Hints:
-15
-1   7 3
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   4 3
-1   4 1
-1   4 0
-1   2 3
-1   2 1
-1   2 0
-2   1 3   5 1
-2   0 3   5 0
-
-## Observation (Lins: 2):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-12   4 2   5 2   5 3   5 4   5 6   6 2   6 4   7 2   7 3   7 4   7 5   7 6
-## Hints:
-15
-1   7 1
-1   7 0
-1   6 3
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 3
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 3
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-12   4 2   4 3   4 5   4 7   5 3   6 2   6 3   6 4   6 5   6 7   7 3   7 5
+10   4 3   5 3   5 4   6 3   6 4   6 5   7 3   7 4   7 5   7 6
 ## Hints:
 15
 1   7 2
 1   7 1
 1   7 0
+1   6 2
 1   6 1
 1   6 0
 1   5 2
 1   5 1
 1   5 0
+1   4 2
 1   4 1
 1   4 0
 1   3 2
 1   3 1
 1   3 0
-1   2 1
-1   2 0
 
-## Observation (Lins: 2):
+## Observation (Lins: 18):
 ## Outcome:
 8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-12   4 2   4 3   4 5   4 6   5 3   6 3   6 5   7 2   7 3   7 4   7 5   7 6
+9   4 2   4 3   4 5   4 6   4 7   5 3   5 6   5 7   6 7
 ## Hints:
-15
-1   7 1
-1   7 0
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-11   4 2   4 3   4 5   4 6   5 3   5 6   7 2   7 3   7 4   7 5   7 6
-## Hints:
-15
+19
+1   7 3
+1   7 2
 1   7 1
 1   7 0
 1   6 3
 1   6 2
 1   6 1
 1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
 2   2 3   5 2
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-11   4 2   4 3   4 5   4 7   5 3   5 7   6 2   6 3   6 4   6 5   6 7
-## Hints:
-15
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-2   2 3   5 2
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-11   4 2   4 6   5 2   5 3   5 4   5 6   7 2   7 3   7 4   7 5   7 6
-## Hints:
-15
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-2   3 2   4 3
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-11   4 2   4 7   5 2   5 3   5 4   5 7   6 2   6 3   6 4   6 5   6 7
-## Hints:
-15
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-2   3 2   4 3
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   4 2   4 3   4 5   5 3   6 2   6 3   6 4   6 5   6 7   7 2   7 3   7 4   7 5
-## Hints:
-13
-1   7 1
-1   7 0
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-2   2 3   5 2
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   4 2   4 3   4 5   5 3   6 2   6 3   6 4   6 5   7 2   7 3   7 4   7 5   7 6
-## Hints:
-13
-1   7 1
-1   7 0
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-2   2 3   5 2
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   4 2   5 2   5 3   5 4   6 2   6 3   6 4   6 5   6 7   7 2   7 3   7 4   7 5
-## Hints:
-13
-1   7 1
-1   7 0
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-2   3 2   4 3
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   4 2   5 2   5 3   5 4   6 2   6 3   6 4   6 5   7 2   7 3   7 4   7 5   7 6
-## Hints:
-13
-1   7 1
-1   7 0
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-2   3 2   4 3
-
-## Observation (Lins: 2):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-12   4 2   5 2   5 3   5 4   5 7   6 2   6 3   6 4   6 5   6 7   7 2   7 4
-## Hints:
-15
-1   7 3
-1   7 1
-1   7 0
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 3
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 3
-1   2 1
-1   2 0
-
-## Observation (Lins: 6):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-10   4 2   4 7   5 2   5 3   5 4   5 6   5 7   6 2   6 4   6 7
-## Hints:
-15
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 1
-1   6 0
-1   4 3
-1   4 1
-1   4 0
-1   2 3
-1   2 1
-1   2 0
 2   1 3   5 1
+2   1 2   5 1
+2   1 2   4 1
+2   1 2   3 1
 2   0 3   5 0
+2   0 2   5 0
+2   0 2   4 0
+2   0 2   3 0
+3   1 3   4 1   5 2
+3   0 3   4 0   5 2
+
+## Observation (Lins: 18):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+9   4 2   4 3   4 5   4 6   4 7   5 3   5 6   5 7   7 6
+## Hints:
+19
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+2   2 3   5 2
+2   1 3   5 1
+2   1 2   5 1
+2   1 2   4 1
+2   1 2   3 1
+2   0 3   5 0
+2   0 2   5 0
+2   0 2   4 0
+2   0 2   3 0
+3   1 3   4 1   5 2
+3   0 3   4 0   5 2
 
 ## Observation (Lins: 6):
 ## Outcome:
@@ -7186,54 +6902,6 @@
 ## RF:
 0
 ## HB:
-11   4 2   5 2   5 3   5 4   5 6   5 7   6 2   6 4   6 7   7 2   7 4
-## Hints:
-14
-1   7 3
-1   7 1
-1   7 0
-1   6 3
-1   6 1
-1   6 0
-1   4 3
-1   4 1
-1   4 0
-1   2 3
-1   2 1
-1   2 0
-2   1 3   5 1
-2   0 3   5 0
-
-## Observation (Lins: 6):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-11   4 2   5 2   5 3   5 4   5 6   5 7   6 2   6 4   7 2   7 4   7 6
-## Hints:
-14
-1   7 3
-1   7 1
-1   7 0
-1   6 3
-1   6 1
-1   6 0
-1   4 3
-1   4 1
-1   4 0
-1   2 3
-1   2 1
-1   2 0
-2   1 3   5 1
-2   0 3   5 0
-
-## Observation (Lins: 6):
-## Outcome:
-8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
 11   4 2   4 3   4 5   4 6   4 7   5 3   6 3   6 5   6 7   7 3   7 5
 ## Hints:
 14
@@ -7276,34 +6944,151 @@
 2   1 2   4 1
 2   0 2   4 0
 
-## Observation (Lins: 18):
+## Observation (Lins: 4):
 ## Outcome:
 8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-9   4 2   4 6   4 7   5 2   5 3   5 4   5 6   5 7   7 6
+11   4 2   4 3   4 5   4 6   5 3   5 6   7 2   7 3   7 4   7 5   7 6
 ## Hints:
-19
-1   7 3
-1   7 2
+15
 1   7 1
 1   7 0
 1   6 3
 1   6 2
 1   6 1
 1   6 0
-2   3 2   4 3
-2   1 3   5 1
-2   1 3   4 1
-2   1 3   2 1
-2   1 2   4 1
-2   0 3   5 0
-2   0 3   4 0
-2   0 3   2 0
-2   0 2   4 0
-3   1 2   4 3   5 1
-3   0 2   4 3   5 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+2   2 3   5 2
+
+## Observation (Lins: 2):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   4 2   4 3   4 5   4 6   5 3   6 3   6 5   7 2   7 3   7 4   7 5   7 6
+## Hints:
+15
+1   7 1
+1   7 0
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 4):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+11   4 2   4 3   4 5   4 7   5 3   5 7   6 2   6 3   6 4   6 5   6 7
+## Hints:
+15
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+2   2 3   5 2
+
+## Observation (Lins: 2):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   4 2   4 3   4 5   4 7   5 3   6 2   6 3   6 4   6 5   6 7   7 3   7 5
+## Hints:
+15
+1   7 2
+1   7 1
+1   7 0
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 4):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   4 2   4 3   4 5   5 3   6 2   6 3   6 4   6 5   6 7   7 2   7 3   7 4   7 5
+## Hints:
+13
+1   7 1
+1   7 0
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+2   2 3   5 2
+
+## Observation (Lins: 4):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   4 2   4 3   4 5   5 3   6 2   6 3   6 4   6 5   7 2   7 3   7 4   7 5   7 6
+## Hints:
+13
+1   7 1
+1   7 0
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+2   2 3   5 2
 
 ## Observation (Lins: 18):
 ## Outcome:
@@ -7340,7 +7125,7 @@
 ## RF:
 0
 ## HB:
-9   4 2   4 3   4 5   4 6   4 7   5 3   5 6   5 7   7 6
+9   4 2   4 6   4 7   5 2   5 3   5 4   5 6   5 7   7 6
 ## Hints:
 19
 1   7 3
@@ -7351,46 +7136,298 @@
 1   6 2
 1   6 1
 1   6 0
-2   2 3   5 2
+2   3 2   4 3
 2   1 3   5 1
-2   1 2   5 1
+2   1 3   4 1
+2   1 3   2 1
 2   1 2   4 1
-2   1 2   3 1
 2   0 3   5 0
-2   0 2   5 0
+2   0 3   4 0
+2   0 3   2 0
 2   0 2   4 0
-2   0 2   3 0
-3   1 3   4 1   5 2
-3   0 3   4 0   5 2
+3   1 2   4 3   5 1
+3   0 2   4 3   5 0
 
-## Observation (Lins: 18):
+## Observation (Lins: 6):
 ## Outcome:
 8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-9   4 2   4 3   4 5   4 6   4 7   5 3   5 6   5 7   6 7
+10   4 2   4 6   5 2   5 3   5 4   5 6   5 7   7 2   7 4   7 6
 ## Hints:
-19
+15
 1   7 3
-1   7 2
 1   7 1
 1   7 0
 1   6 3
 1   6 2
 1   6 1
 1   6 0
-2   2 3   5 2
+1   4 3
+1   4 1
+1   4 0
+1   2 3
+1   2 1
+1   2 0
 2   1 3   5 1
-2   1 2   5 1
-2   1 2   4 1
-2   1 2   3 1
 2   0 3   5 0
+
+## Observation (Lins: 4):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+11   4 2   4 6   5 2   5 3   5 4   5 6   7 2   7 3   7 4   7 5   7 6
+## Hints:
+15
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+2   3 2   4 3
+
+## Observation (Lins: 6):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+10   4 2   4 7   5 2   5 3   5 4   5 6   5 7   6 2   6 4   6 7
+## Hints:
+15
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 1
+1   6 0
+1   4 3
+1   4 1
+1   4 0
+1   2 3
+1   2 1
+1   2 0
+2   1 3   5 1
+2   0 3   5 0
+
+## Observation (Lins: 4):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+11   4 2   4 7   5 2   5 3   5 4   5 7   6 2   6 3   6 4   6 5   6 7
+## Hints:
+15
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+2   3 2   4 3
+
+## Observation (Lins: 6):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+11   4 2   5 2   5 3   5 4   5 6   5 7   6 2   6 4   6 7   7 2   7 4
+## Hints:
+14
+1   7 3
+1   7 1
+1   7 0
+1   6 3
+1   6 1
+1   6 0
+1   4 3
+1   4 1
+1   4 0
+1   2 3
+1   2 1
+1   2 0
+2   1 3   5 1
+2   0 3   5 0
+
+## Observation (Lins: 6):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+11   4 2   5 2   5 3   5 4   5 6   5 7   6 2   6 4   7 2   7 4   7 6
+## Hints:
+14
+1   7 3
+1   7 1
+1   7 0
+1   6 3
+1   6 1
+1   6 0
+1   4 3
+1   4 1
+1   4 0
+1   2 3
+1   2 1
+1   2 0
+2   1 3   5 1
+2   0 3   5 0
+
+## Observation (Lins: 2):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   4 2   5 2   5 3   5 4   5 6   6 2   6 4   7 2   7 3   7 4   7 5   7 6
+## Hints:
+15
+1   7 1
+1   7 0
+1   6 3
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 3
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 3
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   4 2   5 2   5 3   5 4   5 7   6 2   6 3   6 4   6 5   6 7   7 2   7 4
+## Hints:
+15
+1   7 3
+1   7 1
+1   7 0
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 3
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 3
+1   2 1
+1   2 0
+
+## Observation (Lins: 4):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   4 2   5 2   5 3   5 4   6 2   6 3   6 4   6 5   6 7   7 2   7 3   7 4   7 5
+## Hints:
+13
+1   7 1
+1   7 0
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+2   3 2   4 3
+
+## Observation (Lins: 4):
+## Outcome:
+8   pop 0 0   pop 0 0   pop 0 101   pop 0 102   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   4 2   5 2   5 3   5 4   6 2   6 3   6 4   6 5   7 2   7 3   7 4   7 5   7 6
+## Hints:
+13
+1   7 1
+1   7 0
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+2   3 2   4 3
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   4 1   4 2   4 3   4 5   4 6   4 7   5 2   5 3   5 6   5 7   6 3   6 7
+## Hints:
+27
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+2   2 3   6 2
+2   1 3   6 1
+2   1 2   6 1
+2   1 2   5 1
+2   1 2   3 1
+2   0 3   6 0
+2   0 2   6 0
 2   0 2   5 0
-2   0 2   4 0
 2   0 2   3 0
-3   1 3   4 1   5 2
-3   0 3   4 0   5 2
+2   0 1   6 0
+2   0 1   5 0
+2   0 1   4 0
+2   0 1   3 0
+2   0 1   2 0
+3   1 3   5 1   6 2
+3   0 3   5 0   6 2
+3   0 3   5 0   6 1
+3   0 3   4 0   6 1
+3   0 3   2 0   6 1
+3   0 2   4 0   6 1
+3   0 2   4 0   5 1
+3   0 2   3 1   4 0
+4   0 3   4 0   5 1   6 2
 
 ## Observation (Lins: 5):
 ## Outcome:
@@ -7398,24 +7435,130 @@
 ## RF:
 0
 ## HB:
-13   4 1   5 1   5 2   5 4   5 7   6 1   6 2   6 3   6 4   6 5   6 7   7 1   7 4
+13   4 1   4 2   4 3   4 5   4 6   4 7   5 2   5 3   5 6   5 7   6 3   7 3   7 6
 ## Hints:
 15
+1   7 2
+1   7 1
+1   7 0
+1   6 2
+1   6 1
+1   6 0
+1   3 2
+1   3 1
+1   3 0
+2   1 2   5 1
+2   0 2   5 0
+2   0 1   5 0
+2   0 1   4 0
+2   0 1   2 0
+3   0 2   4 0   5 1
+
+## Observation (Lins: 4):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+14   4 1   4 2   4 3   4 5   4 6   4 7   5 2   5 3   5 6   6 3   7 2   7 3   7 5   7 6
+## Hints:
+12
+1   7 1
+1   7 0
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+2   2 3   6 2
+2   0 1   4 0
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   4 1   4 2   4 3   4 5   4 6   4 7   5 2   5 7   6 2   6 3   6 5   6 7
+## Hints:
+27
 1   7 3
 1   7 2
+1   7 1
 1   7 0
-1   4 3
-1   4 2
-1   4 0
-1   1 3
-1   1 2
-1   1 0
 2   3 2   5 3
+2   1 3   6 1
+2   1 3   5 1
+2   1 3   2 1
+2   1 2   5 1
 2   0 3   6 0
 2   0 3   5 0
 2   0 3   2 0
 2   0 2   5 0
+2   0 1   6 0
+2   0 1   5 0
+2   0 1   4 0
+2   0 1   3 0
+2   0 1   2 0
+3   1 2   5 3   6 1
+3   0 3   4 0   6 1
+3   0 3   4 0   5 1
+3   0 3   2 1   4 0
 3   0 2   5 3   6 0
+3   0 2   5 1   6 0
+3   0 2   4 0   5 1
+3   0 2   3 0   5 1
+4   0 2   4 0   5 3   6 1
+
+## Observation (Lins: 5):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   4 1   4 2   4 3   4 5   4 6   4 7   5 2   6 2   6 3   6 5   6 7   7 2   7 5
+## Hints:
+15
+1   7 3
+1   7 1
+1   7 0
+1   5 3
+1   5 1
+1   5 0
+1   2 3
+1   2 1
+1   2 0
+2   1 3   6 1
+2   0 3   6 0
+2   0 1   6 0
+2   0 1   4 0
+2   0 1   3 0
+3   0 3   4 0   6 1
+
+## Observation (Lins: 4):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+14   4 1   4 2   4 3   4 5   4 6   4 7   5 2   6 2   6 3   6 5   7 2   7 3   7 5   7 6
+## Hints:
+12
+1   7 1
+1   7 0
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+2   3 2   5 3
+2   0 1   4 0
 
 ## Observation (Lins: 5):
 ## Outcome:
@@ -7446,29 +7589,6 @@
 ## RF:
 0
 ## HB:
-15   4 1   4 2   4 5   5 2   6 1   6 2   6 3   6 4   6 5   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-13
-1   7 0
-1   6 0
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-2   3 2   5 3
-2   3 1   5 3
-2   3 1   4 3
-2   2 3   3 1
-2   1 2   5 1
-3   3 2   4 3   5 1
-
-## Observation (Lins: 5):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
 15   4 1   4 2   4 3   4 5   4 6   5 2   6 2   6 3   6 5   7 1   7 2   7 3   7 4   7 5   7 6
 ## Hints:
 13
@@ -7485,369 +7605,6 @@
 2   1 3   2 1
 2   1 2   5 1
 3   1 2   5 3   6 1
-
-## Observation (Lins: 5):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-15   4 1   5 1   5 2   5 4   6 1   6 2   6 3   6 4   6 5   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-13
-1   7 0
-1   6 0
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-2   3 2   5 3
-2   3 2   4 3
-2   3 1   4 3
-2   2 1   4 2
-2   1 3   3 2
-3   3 1   4 2   5 3
-
-## Observation (Lins: 5):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-15   4 1   5 1   5 2   5 3   5 4   5 6   6 1   6 3   6 4   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-13
-1   7 0
-1   6 0
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-2   3 1   4 3
-2   2 3   6 2
-2   2 3   4 2
-2   2 1   4 2
-2   1 2   2 3
-3   2 1   4 3   6 2
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-14   4 1   4 2   4 5   5 2   6 1   6 2   6 3   6 4   6 5   6 7   7 1   7 2   7 4   7 5
-## Hints:
-12
-1   7 3
-1   7 0
-1   5 3
-1   5 0
-1   4 3
-1   4 0
-1   2 3
-1   2 0
-1   1 3
-1   1 0
-2   1 2   5 1
-2   0 3   6 0
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-14   4 1   5 1   5 2   5 4   6 1   6 2   6 3   6 4   6 5   6 7   7 1   7 2   7 4   7 5
-## Hints:
-12
-1   7 3
-1   7 0
-1   5 3
-1   5 0
-1   4 3
-1   4 0
-1   2 3
-1   2 0
-1   1 3
-1   1 0
-2   2 1   4 2
-2   0 3   6 0
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-14   4 1   4 3   4 6   5 1   5 2   5 3   5 4   5 6   5 7   6 3   7 1   7 3   7 4   7 6
-## Hints:
-12
-1   7 2
-1   7 0
-1   6 2
-1   6 0
-1   4 2
-1   4 0
-1   3 2
-1   3 0
-1   1 2
-1   1 0
-2   1 3   6 1
-2   0 2   5 0
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-14   4 1   5 1   5 2   5 3   5 4   5 6   5 7   6 1   6 3   6 4   7 1   7 3   7 4   7 6
-## Hints:
-12
-1   7 2
-1   7 0
-1   6 2
-1   6 0
-1   4 2
-1   4 0
-1   3 2
-1   3 0
-1   1 2
-1   1 0
-2   3 1   4 3
-2   0 2   5 0
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-14   4 1   4 2   4 3   4 5   4 6   4 7   5 2   5 3   5 6   6 3   7 2   7 3   7 5   7 6
-## Hints:
-12
-1   7 1
-1   7 0
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-2   2 3   6 2
-2   0 1   4 0
-
-## Observation (Lins: 4):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-14   4 1   4 2   4 3   4 5   4 6   4 7   5 2   6 2   6 3   6 5   7 2   7 3   7 5   7 6
-## Hints:
-12
-1   7 1
-1   7 0
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-2   3 2   5 3
-2   0 1   4 0
-
-## Observation (Lins: 5):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-15   4 1   4 3   4 6   5 1   5 2   5 3   5 4   5 6   6 3   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-13
-1   7 0
-1   6 0
-1   5 0
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-2   2 3   6 2
-2   2 1   6 2
-2   2 1   4 2
-2   2 1   3 2
-2   1 3   6 1
-3   2 3   4 2   6 1
-
-## Observation (Lins: 5):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   4 1   4 2   4 5   4 7   5 2   6 1   6 2   6 3   6 4   6 5   6 7   7 2   7 5
-## Hints:
-15
-1   7 3
-1   7 1
-1   7 0
-1   5 3
-1   5 1
-1   5 0
-1   2 3
-1   2 1
-1   2 0
-2   3 1   4 3
-2   0 3   6 0
-2   0 3   4 0
-2   0 3   1 0
-2   0 1   4 0
-3   0 1   4 3   6 0
-
-## Observation (Lins: 5):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   4 1   5 1   5 2   5 3   5 4   5 6   5 7   6 1   6 3   6 4   6 7   7 1   7 4
-## Hints:
-15
-1   7 3
-1   7 2
-1   7 0
-1   4 3
-1   4 2
-1   4 0
-1   1 3
-1   1 2
-1   1 0
-2   2 3   6 2
-2   0 3   6 0
-2   0 2   6 0
-2   0 2   5 0
-2   0 2   3 0
-3   0 3   5 0   6 2
-
-## Observation (Lins: 5):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   4 1   4 3   4 6   4 7   5 1   5 2   5 3   5 4   5 6   5 7   6 3   7 3   7 6
-## Hints:
-15
-1   7 2
-1   7 1
-1   7 0
-1   6 2
-1   6 1
-1   6 0
-1   3 2
-1   3 1
-1   3 0
-2   2 1   4 2
-2   0 2   5 0
-2   0 2   4 0
-2   0 2   1 0
-2   0 1   4 0
-3   0 1   4 2   5 0
-
-## Observation (Lins: 5):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   4 1   4 2   4 3   4 5   4 6   4 7   5 2   6 2   6 3   6 5   6 7   7 2   7 5
-## Hints:
-15
-1   7 3
-1   7 1
-1   7 0
-1   5 3
-1   5 1
-1   5 0
-1   2 3
-1   2 1
-1   2 0
-2   1 3   6 1
-2   0 3   6 0
-2   0 1   6 0
-2   0 1   4 0
-2   0 1   3 0
-3   0 3   4 0   6 1
-
-## Observation (Lins: 5):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-13   4 1   4 2   4 3   4 5   4 6   4 7   5 2   5 3   5 6   5 7   6 3   7 3   7 6
-## Hints:
-15
-1   7 2
-1   7 1
-1   7 0
-1   6 2
-1   6 1
-1   6 0
-1   3 2
-1   3 1
-1   3 0
-2   1 2   5 1
-2   0 2   5 0
-2   0 1   5 0
-2   0 1   4 0
-2   0 1   2 0
-3   0 2   4 0   5 1
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-12   4 1   4 7   5 1   5 2   5 4   5 7   6 1   6 2   6 3   6 4   6 5   6 7
-## Hints:
-27
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-2   3 2   5 3
-2   3 2   4 3
-2   3 1   4 3
-2   2 1   4 2
-2   1 3   3 2
-2   0 3   6 0
-2   0 3   5 0
-2   0 3   4 0
-2   0 3   2 0
-2   0 3   1 0
-2   0 2   5 0
-2   0 2   4 0
-2   0 2   1 0
-2   0 1   4 0
-3   3 1   4 2   5 3
-3   0 2   5 3   6 0
-3   0 2   4 3   6 0
-3   0 2   1 3   6 0
-3   0 1   4 3   6 0
-3   0 1   4 3   5 0
-3   0 1   4 2   5 0
-3   0 1   2 0   4 3
-4   0 1   4 2   5 3   6 0
 
 ## Observation (Lins: 14):
 ## Outcome:
@@ -7885,6 +7642,183 @@
 3   0 1   4 3   6 0
 3   0 1   2 3   6 0
 4   0 2   4 3   5 1   6 0
+
+## Observation (Lins: 5):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   4 1   4 2   4 5   4 7   5 2   6 1   6 2   6 3   6 4   6 5   6 7   7 2   7 5
+## Hints:
+15
+1   7 3
+1   7 1
+1   7 0
+1   5 3
+1   5 1
+1   5 0
+1   2 3
+1   2 1
+1   2 0
+2   3 1   4 3
+2   0 3   6 0
+2   0 3   4 0
+2   0 3   1 0
+2   0 1   4 0
+3   0 1   4 3   6 0
+
+## Observation (Lins: 4):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+14   4 1   4 2   4 5   5 2   6 1   6 2   6 3   6 4   6 5   6 7   7 1   7 2   7 4   7 5
+## Hints:
+12
+1   7 3
+1   7 0
+1   5 3
+1   5 0
+1   4 3
+1   4 0
+1   2 3
+1   2 0
+1   1 3
+1   1 0
+2   1 2   5 1
+2   0 3   6 0
+
+## Observation (Lins: 5):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+15   4 1   4 2   4 5   5 2   6 1   6 2   6 3   6 4   6 5   7 1   7 2   7 3   7 4   7 5   7 6
+## Hints:
+13
+1   7 0
+1   6 0
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+2   3 2   5 3
+2   3 1   5 3
+2   3 1   4 3
+2   2 3   3 1
+2   1 2   5 1
+3   3 2   4 3   5 1
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+12   4 1   4 3   4 6   4 7   5 1   5 2   5 3   5 4   5 6   5 7   6 3   6 7
+## Hints:
+27
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+2   2 3   6 2
+2   2 1   6 2
+2   2 1   4 2
+2   2 1   3 2
+2   1 3   6 1
+2   0 3   6 0
+2   0 2   6 0
+2   0 2   5 0
+2   0 2   4 0
+2   0 2   3 0
+2   0 2   1 0
+2   0 1   6 0
+2   0 1   4 0
+2   0 1   3 0
+3   2 3   4 2   6 1
+3   0 3   5 0   6 2
+3   0 3   4 0   6 2
+3   0 3   4 0   6 1
+3   0 3   1 0   6 2
+3   0 1   5 0   6 2
+3   0 1   4 2   5 0
+3   0 1   3 2   5 0
+4   0 3   4 2   5 0   6 1
+
+## Observation (Lins: 5):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   4 1   4 3   4 6   4 7   5 1   5 2   5 3   5 4   5 6   5 7   6 3   7 3   7 6
+## Hints:
+15
+1   7 2
+1   7 1
+1   7 0
+1   6 2
+1   6 1
+1   6 0
+1   3 2
+1   3 1
+1   3 0
+2   2 1   4 2
+2   0 2   5 0
+2   0 2   4 0
+2   0 2   1 0
+2   0 1   4 0
+3   0 1   4 2   5 0
+
+## Observation (Lins: 4):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+14   4 1   4 3   4 6   5 1   5 2   5 3   5 4   5 6   5 7   6 3   7 1   7 3   7 4   7 6
+## Hints:
+12
+1   7 2
+1   7 0
+1   6 2
+1   6 0
+1   4 2
+1   4 0
+1   3 2
+1   3 0
+1   1 2
+1   1 0
+2   1 3   6 1
+2   0 2   5 0
+
+## Observation (Lins: 5):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+15   4 1   4 3   4 6   5 1   5 2   5 3   5 4   5 6   6 3   7 1   7 2   7 3   7 4   7 5   7 6
+## Hints:
+13
+1   7 0
+1   6 0
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+2   2 3   6 2
+2   2 1   6 2
+2   2 1   4 2
+2   2 1   3 2
+2   1 3   6 1
+3   2 3   4 2   6 1
 
 ## Observation (Lins: 14):
 ## Outcome:
@@ -7929,44 +7863,7 @@
 ## RF:
 0
 ## HB:
-12   4 1   4 3   4 6   4 7   5 1   5 2   5 3   5 4   5 6   5 7   6 3   6 7
-## Hints:
-27
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-2   2 3   6 2
-2   2 1   6 2
-2   2 1   4 2
-2   2 1   3 2
-2   1 3   6 1
-2   0 3   6 0
-2   0 2   6 0
-2   0 2   5 0
-2   0 2   4 0
-2   0 2   3 0
-2   0 2   1 0
-2   0 1   6 0
-2   0 1   4 0
-2   0 1   3 0
-3   2 3   4 2   6 1
-3   0 3   5 0   6 2
-3   0 3   4 0   6 2
-3   0 3   4 0   6 1
-3   0 3   1 0   6 2
-3   0 1   5 0   6 2
-3   0 1   4 2   5 0
-3   0 1   3 2   5 0
-4   0 3   4 2   5 0   6 1
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-12   4 1   4 2   4 3   4 5   4 6   4 7   5 2   5 7   6 2   6 3   6 5   6 7
+12   4 1   4 7   5 1   5 2   5 4   5 7   6 1   6 2   6 3   6 4   6 5   6 7
 ## Hints:
 27
 1   7 3
@@ -7974,461 +7871,168 @@
 1   7 1
 1   7 0
 2   3 2   5 3
-2   1 3   6 1
-2   1 3   5 1
-2   1 3   2 1
-2   1 2   5 1
+2   3 2   4 3
+2   3 1   4 3
+2   2 1   4 2
+2   1 3   3 2
+2   0 3   6 0
+2   0 3   5 0
+2   0 3   4 0
+2   0 3   2 0
+2   0 3   1 0
+2   0 2   5 0
+2   0 2   4 0
+2   0 2   1 0
+2   0 1   4 0
+3   3 1   4 2   5 3
+3   0 2   5 3   6 0
+3   0 2   4 3   6 0
+3   0 2   1 3   6 0
+3   0 1   4 3   6 0
+3   0 1   4 3   5 0
+3   0 1   4 2   5 0
+3   0 1   2 0   4 3
+4   0 1   4 2   5 3   6 0
+
+## Observation (Lins: 5):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   4 1   5 1   5 2   5 3   5 4   5 6   5 7   6 1   6 3   6 4   6 7   7 1   7 4
+## Hints:
+15
+1   7 3
+1   7 2
+1   7 0
+1   4 3
+1   4 2
+1   4 0
+1   1 3
+1   1 2
+1   1 0
+2   2 3   6 2
+2   0 3   6 0
+2   0 2   6 0
+2   0 2   5 0
+2   0 2   3 0
+3   0 3   5 0   6 2
+
+## Observation (Lins: 4):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+14   4 1   5 1   5 2   5 3   5 4   5 6   5 7   6 1   6 3   6 4   7 1   7 3   7 4   7 6
+## Hints:
+12
+1   7 2
+1   7 0
+1   6 2
+1   6 0
+1   4 2
+1   4 0
+1   3 2
+1   3 0
+1   1 2
+1   1 0
+2   3 1   4 3
+2   0 2   5 0
+
+## Observation (Lins: 5):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+15   4 1   5 1   5 2   5 3   5 4   5 6   6 1   6 3   6 4   7 1   7 2   7 3   7 4   7 5   7 6
+## Hints:
+13
+1   7 0
+1   6 0
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+2   3 1   4 3
+2   2 3   6 2
+2   2 3   4 2
+2   2 1   4 2
+2   1 2   2 3
+3   2 1   4 3   6 2
+
+## Observation (Lins: 5):
+## Outcome:
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+13   4 1   5 1   5 2   5 4   5 7   6 1   6 2   6 3   6 4   6 5   6 7   7 1   7 4
+## Hints:
+15
+1   7 3
+1   7 2
+1   7 0
+1   4 3
+1   4 2
+1   4 0
+1   1 3
+1   1 2
+1   1 0
+2   3 2   5 3
 2   0 3   6 0
 2   0 3   5 0
 2   0 3   2 0
 2   0 2   5 0
-2   0 1   6 0
-2   0 1   5 0
-2   0 1   4 0
-2   0 1   3 0
-2   0 1   2 0
-3   1 2   5 3   6 1
-3   0 3   4 0   6 1
-3   0 3   4 0   5 1
-3   0 3   2 1   4 0
 3   0 2   5 3   6 0
-3   0 2   5 1   6 0
-3   0 2   4 0   5 1
-3   0 2   3 0   5 1
-4   0 2   4 0   5 3   6 1
 
-## Observation (Lins: 14):
+## Observation (Lins: 4):
 ## Outcome:
 8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-12   4 1   4 2   4 3   4 5   4 6   4 7   5 2   5 3   5 6   5 7   6 3   6 7
+14   4 1   5 1   5 2   5 4   6 1   6 2   6 3   6 4   6 5   6 7   7 1   7 2   7 4   7 5
 ## Hints:
-27
+12
 1   7 3
-1   7 2
-1   7 1
 1   7 0
-2   2 3   6 2
-2   1 3   6 1
-2   1 2   6 1
-2   1 2   5 1
-2   1 2   3 1
+1   5 3
+1   5 0
+1   4 3
+1   4 0
+1   2 3
+1   2 0
+1   1 3
+1   1 0
+2   2 1   4 2
 2   0 3   6 0
-2   0 2   6 0
-2   0 2   5 0
-2   0 2   3 0
-2   0 1   6 0
-2   0 1   5 0
-2   0 1   4 0
-2   0 1   3 0
-2   0 1   2 0
-3   1 3   5 1   6 2
-3   0 3   5 0   6 2
-3   0 3   5 0   6 1
-3   0 3   4 0   6 1
-3   0 3   2 0   6 1
-3   0 2   4 0   6 1
-3   0 2   4 0   5 1
-3   0 2   3 1   4 0
-4   0 3   4 0   5 1   6 2
 
-## Observation (Lins: 14):
+## Observation (Lins: 5):
 ## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+8   pop 0 0   pop 0 101   pop 0 102   pop 0 103   push 101 0   push 102 0   push 103 0   push 104 0
 ## RF:
 0
 ## HB:
-16   4 0   4 1   4 3   4 5   4 7   5 1   5 3   5 7   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 3
+15   4 1   5 1   5 2   5 4   6 1   6 2   6 3   6 4   6 5   7 1   7 2   7 3   7 4   7 5   7 6
 ## Hints:
-23
-2   2 3   7 2
-2   2 1   7 2
-2   2 1   5 2
-2   2 1   3 2
-2   2 0   7 2
-2   2 0   5 2
-2   2 0   4 2
-2   2 0   3 2
-2   1 3   7 1
-2   1 2   2 0
-2   0 3   7 0
-2   0 1   7 0
-2   0 1   5 0
-2   0 1   3 0
-3   2 3   5 2   7 1
-3   2 3   5 2   7 0
-3   2 3   4 2   7 0
-3   2 1   4 2   7 0
-3   2 1   4 2   5 0
-3   2 1   3 0   4 2
-3   1 2   2 3   7 0
-3   0 3   5 0   7 1
-4   2 3   4 2   5 0   7 1
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   5 0   5 1   5 4   6 0   6 1   6 2   6 4   6 5   7 0   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-23
-2   3 2   6 3
+13
+1   7 0
+1   6 0
+1   5 0
+1   4 0
+1   3 0
+1   2 0
+1   1 0
 2   3 2   5 3
 2   3 2   4 3
-2   3 1   5 3
 2   3 1   4 3
-2   3 0   4 3
-2   2 1   5 2
 2   2 1   4 2
-2   2 0   4 2
 2   1 3   3 2
-2   1 0   4 1
-2   0 3   3 2
-2   0 3   3 1
-2   0 2   2 1
-3   3 1   5 2   6 3
-3   3 1   4 2   6 3
-3   3 0   4 2   6 3
-3   3 0   4 2   5 3
-3   3 0   4 1   5 3
-3   2 0   4 1   5 2
-3   1 3   3 0   4 2
-3   0 2   3 1   6 3
-4   3 0   4 1   5 2   6 3
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   4 1   4 5   5 1   6 0   6 1   6 2   6 4   6 5   7 0   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-23
-2   3 2   6 3
-2   3 2   5 3
-2   3 2   4 3
-2   3 1   5 3
-2   3 0   5 3
-2   3 0   4 3
-2   2 1   5 2
-2   2 0   5 2
-2   2 0   4 2
-2   1 3   3 2
-2   1 3   3 0
-2   1 2   2 0
-2   0 3   3 2
-2   0 1   5 0
-3   3 1   5 2   6 3
-3   3 1   4 3   5 2
-3   3 1   4 3   5 0
-3   3 0   5 2   6 3
-3   3 0   4 2   6 3
-3   2 1   4 2   5 0
-3   1 2   3 0   6 3
-3   0 3   3 1   5 2
-4   3 1   4 2   5 0   6 3
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   5 0   5 1   5 2   5 4   5 6   6 0   6 2   6 4   7 0   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-23
-2   3 2   6 3
-2   3 2   4 3
-2   3 1   6 3
-2   3 1   5 3
-2   3 1   4 3
-2   3 0   4 3
-2   2 3   3 1
-2   2 0   4 2
-2   1 2   6 1
-2   1 2   4 1
-2   1 0   4 1
-2   0 3   3 2
-2   0 3   3 1
-2   0 1   1 2
-3   3 2   5 3   6 1
-3   3 2   4 1   5 3
-3   3 0   4 2   6 3
-3   3 0   4 1   6 3
-3   3 0   4 1   5 3
-3   2 3   3 0   4 1
-3   1 0   4 2   6 1
-3   0 1   3 2   5 3
-4   3 0   4 2   5 3   6 1
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   4 2   4 6   5 0   5 1   5 2   5 4   5 6   6 2   7 0   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-23
-2   3 2   6 3
-2   3 1   6 3
-2   3 1   5 3
-2   3 1   4 3
-2   3 0   6 3
-2   3 0   4 3
-2   2 3   3 1
-2   2 3   3 0
-2   1 2   6 1
-2   1 0   6 1
-2   1 0   4 1
-2   1 0   2 1
-2   0 3   3 1
-2   0 2   6 0
-3   3 2   5 3   6 1
-3   3 2   4 3   6 1
-3   3 2   4 3   6 0
-3   3 0   5 3   6 1
-3   3 0   4 1   5 3
-3   2 1   3 0   5 3
-3   1 2   4 1   6 0
-3   0 3   3 2   6 1
-4   3 2   4 1   5 3   6 0
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   4 1   4 2   4 5   4 6   5 1   6 1   6 2   6 5   7 0   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-23
-2   3 2   6 3
-2   3 2   5 3
-2   3 1   5 3
-2   3 0   6 3
-2   3 0   5 3
-2   3 0   4 3
-2   2 3   3 0
-2   2 1   5 2
-2   1 3   3 2
-2   1 3   3 0
-2   0 2   6 0
-2   0 2   5 0
-2   0 2   1 0
-2   0 1   5 0
-3   3 2   4 3   6 0
-3   3 2   4 3   5 0
-3   3 1   5 2   6 3
-3   3 1   5 0   6 3
-3   3 1   4 3   5 0
-3   2 3   3 1   5 0
-3   1 0   3 2   4 3
-3   0 1   5 2   6 0
-4   3 1   4 3   5 2   6 0
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   4 1   4 2   4 5   4 6   5 1   5 2   5 6   6 2   7 0   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-23
-2   3 2   6 3
-2   3 1   6 3
-2   3 1   5 3
-2   3 0   6 3
-2   3 0   5 3
-2   3 0   4 3
-2   2 3   3 1
-2   2 3   3 0
-2   1 3   3 0
-2   1 2   6 1
-2   0 2   6 0
-2   0 1   6 0
-2   0 1   5 0
-2   0 1   2 0
-3   3 2   5 3   6 1
-3   3 2   5 3   6 0
-3   3 2   4 3   6 0
-3   3 1   4 3   6 0
-3   3 1   4 3   5 0
-3   2 0   3 1   4 3
-3   1 3   3 2   6 0
-3   0 2   5 0   6 1
-4   3 2   4 3   5 0   6 1
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   5 0   5 1   5 4   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 0   7 1   7 3   7 4   7 5
-## Hints:
-23
-2   3 1   5 3
-2   3 1   4 3
-2   3 0   4 3
-2   2 3   7 2
-2   2 3   5 2
-2   2 3   4 2
-2   2 1   5 2
-2   2 1   4 2
-2   2 0   4 2
-2   1 2   2 3
-2   1 0   4 1
-2   0 3   3 1
-2   0 2   2 3
-2   0 2   2 1
-3   3 0   4 1   5 3
-3   2 1   5 3   7 2
-3   2 1   4 3   7 2
-3   2 0   4 3   7 2
-3   2 0   4 3   5 2
-3   2 0   4 1   5 2
-3   1 2   2 0   4 3
-3   0 3   2 1   7 2
-4   2 0   4 1   5 3   7 2
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   4 1   4 5   5 1   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 0   7 1   7 3   7 4   7 5
-## Hints:
-23
-2   3 1   5 3
-2   3 0   5 3
-2   3 0   4 3
-2   2 3   7 2
-2   2 3   5 2
-2   2 3   4 2
-2   2 1   5 2
-2   2 0   5 2
-2   2 0   4 2
-2   1 3   3 0
-2   1 2   2 3
-2   1 2   2 0
-2   0 2   2 3
-2   0 1   5 0
-3   3 1   4 3   5 0
-3   2 1   5 3   7 2
-3   2 1   4 2   5 3
-3   2 1   4 2   5 0
-3   2 0   5 3   7 2
-3   2 0   4 3   7 2
-3   1 3   2 0   7 2
-3   0 2   2 1   5 3
-4   2 1   4 3   5 0   7 2
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   5 0   5 1   5 3   5 4   5 7   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 0   7 3   7 4
-## Hints:
-23
-2   3 0   4 3
-2   2 3   7 2
-2   2 3   4 2
-2   2 1   7 2
-2   2 1   5 2
-2   2 1   4 2
-2   2 1   3 2
-2   2 0   4 2
-2   1 3   7 1
-2   1 3   4 1
-2   1 0   4 1
-2   0 2   2 3
-2   0 2   2 1
-2   0 1   1 3
-3   2 3   5 2   7 1
-3   2 3   4 1   5 2
-3   2 0   4 3   7 2
-3   2 0   4 1   7 2
-3   2 0   4 1   5 2
-3   2 0   3 2   4 1
-3   1 0   4 3   7 1
-3   0 1   2 3   5 2
-4   2 0   4 3   5 2   7 1
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   4 3   4 7   5 0   5 1   5 3   5 4   5 7   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 3
-## Hints:
-23
-2   2 3   7 2
-2   2 1   7 2
-2   2 1   5 2
-2   2 1   4 2
-2   2 1   3 2
-2   2 0   7 2
-2   2 0   4 2
-2   2 0   3 2
-2   1 3   7 1
-2   1 0   7 1
-2   1 0   4 1
-2   1 0   3 1
-2   0 3   7 0
-2   0 2   2 1
-3   2 3   5 2   7 1
-3   2 3   4 2   7 1
-3   2 3   4 2   7 0
-3   2 0   5 2   7 1
-3   2 0   4 1   5 2
-3   2 0   3 1   5 2
-3   1 3   4 1   7 0
-3   0 2   2 3   7 1
-4   2 3   4 1   5 2   7 0
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   4 1   4 3   4 5   4 7   5 1   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 1   7 3   7 5
-## Hints:
-23
-2   3 1   5 3
-2   2 3   7 2
-2   2 3   5 2
-2   2 1   5 2
-2   2 0   7 2
-2   2 0   5 2
-2   2 0   4 2
-2   2 0   3 2
-2   1 2   2 3
-2   1 2   2 0
-2   0 3   7 0
-2   0 3   5 0
-2   0 3   1 0
-2   0 1   5 0
-3   2 3   4 2   7 0
-3   2 3   4 2   5 0
-3   2 1   5 3   7 2
-3   2 1   5 0   7 2
-3   2 1   4 2   5 0
-3   2 1   3 2   5 0
-3   1 0   2 3   4 2
-3   0 1   5 3   7 0
-4   2 1   4 2   5 3   7 0
+3   3 1   4 2   5 3
 
 ## Observation (Lins: 14):
 ## Outcome:
@@ -8469,139 +8073,7 @@
 ## RF:
 0
 ## HB:
-16   4 0   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 0   6 2   6 4   7 0   7 2   7 3   7 4   7 6
-## Hints:
-23
-2   3 2   6 3
-2   3 2   4 3
-2   3 0   4 3
-2   2 0   4 2
-2   1 3   7 1
-2   1 3   6 1
-2   1 3   4 1
-2   1 3   2 1
-2   1 2   6 1
-2   1 2   4 1
-2   1 0   4 1
-2   0 3   3 2
-2   0 1   1 3
-2   0 1   1 2
-3   3 0   4 2   6 3
-3   1 2   6 3   7 1
-3   1 2   4 3   7 1
-3   1 0   4 3   7 1
-3   1 0   4 3   6 1
-3   1 0   4 2   6 1
-3   1 0   2 1   4 3
-3   0 3   1 2   7 1
-4   1 0   4 2   6 3   7 1
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   4 2   4 6   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 2   7 0   7 2   7 3   7 4   7 6
-## Hints:
-23
-2   3 2   6 3
-2   3 0   6 3
-2   3 0   4 3
-2   2 3   3 0
-2   1 3   7 1
-2   1 3   6 1
-2   1 3   4 1
-2   1 3   2 1
-2   1 2   6 1
-2   1 0   6 1
-2   1 0   4 1
-2   1 0   2 1
-2   0 2   6 0
-2   0 1   1 3
-3   3 2   4 3   6 0
-3   1 2   6 3   7 1
-3   1 2   4 1   6 3
-3   1 2   4 1   6 0
-3   1 0   6 3   7 1
-3   1 0   4 3   7 1
-3   1 0   2 3   7 1
-3   0 1   1 2   6 3
-4   1 2   4 3   6 0   7 1
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 0   6 2   6 3   6 4   6 7   7 0   7 3   7 4
-## Hints:
-23
-2   3 0   4 3
-2   2 3   7 2
-2   2 3   4 2
-2   2 0   4 2
-2   1 3   7 1
-2   1 3   4 1
-2   1 2   7 1
-2   1 2   6 1
-2   1 2   4 1
-2   1 2   3 1
-2   1 0   4 1
-2   0 2   2 3
-2   0 1   1 3
-2   0 1   1 2
-3   2 0   4 3   7 2
-3   1 3   6 1   7 2
-3   1 3   4 2   6 1
-3   1 0   4 3   7 1
-3   1 0   4 2   7 1
-3   1 0   4 2   6 1
-3   1 0   3 1   4 2
-3   0 2   1 3   6 1
-4   1 0   4 3   6 1   7 2
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   4 3   4 7   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 0   6 2   6 3   6 4   6 7   7 3
-## Hints:
-23
-2   2 3   7 2
-2   2 0   7 2
-2   2 0   4 2
-2   2 0   3 2
-2   1 3   7 1
-2   1 2   7 1
-2   1 2   6 1
-2   1 2   4 1
-2   1 2   3 1
-2   1 0   7 1
-2   1 0   4 1
-2   1 0   3 1
-2   0 3   7 0
-2   0 1   1 2
-3   2 3   4 2   7 0
-3   1 3   6 1   7 2
-3   1 3   4 1   7 2
-3   1 3   4 1   7 0
-3   1 0   6 1   7 2
-3   1 0   4 2   6 1
-3   1 0   3 2   6 1
-3   0 1   1 3   7 2
-4   1 3   4 2   6 1   7 0
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   4 2   4 3   4 6   4 7   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 2   7 2   7 3   7 6
+16   4 0   4 1   4 2   4 3   4 5   4 6   4 7   5 1   5 2   5 3   5 6   5 7   6 2   7 2   7 3   7 6
 ## Hints:
 23
 2   3 2   6 3
@@ -8609,90 +8081,24 @@
 2   1 3   6 1
 2   1 3   2 1
 2   1 2   6 1
-2   1 0   7 1
-2   1 0   6 1
-2   1 0   4 1
-2   1 0   3 1
-2   1 0   2 1
 2   0 3   7 0
 2   0 3   6 0
 2   0 3   2 0
 2   0 2   6 0
-3   1 3   4 1   7 0
-3   1 3   4 1   6 0
-3   1 3   2 0   4 1
-3   1 2   6 3   7 1
-3   1 2   6 0   7 1
-3   1 2   4 1   6 0
-3   1 2   3 1   6 0
-3   0 2   6 3   7 0
-4   1 2   4 1   6 3   7 0
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   4 2   4 3   4 6   4 7   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 2   6 3   6 7   7 3
-## Hints:
-23
-2   2 3   7 2
-2   1 3   7 1
-2   1 2   7 1
-2   1 2   6 1
-2   1 2   3 1
-2   1 0   7 1
-2   1 0   6 1
-2   1 0   4 1
-2   1 0   3 1
-2   1 0   2 1
-2   0 3   7 0
-2   0 2   7 0
-2   0 2   6 0
-2   0 2   3 0
-3   1 3   6 1   7 2
-3   1 3   6 1   7 0
-3   1 3   4 1   7 0
-3   1 3   2 1   7 0
-3   1 2   4 1   7 0
-3   1 2   4 1   6 0
-3   1 2   3 0   4 1
-3   0 3   6 0   7 2
-4   1 3   4 1   6 0   7 2
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
-16   4 0   4 1   4 2   4 3   4 5   4 6   4 7   5 1   6 1   6 2   6 5   7 1   7 2   7 3   7 5   7 6
-## Hints:
-23
-2   3 2   6 3
-2   3 2   5 3
-2   3 1   5 3
-2   2 1   5 2
-2   1 3   3 2
-2   0 3   7 0
-2   0 3   6 0
-2   0 3   5 0
-2   0 3   2 0
-2   0 3   1 0
-2   0 2   6 0
-2   0 2   5 0
-2   0 2   1 0
+2   0 1   7 0
+2   0 1   6 0
 2   0 1   5 0
-3   3 1   5 2   6 3
+2   0 1   3 0
+2   0 1   2 0
+3   1 2   6 3   7 1
+3   0 3   5 0   7 1
+3   0 3   5 0   6 1
+3   0 3   2 1   5 0
 3   0 2   6 3   7 0
-3   0 2   5 3   7 0
-3   0 2   1 3   7 0
-3   0 1   5 3   7 0
-3   0 1   5 3   6 0
-3   0 1   5 2   6 0
-3   0 1   2 0   5 3
-4   0 1   5 2   6 3   7 0
+3   0 2   6 1   7 0
+3   0 2   5 0   6 1
+3   0 2   3 0   6 1
+4   0 2   5 0   6 3   7 1
 
 ## Observation (Lins: 14):
 ## Outcome:
@@ -8733,39 +8139,6 @@
 ## RF:
 0
 ## HB:
-16   4 0   4 1   4 2   4 3   4 5   4 6   4 7   5 1   6 1   6 2   6 3   6 5   6 7   7 1   7 3   7 5
-## Hints:
-23
-2   3 1   5 3
-2   2 3   7 2
-2   2 3   5 2
-2   2 1   5 2
-2   1 2   2 3
-2   0 3   7 0
-2   0 3   5 0
-2   0 3   1 0
-2   0 2   7 0
-2   0 2   6 0
-2   0 2   5 0
-2   0 2   3 0
-2   0 2   1 0
-2   0 1   5 0
-3   2 1   5 3   7 2
-3   0 3   6 0   7 2
-3   0 3   5 2   6 0
-3   0 3   1 2   6 0
-3   0 1   5 3   7 0
-3   0 1   5 2   7 0
-3   0 1   5 2   6 0
-3   0 1   3 0   5 2
-4   0 1   5 3   6 0   7 2
-
-## Observation (Lins: 14):
-## Outcome:
-8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
-## RF:
-0
-## HB:
 16   4 0   4 1   4 2   4 3   4 5   4 6   4 7   5 1   5 3   5 7   6 1   6 2   6 3   6 5   6 7   7 3
 ## Hints:
 23
@@ -8799,7 +8172,304 @@
 ## RF:
 0
 ## HB:
-16   4 0   4 1   4 2   4 3   4 5   4 6   4 7   5 1   5 2   5 3   5 6   5 7   6 2   7 2   7 3   7 6
+16   4 0   4 1   4 2   4 3   4 5   4 6   4 7   5 1   6 1   6 2   6 3   6 5   6 7   7 1   7 3   7 5
+## Hints:
+23
+2   3 1   5 3
+2   2 3   7 2
+2   2 3   5 2
+2   2 1   5 2
+2   1 2   2 3
+2   0 3   7 0
+2   0 3   5 0
+2   0 3   1 0
+2   0 2   7 0
+2   0 2   6 0
+2   0 2   5 0
+2   0 2   3 0
+2   0 2   1 0
+2   0 1   5 0
+3   2 1   5 3   7 2
+3   0 3   6 0   7 2
+3   0 3   5 2   6 0
+3   0 3   1 2   6 0
+3   0 1   5 3   7 0
+3   0 1   5 2   7 0
+3   0 1   5 2   6 0
+3   0 1   3 0   5 2
+4   0 1   5 3   6 0   7 2
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   4 1   4 2   4 3   4 5   4 6   4 7   5 1   6 1   6 2   6 5   7 1   7 2   7 3   7 5   7 6
+## Hints:
+23
+2   3 2   6 3
+2   3 2   5 3
+2   3 1   5 3
+2   2 1   5 2
+2   1 3   3 2
+2   0 3   7 0
+2   0 3   6 0
+2   0 3   5 0
+2   0 3   2 0
+2   0 3   1 0
+2   0 2   6 0
+2   0 2   5 0
+2   0 2   1 0
+2   0 1   5 0
+3   3 1   5 2   6 3
+3   0 2   6 3   7 0
+3   0 2   5 3   7 0
+3   0 2   1 3   7 0
+3   0 1   5 3   7 0
+3   0 1   5 3   6 0
+3   0 1   5 2   6 0
+3   0 1   2 0   5 3
+4   0 1   5 2   6 3   7 0
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   4 1   4 2   4 5   4 6   5 1   5 2   5 6   6 2   7 0   7 1   7 2   7 3   7 4   7 5   7 6
+## Hints:
+23
+2   3 2   6 3
+2   3 1   6 3
+2   3 1   5 3
+2   3 0   6 3
+2   3 0   5 3
+2   3 0   4 3
+2   2 3   3 1
+2   2 3   3 0
+2   1 3   3 0
+2   1 2   6 1
+2   0 2   6 0
+2   0 1   6 0
+2   0 1   5 0
+2   0 1   2 0
+3   3 2   5 3   6 1
+3   3 2   5 3   6 0
+3   3 2   4 3   6 0
+3   3 1   4 3   6 0
+3   3 1   4 3   5 0
+3   2 0   3 1   4 3
+3   1 3   3 2   6 0
+3   0 2   5 0   6 1
+4   3 2   4 3   5 0   6 1
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   4 1   4 2   4 5   4 6   5 1   6 1   6 2   6 5   7 0   7 1   7 2   7 3   7 4   7 5   7 6
+## Hints:
+23
+2   3 2   6 3
+2   3 2   5 3
+2   3 1   5 3
+2   3 0   6 3
+2   3 0   5 3
+2   3 0   4 3
+2   2 3   3 0
+2   2 1   5 2
+2   1 3   3 2
+2   1 3   3 0
+2   0 2   6 0
+2   0 2   5 0
+2   0 2   1 0
+2   0 1   5 0
+3   3 2   4 3   6 0
+3   3 2   4 3   5 0
+3   3 1   5 2   6 3
+3   3 1   5 0   6 3
+3   3 1   4 3   5 0
+3   2 3   3 1   5 0
+3   1 0   3 2   4 3
+3   0 1   5 2   6 0
+4   3 1   4 3   5 2   6 0
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   4 1   4 3   4 5   4 7   5 1   5 3   5 7   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 3
+## Hints:
+23
+2   2 3   7 2
+2   2 1   7 2
+2   2 1   5 2
+2   2 1   3 2
+2   2 0   7 2
+2   2 0   5 2
+2   2 0   4 2
+2   2 0   3 2
+2   1 3   7 1
+2   1 2   2 0
+2   0 3   7 0
+2   0 1   7 0
+2   0 1   5 0
+2   0 1   3 0
+3   2 3   5 2   7 1
+3   2 3   5 2   7 0
+3   2 3   4 2   7 0
+3   2 1   4 2   7 0
+3   2 1   4 2   5 0
+3   2 1   3 0   4 2
+3   1 2   2 3   7 0
+3   0 3   5 0   7 1
+4   2 3   4 2   5 0   7 1
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   4 1   4 3   4 5   4 7   5 1   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 1   7 3   7 5
+## Hints:
+23
+2   3 1   5 3
+2   2 3   7 2
+2   2 3   5 2
+2   2 1   5 2
+2   2 0   7 2
+2   2 0   5 2
+2   2 0   4 2
+2   2 0   3 2
+2   1 2   2 3
+2   1 2   2 0
+2   0 3   7 0
+2   0 3   5 0
+2   0 3   1 0
+2   0 1   5 0
+3   2 3   4 2   7 0
+3   2 3   4 2   5 0
+3   2 1   5 3   7 2
+3   2 1   5 0   7 2
+3   2 1   4 2   5 0
+3   2 1   3 2   5 0
+3   1 0   2 3   4 2
+3   0 1   5 3   7 0
+4   2 1   4 2   5 3   7 0
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   4 1   4 5   5 1   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 0   7 1   7 3   7 4   7 5
+## Hints:
+23
+2   3 1   5 3
+2   3 0   5 3
+2   3 0   4 3
+2   2 3   7 2
+2   2 3   5 2
+2   2 3   4 2
+2   2 1   5 2
+2   2 0   5 2
+2   2 0   4 2
+2   1 3   3 0
+2   1 2   2 3
+2   1 2   2 0
+2   0 2   2 3
+2   0 1   5 0
+3   3 1   4 3   5 0
+3   2 1   5 3   7 2
+3   2 1   4 2   5 3
+3   2 1   4 2   5 0
+3   2 0   5 3   7 2
+3   2 0   4 3   7 2
+3   1 3   2 0   7 2
+3   0 2   2 1   5 3
+4   2 1   4 3   5 0   7 2
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   4 1   4 5   5 1   6 0   6 1   6 2   6 4   6 5   7 0   7 1   7 2   7 3   7 4   7 5   7 6
+## Hints:
+23
+2   3 2   6 3
+2   3 2   5 3
+2   3 2   4 3
+2   3 1   5 3
+2   3 0   5 3
+2   3 0   4 3
+2   2 1   5 2
+2   2 0   5 2
+2   2 0   4 2
+2   1 3   3 2
+2   1 3   3 0
+2   1 2   2 0
+2   0 3   3 2
+2   0 1   5 0
+3   3 1   5 2   6 3
+3   3 1   4 3   5 2
+3   3 1   4 3   5 0
+3   3 0   5 2   6 3
+3   3 0   4 2   6 3
+3   2 1   4 2   5 0
+3   1 2   3 0   6 3
+3   0 3   3 1   5 2
+4   3 1   4 2   5 0   6 3
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   4 2   4 3   4 6   4 7   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 2   6 3   6 7   7 3
+## Hints:
+23
+2   2 3   7 2
+2   1 3   7 1
+2   1 2   7 1
+2   1 2   6 1
+2   1 2   3 1
+2   1 0   7 1
+2   1 0   6 1
+2   1 0   4 1
+2   1 0   3 1
+2   1 0   2 1
+2   0 3   7 0
+2   0 2   7 0
+2   0 2   6 0
+2   0 2   3 0
+3   1 3   6 1   7 2
+3   1 3   6 1   7 0
+3   1 3   4 1   7 0
+3   1 3   2 1   7 0
+3   1 2   4 1   7 0
+3   1 2   4 1   6 0
+3   1 2   3 0   4 1
+3   0 3   6 0   7 2
+4   1 3   4 1   6 0   7 2
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   4 2   4 3   4 6   4 7   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 2   7 2   7 3   7 6
 ## Hints:
 23
 2   3 2   6 3
@@ -8807,21 +8477,351 @@
 2   1 3   6 1
 2   1 3   2 1
 2   1 2   6 1
+2   1 0   7 1
+2   1 0   6 1
+2   1 0   4 1
+2   1 0   3 1
+2   1 0   2 1
 2   0 3   7 0
 2   0 3   6 0
 2   0 3   2 0
 2   0 2   6 0
-2   0 1   7 0
-2   0 1   6 0
-2   0 1   5 0
-2   0 1   3 0
-2   0 1   2 0
+3   1 3   4 1   7 0
+3   1 3   4 1   6 0
+3   1 3   2 0   4 1
 3   1 2   6 3   7 1
-3   0 3   5 0   7 1
-3   0 3   5 0   6 1
-3   0 3   2 1   5 0
+3   1 2   6 0   7 1
+3   1 2   4 1   6 0
+3   1 2   3 1   6 0
 3   0 2   6 3   7 0
-3   0 2   6 1   7 0
-3   0 2   5 0   6 1
-3   0 2   3 0   6 1
-4   0 2   5 0   6 3   7 1
+4   1 2   4 1   6 3   7 0
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   4 2   4 6   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 2   7 0   7 2   7 3   7 4   7 6
+## Hints:
+23
+2   3 2   6 3
+2   3 0   6 3
+2   3 0   4 3
+2   2 3   3 0
+2   1 3   7 1
+2   1 3   6 1
+2   1 3   4 1
+2   1 3   2 1
+2   1 2   6 1
+2   1 0   6 1
+2   1 0   4 1
+2   1 0   2 1
+2   0 2   6 0
+2   0 1   1 3
+3   3 2   4 3   6 0
+3   1 2   6 3   7 1
+3   1 2   4 1   6 3
+3   1 2   4 1   6 0
+3   1 0   6 3   7 1
+3   1 0   4 3   7 1
+3   1 0   2 3   7 1
+3   0 1   1 2   6 3
+4   1 2   4 3   6 0   7 1
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   4 2   4 6   5 0   5 1   5 2   5 4   5 6   6 2   7 0   7 1   7 2   7 3   7 4   7 5   7 6
+## Hints:
+23
+2   3 2   6 3
+2   3 1   6 3
+2   3 1   5 3
+2   3 1   4 3
+2   3 0   6 3
+2   3 0   4 3
+2   2 3   3 1
+2   2 3   3 0
+2   1 2   6 1
+2   1 0   6 1
+2   1 0   4 1
+2   1 0   2 1
+2   0 3   3 1
+2   0 2   6 0
+3   3 2   5 3   6 1
+3   3 2   4 3   6 1
+3   3 2   4 3   6 0
+3   3 0   5 3   6 1
+3   3 0   4 1   5 3
+3   2 1   3 0   5 3
+3   1 2   4 1   6 0
+3   0 3   3 2   6 1
+4   3 2   4 1   5 3   6 0
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   4 3   4 7   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 0   6 2   6 3   6 4   6 7   7 3
+## Hints:
+23
+2   2 3   7 2
+2   2 0   7 2
+2   2 0   4 2
+2   2 0   3 2
+2   1 3   7 1
+2   1 2   7 1
+2   1 2   6 1
+2   1 2   4 1
+2   1 2   3 1
+2   1 0   7 1
+2   1 0   4 1
+2   1 0   3 1
+2   0 3   7 0
+2   0 1   1 2
+3   2 3   4 2   7 0
+3   1 3   6 1   7 2
+3   1 3   4 1   7 2
+3   1 3   4 1   7 0
+3   1 0   6 1   7 2
+3   1 0   4 2   6 1
+3   1 0   3 2   6 1
+3   0 1   1 3   7 2
+4   1 3   4 2   6 1   7 0
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   4 3   4 7   5 0   5 1   5 3   5 4   5 7   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 3
+## Hints:
+23
+2   2 3   7 2
+2   2 1   7 2
+2   2 1   5 2
+2   2 1   4 2
+2   2 1   3 2
+2   2 0   7 2
+2   2 0   4 2
+2   2 0   3 2
+2   1 3   7 1
+2   1 0   7 1
+2   1 0   4 1
+2   1 0   3 1
+2   0 3   7 0
+2   0 2   2 1
+3   2 3   5 2   7 1
+3   2 3   4 2   7 1
+3   2 3   4 2   7 0
+3   2 0   5 2   7 1
+3   2 0   4 1   5 2
+3   2 0   3 1   5 2
+3   1 3   4 1   7 0
+3   0 2   2 3   7 1
+4   2 3   4 1   5 2   7 0
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 0   6 2   6 3   6 4   6 7   7 0   7 3   7 4
+## Hints:
+23
+2   3 0   4 3
+2   2 3   7 2
+2   2 3   4 2
+2   2 0   4 2
+2   1 3   7 1
+2   1 3   4 1
+2   1 2   7 1
+2   1 2   6 1
+2   1 2   4 1
+2   1 2   3 1
+2   1 0   4 1
+2   0 2   2 3
+2   0 1   1 3
+2   0 1   1 2
+3   2 0   4 3   7 2
+3   1 3   6 1   7 2
+3   1 3   4 2   6 1
+3   1 0   4 3   7 1
+3   1 0   4 2   7 1
+3   1 0   4 2   6 1
+3   1 0   3 1   4 2
+3   0 2   1 3   6 1
+4   1 0   4 3   6 1   7 2
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 0   6 2   6 4   7 0   7 2   7 3   7 4   7 6
+## Hints:
+23
+2   3 2   6 3
+2   3 2   4 3
+2   3 0   4 3
+2   2 0   4 2
+2   1 3   7 1
+2   1 3   6 1
+2   1 3   4 1
+2   1 3   2 1
+2   1 2   6 1
+2   1 2   4 1
+2   1 0   4 1
+2   0 3   3 2
+2   0 1   1 3
+2   0 1   1 2
+3   3 0   4 2   6 3
+3   1 2   6 3   7 1
+3   1 2   4 3   7 1
+3   1 0   4 3   7 1
+3   1 0   4 3   6 1
+3   1 0   4 2   6 1
+3   1 0   2 1   4 3
+3   0 3   1 2   7 1
+4   1 0   4 2   6 3   7 1
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   5 0   5 1   5 2   5 4   5 6   6 0   6 2   6 4   7 0   7 1   7 2   7 3   7 4   7 5   7 6
+## Hints:
+23
+2   3 2   6 3
+2   3 2   4 3
+2   3 1   6 3
+2   3 1   5 3
+2   3 1   4 3
+2   3 0   4 3
+2   2 3   3 1
+2   2 0   4 2
+2   1 2   6 1
+2   1 2   4 1
+2   1 0   4 1
+2   0 3   3 2
+2   0 3   3 1
+2   0 1   1 2
+3   3 2   5 3   6 1
+3   3 2   4 1   5 3
+3   3 0   4 2   6 3
+3   3 0   4 1   6 3
+3   3 0   4 1   5 3
+3   2 3   3 0   4 1
+3   1 0   4 2   6 1
+3   0 1   3 2   5 3
+4   3 0   4 2   5 3   6 1
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   5 0   5 1   5 3   5 4   5 7   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 0   7 3   7 4
+## Hints:
+23
+2   3 0   4 3
+2   2 3   7 2
+2   2 3   4 2
+2   2 1   7 2
+2   2 1   5 2
+2   2 1   4 2
+2   2 1   3 2
+2   2 0   4 2
+2   1 3   7 1
+2   1 3   4 1
+2   1 0   4 1
+2   0 2   2 3
+2   0 2   2 1
+2   0 1   1 3
+3   2 3   5 2   7 1
+3   2 3   4 1   5 2
+3   2 0   4 3   7 2
+3   2 0   4 1   7 2
+3   2 0   4 1   5 2
+3   2 0   3 2   4 1
+3   1 0   4 3   7 1
+3   0 1   2 3   5 2
+4   2 0   4 3   5 2   7 1
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   5 0   5 1   5 4   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 0   7 1   7 3   7 4   7 5
+## Hints:
+23
+2   3 1   5 3
+2   3 1   4 3
+2   3 0   4 3
+2   2 3   7 2
+2   2 3   5 2
+2   2 3   4 2
+2   2 1   5 2
+2   2 1   4 2
+2   2 0   4 2
+2   1 2   2 3
+2   1 0   4 1
+2   0 3   3 1
+2   0 2   2 3
+2   0 2   2 1
+3   3 0   4 1   5 3
+3   2 1   5 3   7 2
+3   2 1   4 3   7 2
+3   2 0   4 3   7 2
+3   2 0   4 3   5 2
+3   2 0   4 1   5 2
+3   1 2   2 0   4 3
+3   0 3   2 1   7 2
+4   2 0   4 1   5 3   7 2
+
+## Observation (Lins: 14):
+## Outcome:
+8   pop 0 101   pop 0 102   pop 0 103   pop 0 104   push 101 0   push 102 0   push 103 0   push 104 0
+## RF:
+0
+## HB:
+16   4 0   5 0   5 1   5 4   6 0   6 1   6 2   6 4   6 5   7 0   7 1   7 2   7 3   7 4   7 5   7 6
+## Hints:
+23
+2   3 2   6 3
+2   3 2   5 3
+2   3 2   4 3
+2   3 1   5 3
+2   3 1   4 3
+2   3 0   4 3
+2   2 1   5 2
+2   2 1   4 2
+2   2 0   4 2
+2   1 3   3 2
+2   1 0   4 1
+2   0 3   3 2
+2   0 3   3 1
+2   0 2   2 1
+3   3 1   5 2   6 3
+3   3 1   4 2   6 3
+3   3 0   4 2   6 3
+3   3 0   4 2   5 3
+3   3 0   4 1   5 3
+3   2 0   4 1   5 2
+3   1 3   3 0   4 2
+3   0 2   3 1   6 3
+4   3 0   4 1   5 2   6 3
