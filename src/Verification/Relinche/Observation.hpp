@@ -165,7 +165,7 @@ public:
 
 	auto operator<(const Observation &other) const -> bool
 	{
-		return rfs_ < other.rfs_ || (ops_ < other.ops_ && rfs_ == other.rfs_);
+		return std::tie(ops_, rfs_, hb_) < std::tie(other.ops_, other.rfs_, other.hb_);
 	}
 
 	friend auto operator<<(llvm::raw_ostream &os, const Observation &obs)
