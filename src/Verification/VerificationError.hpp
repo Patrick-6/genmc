@@ -85,6 +85,11 @@ inline auto isInvalidAccessError(VerificationError s) -> bool
 
 inline auto isHardError(VerificationError err) -> bool
 {
+	/* An invalid unlock *must* be a hard error:
+	 * the lock optimization depends on the absence of unordered
+	 * writes to the lock location, which is not guaranteed if
+	 * the lock is unlocked without being locked by the same thread first.
+	 */
 	return !(err >= VerificationError::VE_NonErrorBegin &&
 		 err <= VerificationError::VE_NonErrorLast);
 }
