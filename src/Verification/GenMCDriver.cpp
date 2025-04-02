@@ -1917,7 +1917,7 @@ bool GenMCDriver::tryOptimizeRevisits(WriteLabel *sLab, std::vector<ReadLabel *>
 		}
 	}
 
-	/* IPR + locks */
+	/* IPR */
 	tryOptimizeIPRs(sLab, loads);
 
 	/* Confirmation: Do not bother with revisits that will lead to unconfirmed reads */
@@ -2028,8 +2028,7 @@ bool GenMCDriver::prefixContainsSameLoc(const BackwardRevisit &r, const EventLab
 
 	/* Some holes need to be treated specially. However, it is _wrong_ to keep
 	 * porf views around. What we should do instead is simply check whether
-	 * an event is "part" of WLAB's pporf view (even if it is not contained in it).
-	 * Similar actions are taken in {WB,MO}Calculator */
+	 * an event is "part" of WLAB's pporf view (even if it is not contained in it). */
 	auto &g = getExec().getGraph();
 	auto &v = *llvm::dyn_cast<DepView>(&getPrefixView(g.getEventLabel(r.getRev())));
 	if (lab->getIndex() <= v.getMax(lab->getThread()) && isFixedHoleInView(g, lab, v))
