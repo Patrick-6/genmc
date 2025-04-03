@@ -682,17 +682,16 @@ as {{{genmc}}} currently does not enforce this limitation.
 
 ** State-Space Bounding
 
-Under the SC model, {{{genmc}}} supports state-space bounding
-in the form of context-bounded exploration [[cite:&marmanis2023:buster]]
-and round-bounded exploration [[cite:marmanis2023:robin-bound]].
+Under SC, {{{genmc}}} can bound the state-space exploration
+using either preemption bounding [[cite:&marmanis2023:buster]]
+and round-robin bounding [[cite:&marmanis2023:robin-bound]].
 
 For instance, in the following program, running {{{genmc}}} with
-=--sc --bound 0 --bound-type context= will avoid exploring
-executions that can be achieved with one or more (preemptive) context-switches.
+=--sc --bound=0 --bound-type=context= will avoid exploring
+executions that have one or more (preemptive) context-switches.
 
 #+begin_src C
 /* file: bound.c */
-
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -726,25 +725,26 @@ int main()
 #+end_src
 
 To guarantee that no execution within the bound is missed,
-some executions that exceed the bound might be explored,
-which will also be reported appropriately.
+some executions that exceed the bound might also be explored,
+and are reported appropriately:
 
 #+BEGIN_SRC sh
 Number of complete executions explored: 3 (1 exceeded bound)
 #+END_SRC
 
-The default bounding type is =round=, which only explores executions within the given bound.
-When running {{{genmc}}} with =--sc --bound 0=,
-only the single SC execution that can be obtained with zero
-rounds (i.e., in one go) from a left-to-right round-robin scheduler will be explored.
+The default bounding type (=round=), on the other hand, only explores
+executions within the given bound. For instance, when running
+{{{genmc}}} with =--sc --bound=0=, only the single SC execution that
+can be obtained with zero rounds (i.e., in one go) using a
+left-to-right round-robin scheduler will be explored.
 
 #+BEGIN_SRC sh
 Number of complete executions explored: 1
 #+END_SRC
 
-Note that, while the round-robin bound does not explore additional executions,
-the number of executions grows more rapidly as the bound increases,
-compared to the context bound.
+Note that, while the round-robin bound does not explore executions
+that exceed the limit, the number of executions grows more rapidly as
+the bound increases (compared to context bounding).
 
 ** Symmetry Reduction
 
