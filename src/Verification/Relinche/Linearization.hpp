@@ -27,9 +27,10 @@
 
 #include <vector>
 
+/** Represents a total ordering of MethodCall */
 class Linearization {
 private:
-	using Index = unsigned int; /* Index in a linear order */
+	using Index = unsigned int; /**< Index in a linear order */
 
 public:
 	using PermutationMap = llvm::IndexedMap<MethodCall::Id>;
@@ -58,13 +59,13 @@ public:
 		-> llvm::raw_ostream &;
 
 private:
-	/* Index of an event in the order */
+	/** Index of an event in the order */
 	[[nodiscard]] auto getIndex(MethodCall::Id id) const -> Index { return order_[id.value()]; }
 
-	/* Ordered CallIds representing the linearization */
+	/** Ordered CallIds representing the linearization */
 	std::vector<MethodCall::Id> lin_;
 
-	/* A map so that we have O(1) complexity when comparing order of CallIds in
+	/** A map so that we have O(1) complexity when comparing order of CallIds in
 	 * a linearization. This is actually an indexed map (CallIx -> Index), but we
 	 * don't use an IndexedMap because we need comparison operators for Linearizations */
 	std::vector<Index> order_;

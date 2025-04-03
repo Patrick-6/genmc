@@ -33,7 +33,7 @@
  **                             View Class
  ******************************************************************************/
 
-/*
+/**
  * An instantiation of a vector clock where it is assumed that if an index
  * is contained in the clock, all of its po-predecessors are also contained
  * in the clock.
@@ -44,10 +44,10 @@ private:
 	EventView view_;
 
 public:
-	/* Constructors */
+	/** Constructors */
 	View() : VectorClock(VectorClock::VectorClockKind::VC_View), view_(EventView(0)) {}
 
-	/* Iterators */
+	/** Iterators */
 	using iterator = int *;
 	using const_iterator = const int *;
 
@@ -56,25 +56,25 @@ public:
 	const_iterator begin() const { return empty() ? nullptr : &view_[0]; }
 	const_iterator end() const { return empty() ? nullptr : &view_[0] + size(); }
 
-	/* Returns the size of this view (i.e., number of threads seen) */
+	/** Returns the size of this view (i.e., number of threads seen) */
 	unsigned int size() const override { return view_.size(); }
 
-	/* Returns true if this view is empty */
+	/** Returns true if this view is empty */
 	bool empty() const { return size() == 0; }
 
 	void clear() override { view_.clear(); }
 
-	/* Returns true if e is contained in the clock */
+	/** Returns true if e is contained in the clock */
 	bool contains(const Event e) const override { return e.index <= getMax(e.thread); }
 
-	/* Updates the view based on another vector clock. We can
+	/** Updates the view based on another vector clock. We can
 	 * only update the current view given another View (and not
 	 * some other subclass of VectorClock) */
 	View &update(const View &v) override;
 	DepView &update(const DepView &dv) override;
 	VectorClock &update(const VectorClock &vc) override;
 
-	/* Makes the maximum event seen in e's thread equal to e */
+	/** Makes the maximum event seen in e's thread equal to e */
 	View &updateIdx(Event e) override
 	{
 		if (getMax(e.thread) < e.index)

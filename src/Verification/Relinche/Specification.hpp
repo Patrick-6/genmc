@@ -36,14 +36,14 @@
 #include <unordered_map>
 #include <vector>
 
-/* Extension of happens-before relation that invalidate some outcome of spec */
+/** Extension of happens-before relation that invalidate some outcome of spec */
 struct Hint {
 	std::vector<std::pair<MethodCall::Id, MethodCall::Id>> edges;
 
 	friend auto operator<<(llvm::raw_ostream &os, const Hint &hint) -> llvm::raw_ostream &;
 };
 
-/* Serializable collection of projected graphs (observations) of the specification program */
+/** Serializable collection of projected graphs (observations) of the specification program */
 class Specification {
 private:
 	struct Record {
@@ -66,19 +66,19 @@ public:
 #endif
 	{}
 
-	/* Iterators */
+	/** Iterators */
 
-	/* Iterate over all observations */
+	/** Iterate over all observations */
 	[[nodiscard]] auto observations() const { return std::views::keys(data_); }
 
-	/* Iterate over <obs', <lins, hints>> pairs where obs' refines obs */
+	/** Iterate over <obs', <lins, hints>> pairs where obs' refines obs */
 	[[nodiscard]] auto refined_observations(const Observation &obs) const
 	{
 		return llvm::make_range(data_.equal_range(obs)) |
 		       std::views::filter([&](auto &kv) { return kv.first.isRefinedBy(obs); });
 	}
 
-	/* Statistics */
+	/** Statistics */
 
 	[[nodiscard]] auto getNumObservations() const { return data_.size(); }
 

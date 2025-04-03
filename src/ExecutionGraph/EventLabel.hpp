@@ -72,9 +72,11 @@ public:
  **                        EventLabel Class (Abstract)
  ******************************************************************************/
 
+namespace genmcDetail {
 struct po_tag {};
+} // namespace genmcDetail
 
-/*
+/**
  * An abstract class for modeling event labels. Contains the bare minimum
  * that all different labels (e.g., Reads, Writes, etc) should have. Although
  * hb and (po U rf) are stored as vector clocks in EventLabels, the respective
@@ -82,7 +84,7 @@ struct po_tag {};
  * by querying the execution graph.
  */
 class EventLabel : public llvm::ilist_node<EventLabel>,
-		   public llvm::ilist_node<EventLabel, llvm::ilist_tag<po_tag>> {
+		   public llvm::ilist_node<EventLabel, llvm::ilist_tag<genmcDetail::po_tag>> {
 
 public:
 	/* Discriminator for LLVM-style RTTI (dyn_cast<> et al).
@@ -106,7 +108,7 @@ protected:
 public:
 	virtual ~EventLabel() = default;
 
-	/* Iterators for dependencies */
+	/** Iterators for dependencies */
 	const_dep_iterator data_begin() const { return deps.data.begin(); }
 	const_dep_iterator data_end() const { return deps.data.end(); }
 	const_dep_range data() const { return const_dep_range(deps.data.begin(), deps.data.end()); }
@@ -119,42 +121,44 @@ public:
 	const_dep_iterator ctrl_end() const { return deps.ctrl.end(); }
 	const_dep_range ctrl() const { return const_dep_range(deps.ctrl.begin(), deps.ctrl.end()); }
 
-	/* Returns the discriminator of this object */
+	/** Returns the discriminator of this object */
 	EventLabelKind getKind() const { return kind; }
 
-	/* Returns the parent graph of this label */
+	/** Returns the parent graph of this label */
 	const ExecutionGraph *getParent() const { return parent; }
 	ExecutionGraph *getParent() { return parent; }
 
-	/* Sets the parent graph for this label */
+	/** Sets the parent graph for this label */
 	void setParent(ExecutionGraph *graph) { parent = graph; }
 
-	/* Returns the position in the execution graph (thread, index) */
+	/** Returns the position in the execution graph (thread, index) */
 	Event getPos() const { return position; }
 	Event &getPos() { return position; }
 
-	/* Returns the index of this label within a thread */
+	/** Returns the index of this label within a thread */
 	int getIndex() const { return position.index; }
 
-	/* Returns the thread of this label in the execution graph */
+	/** Returns the thread of this label in the execution graph */
 	int getThread() const { return position.thread; }
 
-	/* Getter/setter for the label ordering */
+	/** Getter for the label ordering */
 	MemOrdering getOrdering() const { return ordering; }
+
+	/** Setter for the label ordering */
 	void setOrdering(MemOrdering ord) { ordering = ord; }
 
-	/* Returns this label's dependencies */
+	/** Returns this label's dependencies */
 	const EventDeps &getDeps() const { return deps; }
 
-	/* Sets this label's dependencies */
+	/** Sets this label's dependencies */
 	void setDeps(const EventDeps &ds) { deps = ds; }
 	void setDeps(const EventDeps *ds) { deps = *ds; }
 	void setDeps(EventDeps &&ds) { deps = std::move(ds); }
 
-	/* Returns whether a stamp has been assigned for this label */
+	/** Returns whether a stamp has been assigned for this label */
 	bool hasStamp() const { return stamp.has_value(); }
 
-	/* Returns the stamp of the label in a graph */
+	/** Returns the stamp of the label in a graph */
 	Stamp getStamp() const
 	{
 #ifdef ENABLE_GENMC_DEBUG
@@ -174,74 +178,74 @@ public:
 	void setViews(std::vector<View> &&views) { calculatedViews = std::move(views); }
 	void addView(View &&view) { calculatedViews.emplace_back(view); }
 
-	/* Iterators for calculated relations */
+	/** Iterators for calculated relations */
 	calc_const_range calculated(size_t i) const
 	{
 		return (getPos().isInitializer() || getKind() == Empty) ? calculatedRels[0]
 									: calculatedRels[i];
 	}
 
-	/* Getters for calculated views */
+	/** Getters for calculated views */
 	const View &view(size_t i) const
 	{
 		return (getPos().isInitializer() || getKind() == Empty) ? calculatedViews[0]
 									: calculatedViews[i];
 	}
 
-	/* Returns true if this label corresponds to a non-atomic access */
+	/** Returns true if this label corresponds to a non-atomic access */
 	bool isNotAtomic() const { return ordering == MemOrdering::NotAtomic; }
 
-	/* Returns true if the ordering of this access is acquire or stronger */
+	/** Returns true if the ordering of this access is acquire or stronger */
 	bool isAtLeastAcquire() const
 	{
 		return isAtLeastOrStrongerThan(ordering, MemOrdering::Acquire);
 	}
 
-	/* Returns true if the ordering of this access is release or stronger */
+	/** Returns true if the ordering of this access is release or stronger */
 	bool isAtLeastRelease() const
 	{
 		return isAtLeastOrStrongerThan(ordering, MemOrdering::Release);
 	}
 
-	/* Returns true if this is a sequentially consistent access */
+	/** Returns true if this is a sequentially consistent access */
 	bool isSC() const { return ordering == MemOrdering::SequentiallyConsistent; }
 
-	/* Whether this label can have outgoing dep edges */
+	/** Whether this label can have outgoing dep edges */
 	bool isDependable() const { return isDependable(getKind()); }
 
-	/* Whether this label returns a value */
+	/** Whether this label returns a value */
 	bool returnsValue() const { return returnsValue(getKind()); }
 
-	/* Returns the value returned by the label */
+	/** Returns the value returned by the label */
 	SVal getReturnValue() const;
 
-	/* Returns whether this label accesses some value */
+	/** Returns whether this label accesses some value */
 	bool accessesValue() const { return accessesValue(getKind()); }
 
-	/* Returns the value from memory the label accesses.
+	/** Returns the value from memory the label accesses.
 	 * (The label needs to be a memory access.) */
 	SVal getAccessValue(const AAccess &access) const;
 
-	/* Whether this label has a location */
+	/** Whether this label has a location */
 	bool hasLocation() const { return hasLocation(getKind()); }
 
-	/* Returns true if this event can be revisited */
+	/** Returns true if this event can be revisited */
 	bool isRevisitable() const { return revisitable; }
 
-	/* Makes the relevant event revisitable/non-revisitable. The
+	/** Makes the relevant event revisitable/non-revisitable. The
 	 * execution graph is responsible for making such changes */
 	void setRevisitStatus(bool status) { revisitable = status; }
 
-	/* Returns true if this event cannot be revisited or deleted */
+	/** Returns true if this event cannot be revisited or deleted */
 	bool isStable() const;
 
-	/* Necessary for multiple inheritance + LLVM-style RTTI to work */
+	/** Necessary for multiple inheritance + LLVM-style RTTI to work */
 	static bool classofKind(EventLabelKind K) { return true; }
 
-	/* Returns a clone object (virtual to allow deep copying from base) */
+	/** Returns a clone object (virtual to allow deep copying from base) */
 	virtual std::unique_ptr<EventLabel> clone() const = 0;
 
-	/* Resets all graph-related info on a label to their default values */
+	/** Resets all graph-related info on a label to their default values */
 	virtual void reset()
 	{
 		parent = nullptr;
@@ -265,32 +269,32 @@ private:
 
 	void setStamp(Stamp s) { stamp = s; }
 
-	/* Discriminator enum for LLVM-style RTTI */
+	/** Discriminator enum for LLVM-style RTTI */
 	const EventLabelKind kind;
 
 	ExecutionGraph *parent{};
 
-	/* Position of this label within the execution graph (thread, index) */
+	/** Position of this label within the execution graph (thread, index) */
 	Event position;
 
-	/* Ordering of this access mode */
+	/** Ordering of this access mode */
 	MemOrdering ordering;
 
-	/* Events on which this label depends */
+	/** Events on which this label depends */
 	EventDeps deps;
 
-	/* The stamp of this label in the execution graph */
+	/** The stamp of this label in the execution graph */
 	std::optional<Stamp> stamp = std::nullopt;
 
 	mutable value_ptr<VectorClock, VectorClockCloner> prefixView = nullptr;
 
-	/* Saved calculations */
+	/** Saved calculations */
 	std::vector<VSet<Event>> calculatedRels;
 
-	/* Saved views */
+	/** Saved views */
 	std::vector<View> calculatedViews;
 
-	/* Revisitability status */
+	/** Revisitability status */
 	bool revisitable = true;
 };
 
@@ -315,7 +319,7 @@ private:
  **                     ThreadStartLabel Class
  ******************************************************************************/
 
-/* Represents the beginning of a thread. This label synchronizes with the
+/** Represents the beginning of a thread. This label synchronizes with the
  * ThreadCreateLabel that led to the creation of this thread */
 class ThreadStartLabel : public EventLabel {
 
@@ -337,21 +341,21 @@ public:
 		: ThreadStartLabel(pos, MemOrdering::Acquire, createId, createLab, tinfo, symmPred)
 	{}
 
-	/* Returns the position of the corresponding create operation */
+	/** Returns the position of the corresponding create operation */
 	auto getCreate() const -> ThreadCreateLabel * { return createLab_; }
 	auto getCreate() -> ThreadCreateLabel * { return createLab_; }
 	auto setCreate(ThreadCreateLabel *lab) { createLab_ = lab; }
 	auto getCreateId() const -> Event { return createId_; }
 
-	/* Getters for the thread's info */
+	/** Getters for the thread's info */
 	auto getThreadInfo() const -> const ThreadInfo & { return threadInfo; }
 	auto getThreadInfo() -> ThreadInfo & { return threadInfo; }
 
-	/* SR: Returns the tid of the symmetric predecessor (-1 if it doesn't exist)  */
+	/** SR: Returns the tid of the symmetric predecessor (-1 if it doesn't exist)  */
 	auto getSymmPredTid() const -> int { return symmPredTid; }
 	void setSymmPredTid(int tid) { symmPredTid = tid; }
 
-	/* SR: Returns the tid of the symmetric successor (-1 if it doesn't exist) */
+	/** SR: Returns the tid of the symmetric successor (-1 if it doesn't exist) */
 	auto getSymmSuccTid() const -> int { return symmSuccTid; }
 	void setSymmSuccTid(int tid) { symmSuccTid = tid; }
 
@@ -373,17 +377,17 @@ public:
 	}
 
 private:
-	/* The position of the corresponding create opeartion */
+	/** The position of the corresponding create opeartion */
 	Event createId_;
 	ThreadCreateLabel *createLab_;
 
-	/* Information about this thread */
+	/** Information about this thread */
 	ThreadInfo threadInfo;
 
-	/* SR: The tid of the symmetric predecessor */
+	/** SR: The tid of the symmetric predecessor */
 	int symmPredTid = -1;
 
-	/* SR: The tid of the symmetric successor */
+	/** SR: The tid of the symmetric successor */
 	int symmSuccTid = -1;
 };
 
@@ -391,8 +395,8 @@ private:
  **                          InitLabel Class
  ******************************************************************************/
 
-/* Represents the INIT label of the graph, modeling the initialization of all
- * memory locaitons. The first thread is special in that it does not start with
+/** Represents the INIT label of the graph, modeling the initialization of all
+ * memory locations. The first thread is special in that it does not start with
  * a ThreadStartLabel as the other threads do */
 class InitLabel : public ThreadStartLabel {
 
@@ -421,7 +425,7 @@ private:
 
 	void addReader(ReadLabel *rLab);
 
-	/* Removes all readers that satisfy predicate F */
+	/** Removes all readers that satisfy predicate F */
 	template <typename F> void removeReader(SAddr addr, F cond)
 	{
 		for (auto it = rf_begin(addr); it != rf_end(addr);) {
@@ -439,7 +443,7 @@ private:
  **                          TerminatorLabel Class
  ******************************************************************************/
 
-/* Abstract class for representing the termination of a thread */
+/** Abstract class for representing the termination of a thread */
 class TerminatorLabel : public EventLabel {
 
 protected:
@@ -462,7 +466,7 @@ public:
  **                            BlockLabel Class
  ******************************************************************************/
 
-/* An abstract label that represents a blockage. Subclasses denote the blockage type */
+/** An abstract label that represents a blockage. Subclasses denote the blockage type */
 class BlockLabel : public TerminatorLabel {
 
 protected:
@@ -499,7 +503,7 @@ BLOCK_PURE_SUBCLASS(BarrierBlock);
 BLOCK_PURE_SUBCLASS(ErrorBlock);
 BLOCK_PURE_SUBCLASS(UserBlock);
 
-/*
+/**
  * Represents that a thread cannot be scheduled until a child
  * one terminates (i.e., it is blocked due to a join()).
  * (Similar to ReadOptBlock below.)
@@ -518,7 +522,7 @@ private:
 	const unsigned int childId{}; // the child waiting on
 };
 
-/*
+/**
  * A temporary block label (mostly used to optimize IPRs).  The
  * presence of such a label indicates that the corresponding thread
  * should not be considered for scheduling (though this may be
@@ -534,14 +538,14 @@ public:
 	DEFINE_STANDARD_MEMBERS(ReadOptBlock)
 
 private:
-	SAddr addr; // the address waiting on
+	SAddr addr; /// the address waiting on
 };
 
 /*******************************************************************************
  **                     ThreadKillLabel Class
  ******************************************************************************/
 
-/* Represents the abnormal termination of a thread */
+/** Represents the abnormal termination of a thread */
 class ThreadKillLabel : public TerminatorLabel {
 
 public:
@@ -554,7 +558,7 @@ public:
  **                     ThreadFinishLabel Class
  ******************************************************************************/
 
-/* Represents the ending of a thread. This label synchronizes with the
+/** Represents the ending of a thread. This label synchronizes with the
  * ThreadJoinLabel that awaits for this particular thread (if any)
  *
  * FIXME: no error is reported if multiple threads are waiting on the
@@ -570,14 +574,14 @@ public:
 		: ThreadFinishLabel(pos, MemOrdering::Release, retVal)
 	{}
 
-	/* Returns the join() operation waiting on this thread or
+	/** Returns the join() operation waiting on this thread or
 	   NULL if no such operation exists (yet) */
 	ThreadJoinLabel *getParentJoin() const { return parentJoin; }
 
-	/* Sets the corresponding join() event */
+	/** Sets the corresponding join() event */
 	void setParentJoin(ThreadJoinLabel *jLab) { parentJoin = jLab; }
 
-	/* Returns the return value of this thread */
+	/** Returns the return value of this thread */
 	SVal getRetVal() const { return retVal; }
 
 	virtual void reset() override
@@ -589,11 +593,11 @@ public:
 	DEFINE_STANDARD_MEMBERS(ThreadFinish)
 
 private:
-	/* Position of corresponding join() event in the graph
+	/** Position of corresponding join() event in the graph
 	 * (NULL if such event does not exist) */
 	ThreadJoinLabel *parentJoin = nullptr;
 
-	/* Return value of the thread */
+	/** Return value of the thread */
 	SVal retVal;
 };
 
@@ -601,7 +605,7 @@ private:
  **                       MemAccessLabel Class (Abstract)
  ******************************************************************************/
 
-/* This label abstracts the common functionality that loads and stores have
+/** This label abstracts the common functionality that loads and stores have
  * (e.g., asking for the address of such a label) */
 class MemAccessLabel : public EventLabel, public llvm::ilist_node<MemAccessLabel> {
 
@@ -616,23 +620,23 @@ protected:
 	{}
 
 public:
-	/* Returns the address of this access */
+	/** Returns the address of this access */
 	SAddr getAddr() const { return access.getAddr(); }
 
-	/* Returns the size (in bytes) of the access */
+	/** Returns the size (in bytes) of the access */
 	ASize getSize() const { return access.getSize(); }
 
-	/* Returns the type of the access */
+	/** Returns the type of the access */
 	AType getType() const { return access.getType(); }
 
-	/* Returns the packed access */
+	/** Returns the packed access */
 	const AAccess &getAccess() const { return access; }
 
-	/* Helper flag for maximality checks */
+	/** Helper flag for maximality checks */
 	bool wasAddedMax() const { return maximal; }
 	void setAddedMax(bool status) { maximal = status; }
 
-	/* Getter for allocating event */
+	/** Getter for allocating event */
 	MallocLabel *getAlloc() const { return allocLab; }
 	MallocLabel *getAlloc() { return allocLab; }
 
@@ -655,13 +659,13 @@ public:
 	}
 
 private:
-	/* The access performed */
+	/** The access performed */
 	AAccess access;
 
-	/* Whether was mo-maximal when added */
+	/** Whether was mo-maximal when added */
 	bool maximal = true;
 
-	/* The allocation event corresponding to this access */
+	/** The allocation event corresponding to this access */
 	MallocLabel *allocLab = nullptr;
 };
 
@@ -669,7 +673,7 @@ private:
  **                         ReadLabel Class
  ******************************************************************************/
 
-/* The label for reads. All special read types (e.g., FAI, CAS) should inherit
+/** The label for reads. All special read types (e.g., FAI, CAS) should inherit
  * from this class */
 class ReadLabel : public MemAccessLabel, public llvm::ilist_node<ReadLabel> {
 
@@ -699,49 +703,51 @@ public:
 		: ReadLabel(pos, ord, loc, size, type, nullptr, nullptr, deps)
 	{}
 
-	/* Returns the position of the write this read is reading-from */
+	/** Returns the position of the write this read is reading-from */
 	EventLabel *getRf() const { return readsFrom; }
 	EventLabel *getRf() { return readsFrom; }
 
-	/* Changes the reads-from edge for this label.
+	/** Changes the reads-from edge for this label.
 	 * Also updates reader information in the writer */
 	void setRf(EventLabel *rfLab);
 
-	/* Whether this read has a set RF and reads externally */
+	/** Whether this read has a set RF and reads externally */
 	bool readsExt() const
 	{
 		return getRf() && !getRf()->getPos().isInitializer() &&
 		       getRf()->getThread() != getThread();
 	}
 
-	/* Whether this read has a set RF and reads internally */
+	/** Whether this read has a set RF and reads internally */
 	bool readsInt() const
 	{
 		return getRf() &&
 		       (getRf()->getPos().isInitializer() || getRf()->getThread() == getThread());
 	}
 
-	/* Whether the read is part of an RMW operation (needs to be part of a graph) */
+	/** Whether the read is part of an RMW operation (needs to be part of a graph) */
 	bool isRMW() const;
 
-	/* Returns true if the read was revisited in-place */
+	/** Returns true if the read was revisited in-place */
 	bool isIPR() const { return ipr; }
 
-	/* Convenience function that returns whether reading a value will create an RMW */
+	/** Convenience function that returns whether reading a value will create an RMW */
 	bool valueMakesRMWSucceed(const SVal &val) const;
 
-	/* Convenience function that returns whether reading a value makes the assume
+	/** Convenience function that returns whether reading a value makes the assume
 	 * succeed */
 	bool valueMakesAssumeSucceed(const SVal &val) const;
 
-	/* Sets the IPR status for this read */
+	/** Sets the IPR status for this read */
 	void setIPRStatus(bool status) { ipr = status; }
 
-	/* Helper: Whether this is a confirmation read */
+	/** Helper: Whether this is a confirmation read */
 	bool isConfirming() const { return isConfirming(getKind()); }
 
-	/* SAVer: Getter/setter for the annotation expression */
+	/** SAVer: Getter for the annotation expression */
 	const AnnotT *getAnnot() const { return annotExpr.get(); }
+
+	/** SAVer: Setter for the annotation expression */
 	void setAnnot(std::unique_ptr<AnnotT> annot) { annotExpr = std::move(annot); }
 
 	virtual void reset() override
@@ -770,13 +776,13 @@ private:
 
 	void setRfNoCascade(EventLabel *rfLab) { readsFrom = rfLab; }
 
-	/* Position of the write it is reading from in the graph */
+	/** Position of the write it is reading from in the graph */
 	EventLabel *readsFrom = nullptr;
 
-	/* Whether the read has been revisited in place */
+	/** Whether the read has been revisited in place */
 	bool ipr = false;
 
-	/* SAVer: Expression for annotatable loads. This needs to have
+	/** SAVer: Expression for annotatable loads. This needs to have
 	 * heap-value semantics so that it does not create concurrency issues */
 	AnnotVP annotExpr = nullptr;
 };
@@ -811,7 +817,7 @@ READ_PURE_SUBCLASS(CondVarWaitRead);
  **                         FaiReadLabel Class
  ******************************************************************************/
 
-/* Represents the read part of a read-modify-write (RMW) (e.g., fetch-and-add,
+/** Represents the read part of a read-modify-write (RMW) (e.g., fetch-and-add,
  * fetch-and-sub, etc) operation (compare-and-exhange is excluded) */
 class FaiReadLabel : public ReadLabel {
 
@@ -844,17 +850,17 @@ public:
 		: FaiReadLabel(pos, ord, addr, size, type, op, val, WriteAttr::None, deps)
 	{}
 
-	/* Returns the type of this RMW operation (e.g., add, sub) */
+	/** Returns the type of this RMW operation (e.g., add, sub) */
 	RMWBinOp getOp() const { return binOp; }
 
-	/* Returns the other operand's value */
+	/** Returns the other operand's value */
 	SVal getOpVal() const { return opValue; }
 
-	/* Returns/sets the attributes of the write part */
+	/** Returns/sets the attributes of the write part */
 	WriteAttr getAttr() const { return wattr; }
 	void setAttr(WriteAttr a) { wattr |= a; }
 
-	/* Checks whether the write part has the specified attributes */
+	/** Checks whether the write part has the specified attributes */
 	bool hasAttr(WriteAttr a) const { return !!(wattr & a); }
 
 	virtual void reset() override
@@ -875,13 +881,13 @@ public:
 	}
 
 private:
-	/* The binary operator for this RMW operation */
+	/** The binary operator for this RMW operation */
 	const RMWBinOp binOp;
 
-	/* The other operand's value for the operation */
+	/** The other operand's value for the operation */
 	SVal opValue;
 
-	/* Attributes for the write part of the RMW */
+	/** Attributes for the write part of the RMW */
 	WriteAttr wattr = WriteAttr::None;
 };
 
@@ -921,7 +927,7 @@ FAIREAD_PURE_SUBCLASS(BIncFaiRead);
  **                         CasReadLabel Class
  ******************************************************************************/
 
-/* Represents the read part of a compare-and-swap (CAS) operation */
+/** Represents the read part of a compare-and-swap (CAS) operation */
 class CasReadLabel : public ReadLabel {
 
 protected:
@@ -953,17 +959,17 @@ public:
 		: CasReadLabel(pos, ord, addr, size, type, exp, swap, WriteAttr::None, deps)
 	{}
 
-	/* Returns the value that will make this CAS succeed */
+	/** Returns the value that will make this CAS succeed */
 	SVal getExpected() const { return expected; }
 
-	/* Returns the value that will be written is the CAS succeeds */
+	/** Returns the value that will be written is the CAS succeeds */
 	SVal getSwapVal() const { return swapValue; }
 
-	/* Returns/sets the attributes of the write part */
+	/** Returns/sets the attributes of the write part */
 	WriteAttr getAttr() const { return wattr; }
 	void setAttr(WriteAttr a) { wattr |= a; }
 
-	/* Checks whether the write part has the specified attributes */
+	/** Checks whether the write part has the specified attributes */
 	bool hasAttr(WriteAttr a) const { return !!(wattr & a); }
 
 	virtual void reset() override
@@ -984,13 +990,13 @@ public:
 	}
 
 private:
-	/* The value that will make this CAS succeed */
+	/** The value that will make this CAS succeed */
 	const SVal expected;
 
-	/* The value that will be written if the CAS succeeds */
+	/** The value that will be written if the CAS succeeds */
 	const SVal swapValue;
 
-	/* The attributes of the write part of the RMW */
+	/** The attributes of the write part of the RMW */
 	WriteAttr wattr = WriteAttr::None;
 };
 
@@ -1031,7 +1037,7 @@ CASREAD_PURE_SUBCLASS(ConfirmingCasRead);
  **                         LockCasReadLabel Class
  ******************************************************************************/
 
-/* Specialization of CasReadLabel for lock CASes */
+/** Specialization of CasReadLabel for lock CASes */
 class LockCasReadLabel : public CasReadLabel {
 
 protected:
@@ -1079,7 +1085,7 @@ public:
  **                         TrylockCasReadLabel Class
  ******************************************************************************/
 
-/* Specialization of CasReadLabel for trylock CASes */
+/** Specialization of CasReadLabel for trylock CASes */
 class TrylockCasReadLabel : public CasReadLabel {
 
 public:
@@ -1110,7 +1116,7 @@ public:
  **                         AbstractLockCasReadLabel Class
  ******************************************************************************/
 
-/* Special lock to enforce atomicity in the abstract specification */
+/** Special lock to enforce atomicity in the abstract specification */
 class AbstractLockCasReadLabel : public LockCasReadLabel {
 public:
 	AbstractLockCasReadLabel(Event pos, SAddr addr, ASize size, AnnotVP annot = nullptr,
@@ -1127,7 +1133,7 @@ public:
  **                         WriteLabel Class
  ******************************************************************************/
 
-/* Represents a write operation. All special types of writes (e.g., FAI, CAS)
+/** Represents a write operation. All special types of writes (e.g., FAI, CAS)
  * should inherit from this class */
 class WriteLabel : public MemAccessLabel, public llvm::ilist_node<WriteLabel> {
 
@@ -1151,37 +1157,39 @@ public:
 		: WriteLabel(pos, ord, addr, size, type, val, WriteAttr::None, deps)
 	{}
 
-	/* Getter/setter for the write value */
+	/** Getter for the write value */
 	SVal getVal() const { return value; }
+
+	/** Setter for the write value */
 	void setVal(SVal v) { value = v; }
 
-	/* Returns the attributes of the write */
+	/** Returns the attributes of the write */
 	WriteAttr getAttr() const { return wattr; }
 	void setAttr(WriteAttr a) { wattr |= a; }
 
-	/* Checks whether the write has the specified attributes */
+	/** Checks whether the write has the specified attributes */
 	bool hasAttr(WriteAttr a) const { return !!(wattr & a); }
 
-	/* Helpers for various write attributes */
+	/** Helpers for various write attributes */
 	bool isFinal() const { return hasAttr(WriteAttr::Final); }
 	bool isLocal() const { return hasAttr(WriteAttr::Local); }
 
-	/* Whether this is part of an RMW operation */
+	/** Whether this is part of an RMW operation */
 	bool isRMW() const;
 
-	/* Whether this write modifies global memory (SAVer) */
+	/** Whether this write modifies global memory (SAVer) */
 	bool isEffectful() const;
 
-	/* Whether this write is (externally) observable */
+	/** Whether this write is (externally) observable */
 	bool isObservable() const;
 
-	/* Adds the store co-after LAB */
+	/** Adds the store co-after LAB */
 	void addCo(EventLabel *lab);
 
-	/* Moves the store co-after LAB (has to already exist in co) */
+	/** Moves the store co-after LAB (has to already exist in co) */
 	void moveCo(EventLabel *lab);
 
-	/* Iterators for readers */
+	/** Iterators for readers */
 	using ReaderList = CopyableIList<ReadLabel>;
 	using rf_iterator = ReaderList::iterator;
 	using const_rf_iterator = ReaderList::const_iterator;
@@ -1218,7 +1226,7 @@ private:
 	friend class DepExecutionGraph;
 	friend class ReadLabel; // FIXME: Robustify; no friendship necessary
 
-	/* Adds a read to the list of reads reading from the write */
+	/** Adds a read to the list of reads reading from the write */
 	void addReader(ReadLabel *rLab)
 	{
 		BUG_ON(std::find_if(readers_begin(), readers_end(), [rLab](ReadLabel &oLab) {
@@ -1227,7 +1235,7 @@ private:
 		readerList.push_back(*rLab);
 	}
 
-	/* Removes all readers that satisfy predicate F */
+	/** Removes all readers that satisfy predicate F */
 	template <typename F> void removeReader(F cond)
 	{
 		for (auto it = readers_begin(); it != readers_end();) {
@@ -1238,13 +1246,13 @@ private:
 		}
 	}
 
-	/* The value written by this label */
+	/** The value written by this label */
 	SVal value;
 
-	/* List of reads reading from the write */
+	/** List of reads reading from the write */
 	ReaderList readerList;
 
-	/* Attributes of the write */
+	/** Attributes of the write */
 	WriteAttr wattr = WriteAttr::None;
 };
 
@@ -1272,6 +1280,7 @@ WRITE_PURE_SUBCLASS(CondVarSignalWrite);
 WRITE_PURE_SUBCLASS(CondVarBcastWrite);
 WRITE_PURE_SUBCLASS(CondVarDestroyWrite);
 
+/** Represents releasing a lock (e.g., pthread_mutex_unlock) */
 class UnlockWriteLabel : public WriteLabel {
 protected:
 	UnlockWriteLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
@@ -1306,6 +1315,7 @@ public:
  **                         AbstractUnlockWriteLabel Class
  ******************************************************************************/
 
+/** Represents a call to __VERIFIER_plock_unlock */
 class AbstractUnlockWriteLabel : public UnlockWriteLabel {
 
 public:
@@ -1323,7 +1333,7 @@ public:
  **                         FaiWriteLabel Class
  ******************************************************************************/
 
-/* Represents the write part of a read-modify-write (RMW) operation (e.g,
+/** Represents the write part of a read-modify-write (RMW) operation (e.g,
 fetch-and-add, fetch-and-sub, etc) */
 class FaiWriteLabel : public WriteLabel {
 
@@ -1359,7 +1369,7 @@ public:
  **                         NoRetFaiWriteLabel Class
  ******************************************************************************/
 
-/* Specialization of FaiWriteLabel for non-value-returning FAIs */
+/** Specialization of FaiWriteLabel for non-value-returning FAIs */
 class NoRetFaiWriteLabel : public FaiWriteLabel {
 
 public:
@@ -1375,7 +1385,7 @@ public:
  **                         BIncFaiWriteLabel Class
  ******************************************************************************/
 
-/* Specialization of FaiWriteLabel for barrier FAIs */
+/** Specialization of FaiWriteLabel for barrier FAIs */
 class BIncFaiWriteLabel : public FaiWriteLabel {
 
 public:
@@ -1396,7 +1406,7 @@ public:
  **                         CasWriteLabel Class
  ******************************************************************************/
 
-/* Represents the write part of a compare-and-swap (CAS) operation */
+/** Represents the write part of a compare-and-swap (CAS) operation */
 class CasWriteLabel : public WriteLabel {
 
 protected:
@@ -1444,7 +1454,7 @@ CASWRITE_PURE_SUBCLASS(ConfirmingCasWrite);
  **                         LockCasWriteLabel Class
  ******************************************************************************/
 
-/* Specialization of CasWriteLabel for lock CASes */
+/** Specialization of CasWriteLabel for lock CASes */
 class LockCasWriteLabel : public CasWriteLabel {
 
 protected:
@@ -1483,7 +1493,7 @@ public:
  **                         TrylockCasWriteLabel Class
  ******************************************************************************/
 
-/* Specialization of CasWriteLabel for trylock CASes */
+/** Specialization of CasWriteLabel for trylock CASes */
 class TrylockCasWriteLabel : public CasWriteLabel {
 
 public:
@@ -1508,7 +1518,7 @@ public:
  **                         AbstractLockCasWriteLabel Class
  ******************************************************************************/
 
-/* Special lock to enforce atomicity in the abstract specification */
+/** Represents a call to __VERIFIER_plock_lock */
 class AbstractLockCasWriteLabel : public LockCasWriteLabel {
 public:
 	AbstractLockCasWriteLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,
@@ -1530,7 +1540,7 @@ public:
  **                         FenceLabel Class
  ******************************************************************************/
 
-/* Represents a fence */
+/** Represents a fence */
 class FenceLabel : public EventLabel {
 
 protected:
@@ -1560,7 +1570,7 @@ public:
  **                        MallocLabel Class
  ******************************************************************************/
 
-/* Corresponds to a memory-allocating operation (e.g., malloc()) */
+/** Corresponds to a memory-allocating operation (e.g., malloc()) */
 class MallocLabel : public EventLabel {
 
 public:
@@ -1587,16 +1597,20 @@ public:
 		: MallocLabel(pos, size, alignment, sd, stype, spc, nullptr, {}, deps)
 	{}
 
-	/* Getter/setter for the (fresh) address returned by the allocation */
+	/** Getter for the (fresh) address returned by the allocation */
 	SAddr getAllocAddr() const { return allocAddr; }
+
+	/** Setter for the (fresh) address returned by the allocation */
 	void setAllocAddr(SAddr addr) { allocAddr = addr; }
 
-	/* Getter/setter for the corresponding free label*/
+	/** Getter for the corresponding free label */
 	FreeLabel *getFree() const { return dLab; }
 	FreeLabel *getFree() { return dLab; }
+
+	/** Setter for the corresponding free label*/
 	void setFree(FreeLabel *lab) { dLab = lab; }
 
-	/* Iterators for accesses */
+	/** Iterators for accesses */
 	using AccessList = CopyableIList<MemAccessLabel>;
 	using access_iterator = AccessList::iterator;
 	using const_access_iterator = AccessList::const_iterator;
@@ -1613,31 +1627,31 @@ public:
 		return const_access_range(accesses_begin(), accesses_end());
 	}
 
-	/* Returns the size of this allocation */
+	/** Returns the size of this allocation */
 	unsigned int getAllocSize() const { return allocSize; }
 
-	/* Returns true if ADDR is contained within the allocated block */
+	/** Returns true if ADDR is contained within the allocated block */
 	bool contains(SAddr addr) const
 	{
 		return getAllocAddr() <= addr && addr < getAllocAddr() + getAllocSize();
 	}
 
-	/* Returns the alignment of this allocation */
+	/** Returns the alignment of this allocation */
 	unsigned int getAlignment() const { return alignment; }
 
-	/* Returns the storage duration of this allocation */
+	/** Returns the storage duration of this allocation */
 	StorageDuration getStorageDuration() const { return sdur; }
 
-	/* Returns the storage type of this allocation */
+	/** Returns the storage type of this allocation */
 	StorageType getStorageType() const { return stype; }
 
-	/* Returns the address space of this allocation */
+	/** Returns the address space of this allocation */
 	AddressSpace getAddressSpace() const { return spc; }
 
-	/* Returns the name of the variable allocated */
+	/** Returns the name of the variable allocated */
 	const std::string &getName() const { return name; }
 
-	/* Returns the naming info associated with this allocation.
+	/** Returns the naming info associated with this allocation.
 	 * Returns null if no such info is found. */
 	const NameInfo *getNameInfo() const { return nameInfo; }
 
@@ -1681,34 +1695,34 @@ private:
 		}
 	}
 
-	/* The address returned by malloc() */
+	/** The address returned by malloc() */
 	SAddr allocAddr;
 
-	/* The corresponding free label (if it exists) */
+	/** The corresponding free label (if it exists) */
 	FreeLabel *dLab = nullptr;
 
-	/* Accesses on the allocated location */
+	/** Accesses on the allocated location */
 	AccessList accessList;
 
-	/* The size of the requested allocation */
+	/** The size of the requested allocation */
 	unsigned int allocSize{};
 
-	/* Allocation alignment */
+	/** Allocation alignment */
 	unsigned int alignment{};
 
-	/* Storage duration */
+	/** Storage duration */
 	StorageDuration sdur;
 
-	/* Storage type */
+	/** Storage type */
 	StorageType stype;
 
-	/* Address space */
+	/** Address space */
 	AddressSpace spc;
 
-	/* Name of the variable allocated */
+	/** Name of the variable allocated */
 	std::string name;
 
-	/* Naming information for this allocation */
+	/** Naming information for this allocation */
 	const NameInfo *nameInfo{};
 };
 
@@ -1716,7 +1730,7 @@ private:
  **                         FreeLabel Class
  ******************************************************************************/
 
-/* Corresponds to a memory-freeing operation (e.g., free()) */
+/** Corresponds to a memory-freeing operation (e.g., free()) */
 class FreeLabel : public EventLabel {
 
 protected:
@@ -1741,19 +1755,23 @@ public:
 		: FreeLabel(pos, addr, 0, deps)
 	{}
 
-	/* Returns the address being freed */
+	/** Returns the address being freed */
 	SAddr getFreedAddr() const { return freeAddr; }
 
-	/* Getter/setter for the size of the memory freed */
+	/** Getter for the size of the memory freed */
 	unsigned int getFreedSize() const { return freedSize; }
+
+	/** Setter for the size of the memory freed */
 	void setFreedSize(unsigned int size) { freedSize = size; }
 
-	/* Getter/setter for the corresponding allocating event */
+	/** Getter for the corresponding allocating event */
 	MallocLabel *getAlloc() const { return aLab; }
 	MallocLabel *getAlloc() { return aLab; }
+
+	/** Setter for the corresponding allocating event */
 	void setAlloc(MallocLabel *lab) { aLab = lab; }
 
-	/* Returns true if ADDR is contained within the deallocated block */
+	/** Returns true if ADDR is contained within the deallocated block */
 	bool contains(SAddr addr) const
 	{
 		return getFreedAddr() <= addr && addr < getFreedAddr() + getFreedSize();
@@ -1777,13 +1795,13 @@ public:
 	}
 
 private:
-	/* The address of the memory freed */
+	/** The address of the memory freed */
 	SAddr freeAddr;
 
-	/* The size of the memory freed */
+	/** The size of the memory freed */
 	unsigned int freedSize{};
 
-	/* The corresponding allocation */
+	/** The corresponding allocation */
 	MallocLabel *aLab{};
 };
 
@@ -1791,7 +1809,7 @@ private:
  **                         HpRetireLabel Class
  ******************************************************************************/
 
-/* Corresponds to a hazptr retire operation */
+/** Corresponds to a hazptr retire operation */
 class HpRetireLabel : public FreeLabel {
 
 public:
@@ -1813,7 +1831,7 @@ public:
  **                     ThreadCreateLabel Class
  ******************************************************************************/
 
-/* This label denotes the creation of a thread (via, e.g., pthread_create()) */
+/** This label denotes the creation of a thread (via, e.g., pthread_create()) */
 class ThreadCreateLabel : public EventLabel {
 
 public:
@@ -1825,18 +1843,20 @@ public:
 		: ThreadCreateLabel(pos, MemOrdering::Release, childInfo, deps)
 	{}
 
-	/* Getters for the created thread's info */
+	/** Getters for the created thread's info */
 	const ThreadInfo &getChildInfo() const { return childInfo; }
 	ThreadInfo &getChildInfo() { return childInfo; }
 
-	/* Getter/setter for the identifier of the created thread */
+	/** Getter for the identifier of the created thread */
 	unsigned int getChildId() const { return getChildInfo().id; }
+
+	/** Setter for the identifier of the created thread */
 	void setChildId(unsigned int tid) { getChildInfo().id = tid; }
 
 	DEFINE_STANDARD_MEMBERS(ThreadCreate)
 
 private:
-	/* Information about the child thread */
+	/** Information about the child thread */
 	ThreadInfo childInfo;
 };
 
@@ -1844,7 +1864,7 @@ private:
  **                     ThreadJoinLabel Class
  ******************************************************************************/
 
-/* Represents a join() operation (e.g., pthread_join()) */
+/** Represents a join() operation (e.g., pthread_join()) */
 class ThreadJoinLabel : public EventLabel {
 
 public:
@@ -1856,13 +1876,13 @@ public:
 		: ThreadJoinLabel(pos, MemOrdering::Acquire, childId, deps)
 	{}
 
-	/* Returns the identifier of the thread this join() is waiting on */
+	/** Returns the identifier of the thread this join() is waiting on */
 	unsigned int getChildId() const { return childId; }
 
 	DEFINE_STANDARD_MEMBERS(ThreadJoin)
 
 private:
-	/* The identifier of the child */
+	/** The identifier of the child */
 	const unsigned int childId{};
 };
 
@@ -1870,7 +1890,7 @@ private:
  **                         HpProtectLabel Class
  ******************************************************************************/
 
-/* Specialization of writes for hazptr protect events */
+/** Specialization of writes for hazptr protect events */
 class HpProtectLabel : public EventLabel {
 
 public:
@@ -1882,17 +1902,17 @@ public:
 		: HpProtectLabel(pos, MemOrdering::Release, hpAddr, protAddr, deps)
 	{}
 
-	/* Getters for HP/protected address */
+	/** Getters for HP/protected address */
 	SAddr getHpAddr() const { return hpAddr; }
 	SAddr getProtectedAddr() const { return protAddr; }
 
 	DEFINE_STANDARD_MEMBERS(HpProtect)
 
 private:
-	/* HP address */
+	/** HP address */
 	SAddr hpAddr;
 
-	/* Protected address */
+	/** Protected address */
 	SAddr protAddr;
 };
 
@@ -1902,7 +1922,7 @@ private:
 
 class MethodEndLabel;
 
-/* Along with `MethodEndLabel` represents boundaries of a method invocation */
+/** Along with `MethodEndLabel` represents boundaries of a method invocation */
 class MethodBeginLabel : public EventLabel {
 
 protected:
@@ -1918,11 +1938,11 @@ public:
 	auto lin_preds() const { return std::views::all(linPreds_); }
 	auto lin_preds() { return std::views::all(linPreds_); }
 
-	/* Adds PRED as a linearization predecessor for this label.
+	/** Adds PRED as a linearization predecessor for this label.
 	 * (Also updates information in the predecessor.) */
 	void addPred(MethodEndLabel *pred);
 
-	/* Removes all predecessors that satisfy predicate F,
+	/** Removes all predecessors that satisfy predicate F,
 	 * and accordingly updates successor lists of predecessors (SLOW) */
 	template <typename F> void removePred(F cond);
 
@@ -1967,7 +1987,7 @@ private:
  **                         MethodEndLabel Class
  ******************************************************************************/
 
-/* Along with `MethodBeginLabel` represent boundaries of a method invocation and
+/** Along with `MethodBeginLabel` represent boundaries of a method invocation and
  * also captures its result */
 class MethodEndLabel : public EventLabel {
 
@@ -1984,11 +2004,11 @@ public:
 	auto lin_succs() const { return std::views::all(linSuccs_); }
 	auto lin_succs() { return std::views::all(linSuccs_); }
 
-	/* Adds SUCC as a linearization successor for this label.
+	/** Adds SUCC as a linearization successor for this label.
 	 * (Also updates predecessor information in the successor.) */
 	void addSucc(MethodBeginLabel *succ);
 
-	/* Removes all successors that satisfy predicate F, and accordingly updates the
+	/** Removes all successors that satisfy predicate F, and accordingly updates the
 	 * predecessor lists of the successors (SLOW) */
 	template <typename F> void removeSucc(F cond)
 	{
@@ -2045,7 +2065,7 @@ private:
  **                         HelpingCasLabel class
  ******************************************************************************/
 
-/* In contrast to HelpedCAS, a HelpingCAS is a dummy event*/
+/** In contrast to HelpedCAS, a HelpingCAS is a dummy event*/
 class HelpingCasLabel : public EventLabel {
 
 public:
@@ -2055,34 +2075,34 @@ public:
 		  expected(exp), swapValue(swap)
 	{}
 
-	/* Returns the address of this access */
+	/** Returns the address of this access */
 	SAddr getAddr() const { return access.getAddr(); }
 
-	/* Returns the size (in bytes) of the access */
+	/** Returns the size (in bytes) of the access */
 	ASize getSize() const { return access.getSize(); }
 
-	/* Returns the type of the access */
+	/** Returns the type of the access */
 	AType getType() const { return access.getType(); }
 
-	/* Returns the packed access */
+	/** Returns the packed access */
 	AAccess getAccess() const { return access; }
 
-	/* Returns the value that makes the supposed CAS succeed */
+	/** Returns the value that makes the supposed CAS succeed */
 	SVal getExpected() const { return expected; }
 
-	/* Returns the value that the supposed CAS writes */
+	/** Returns the value that the supposed CAS writes */
 	SVal getSwapVal() const { return swapValue; }
 
 	DEFINE_STANDARD_MEMBERS(HelpingCas)
 
 private:
-	/* The size of the access performed (in bytes) */
+	/** The size of the access performed (in bytes) */
 	AAccess access;
 
-	/* CAS expected value */
+	/** CAS expected value */
 	const SVal expected;
 
-	/* CAS swap value */
+	/** CAS swap value */
 	const SVal swapValue;
 };
 
@@ -2090,7 +2110,7 @@ private:
  **                            OptionalLabel Class
  ******************************************************************************/
 
-/* A label that represents the beginning of an optional block */
+/** A label that represents the beginning of an optional block */
 class OptionalLabel : public EventLabel {
 
 public:
@@ -2098,11 +2118,11 @@ public:
 		: EventLabel(Optional, pos, MemOrdering::NotAtomic, deps)
 	{}
 
-	/* Whether this block is expandable */
+	/** Whether this block is expandable */
 	bool isExpandable() const { return expandable; }
 	void setExpandable(bool exp) { expandable = exp; }
 
-	/* Whether this block has been expanded */
+	/** Whether this block has been expanded */
 	bool isExpanded() const { return expanded; }
 	void setExpanded(bool exp) { expanded = exp; }
 

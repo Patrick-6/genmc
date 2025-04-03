@@ -25,11 +25,8 @@
 #include <memory>
 #include <vector>
 
-/*
- * This class defines a generic trie structure with the only
- * restriction being that trie keys need to be sequences that
- * support random access iterators, and that have comparable
- * elements.
+/** A generic trie for sequences of comparable elements with random access
+ * iterator.
  *
  * Inspired by the Trie class in LLVM 2.9.
  */
@@ -105,7 +102,7 @@ public:
 			HaveCommonPart
 		};
 
-		/* Node comparators */
+		/** Node comparators */
 		struct NodeCmp {
 			bool operator()(const Node *n1, const Node *n2)
 			{
@@ -143,7 +140,7 @@ public:
 			unsigned l1 = std::distance(sBeg, sEnd);
 			unsigned l2 = label().size();
 
-			/* Find the length of common part */
+			/** Find the length of common part */
 			l = std::min(l1, l2);
 			i = 0;
 			while ((i < l) && (*(sBeg + i) == label()[i]))

@@ -28,11 +28,7 @@
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/Support/raw_ostream.h>
 
-/*******************************************************************************
- **                             View Class
- ******************************************************************************/
-
-/*
+/**
  * An instantiation of a vector clock where if an event is contained in the clock,
  * it is _not_ guaranteed that all of its po-predecessors are also contained in
  * the clock.
@@ -66,13 +62,13 @@ private:
 	};
 
 public:
-	/* Constructors */
+	/** Constructors */
 	DepView() : VectorClock(VectorClock::VectorClockKind::VC_DepView), view_(), holes_() {}
 
-	/* Returns the size of the depview (i.e., number of threads seen) */
+	/** Returns the size of the depview (i.e., number of threads seen) */
 	unsigned int size() const override { return view_.size(); }
 
-	/* Returns true if the clock is empty */
+	/** Returns true if the clock is empty */
 	bool empty() const { return size() == 0; }
 
 	void clear() override
@@ -81,7 +77,7 @@ public:
 		holes_.clear();
 	}
 
-	/* Returns true if the clock contains e */
+	/** Returns true if the clock contains e */
 	bool contains(const Event e) const override;
 
 	DepView &updateIdx(Event e) override
@@ -110,29 +106,29 @@ public:
 			removeHolesInRange(e, old + 1);
 	}
 
-	/* Returns true if there's a hole in E's position */
+	/** Returns true if there's a hole in E's position */
 	bool hasHole(const Event e) const
 	{
 		return e.thread < holes_.size() && !holes_[e.thread].count(e.index);
 	}
 
-	/* Records that the event in the index of e has not been
+	/** Records that the event in the index of e has not been
 	 * seen in the respective thread */
 	void addHole(const Event e);
 
-	/* Similar to addHole(), but records that a range has not been seen */
+	/** Similar to addHole(), but records that a range has not been seen */
 	void addHolesInRange(Event start, int endIdx);
 
-	/* Marks event e as seen */
+	/** Marks event e as seen */
 	void removeHole(const Event e);
 
-	/* Marks all events of "thread" as seen */
+	/** Marks all events of "thread" as seen */
 	void removeAllHoles(int thread);
 
-	/* Marks all events in a range as seen */
+	/** Marks all events in a range as seen */
 	void removeHolesInRange(Event start, int endIdx);
 
-	/* Updates the view based on another clock. The update is valid
+	/** Updates the view based on another clock. The update is valid
 	 * only if the other clock provided is also a DepView */
 	View &update(const View &v) override;
 	DepView &update(const DepView &v) override;
@@ -143,10 +139,10 @@ public:
 	static bool classof(const VectorClock *vc) { return vc->getKind() == VC_DepView; }
 
 private:
-	/* A view containing the highest index seen for each thread */
+	/** A view containing the highest index seen for each thread */
 	View view_;
 
-	/* A view of holes, showing which events are not seen for each thread */
+	/** A view of holes, showing which events are not seen for each thread */
 	HoleView holes_;
 };
 

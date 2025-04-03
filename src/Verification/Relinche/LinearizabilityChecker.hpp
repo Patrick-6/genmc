@@ -32,12 +32,14 @@
 class ExecutionGraph;
 class ConsistencyChecker;
 
+/** Abstract class for linearizability checking errors */
 struct LinearizabilityError {
 	virtual auto toString() const -> std::string = 0;
 
 	virtual ~LinearizabilityError() = default;
 };
 
+/** Checks that a library implementation refines its (linearizability) specification */
 class LinearizabilityChecker {
 public:
 	struct Result {
@@ -58,12 +60,14 @@ public:
 		}
 	};
 
+	/** Create checker by loading specification from specFile */
 	static auto create(const ConsistencyChecker *consChecker, const std::string &specFile)
 	{
 		return std::unique_ptr<LinearizabilityChecker>(
 			new LinearizabilityChecker(consChecker, specFile));
 	}
 
+	/** Check that an implementation graph satisfies the library specification */
 	auto refinesSpec(ExecutionGraph &graph) -> Result;
 
 private:

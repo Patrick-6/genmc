@@ -26,6 +26,7 @@
 #include <initializer_list>
 #include <vector>
 
+/** A set implemented as a sorted vector */
 template <class T> class VSet {
 
 protected:
@@ -69,23 +70,32 @@ public:
 	int erase(const T &t);
 	int erase(const VSet<T> &S);
 
+	/** Return the number of elements in the set */
 	int count(const T &t) const;
+
+	/** Whether the set contains a specific element */
 	bool contains(const T &t) const;
 
 	const_iterator find(const T &t) const;
 
 	size_t size() const { return vset_.size(); };
 
+	/** Is the set empty? */
 	bool empty() const { return vset_.empty(); };
 
+	/** Remove all the elements from the set */
 	void clear() { vset_.clear(); };
 
+	/** Is this a subset of s? */
 	bool subsetOf(const VSet<T> &s) const;
 
+	/** Is the intersection of THIS with S non-empty? */
 	bool intersects(const VSet<T> &s) const;
+
+	/** Return the intersection of THIS and S */
 	VSet<T> intersectWith(const VSet<T> &s) const;
 
-	/* remove from elements that is in given set `s` */
+	/** Remove from elements that is in given set `s` */
 	VSet<T> diff(const VSet<T> &s) const;
 
 	const T &min() const { return vset_[0]; };

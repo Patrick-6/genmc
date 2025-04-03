@@ -29,14 +29,15 @@
 #include <unordered_set>
 #include <vector>
 
+/** An adjacency-list representation of an ordered unlabeled graph */
 template <class T, class Hash = std::hash<T>> class AdjList {
 
 public:
-	/* Simple aliases to easily defer what function arguments represent */
+	/** Simple aliases to easily defer what function arguments represent */
 	using NodeId = unsigned int;
 	using Timestamp = unsigned int;
 
-	/* Node status during DFS exploration */
+	/** Node status during DFS exploration */
 	enum class NodeStatus { unseen, entered, left };
 
 public:
@@ -70,14 +71,14 @@ public:
 		}
 	}
 
-	/* Iterator typedefs */
+	/** Iterator typedefs */
 	using iterator = typename std::vector<T>::iterator;
 	using const_iterator = typename std::vector<T>::const_iterator;
 
 	using adj_iterator = std::vector<NodeId>::iterator;
 	using const_adj_iterator = std::vector<NodeId>::const_iterator;
 
-	/* Iterators -- they iterate over the nodes of the graph */
+	/** Iterators -- they iterate over the nodes of the graph */
 	iterator begin() { return elems.begin(); };
 	iterator end() { return elems.end(); };
 	const_iterator begin() const { return elems.begin(); };
@@ -92,54 +93,54 @@ public:
 	const_adj_iterator adj_begin(NodeId a) const { return nodeSucc[a].begin(); }
 	const_adj_iterator adj_end(NodeId a) const { return nodeSucc[a].end(); }
 
-	/* Returns the elements (nodes) of the graph */
+	/** Returns the elements (nodes) of the graph */
 	const std::vector<T> &getElems() const { return elems; }
 
 	unsigned int getIndex(T a) const { return ids.at(a); }
 
-	/* Returns the number of elements in the graph */
+	/** Returns the number of elements in the graph */
 	unsigned int size() const { return elems.size(); }
 
-	/* Returns true when the graph has no elements */
+	/** Returns true when the graph has no elements */
 	bool empty() const { return size() == 0; }
 
-	/* Adds a node to the graph */
+	/** Adds a node to the graph */
 	void addNode(T a);
 
-	/* Adds a new edge to the graph */
+	/** Adds a new edge to the graph */
 	void addEdge(T a, T b);
 
-	/* Helper for addEdge() that adds nodes with known IDs */
+	/** Helper for addEdge() that adds nodes with known IDs */
 	void addEdge(NodeId a, NodeId b);
 
-	/* For each "f" in "froms", adds edges to all the "tos"*/
+	/** For each "f" in "froms", adds edges to all the "tos"*/
 	void addEdgesFromTo(const std::vector<T> &froms, const std::vector<T> &tos);
 
-	/* Returns the in-degree of each element */
+	/** Returns the in-degree of each element */
 	const std::vector<int> &getInDegrees() const;
 
-	/* Returns true if the in-degree and out-degree of a node is 0 */
+	/** Returns true if the in-degree and out-degree of a node is 0 */
 	bool hasNoEdges(T a) const
 	{
 		return inDegree[getIndex(a)] == 0 && nodeSucc[getIndex(a)].size() == 0;
 	}
 
-	/* Performs a DFS exploration */
+	/** Performs a DFS exploration */
 	template <typename FVB, typename FET, typename FEB, typename FEF, typename FVE,
 		  typename FEND>
 	void dfs(FVB &&atEntryV, FET &&atTreeE, FEB &&atBackE, FEF &&atForwE, FVE &&atExitV,
 		 FEND &&atEnd) const;
 
-	/* Visits all reachable nodes starting from a in a DFS manner */
+	/** Visits all reachable nodes starting from a in a DFS manner */
 	template <typename FVB, typename FET, typename FEB, typename FEF, typename FVE,
 		  typename FEND>
 	void visitReachable(T a, FVB &&atEntryV, FET &&atTreeE, FEB &&atBackE, FEF &&atForwE,
 			    FVE &&atExitV, FEND &&atEnd) const;
 
-	/* Returns a topological sorting of the graph */
+	/** Returns a topological sorting of the graph */
 	std::vector<T> topoSort();
 
-	/* Runs prop on all topological sortings */
+	/** Runs prop on all topological sortings */
 	template <typename F> bool allTopoSort(F &&prop) const;
 
 	template <typename F>
@@ -149,7 +150,7 @@ public:
 
 	bool isIrreflexive();
 
-	/* Returns true if the respective edge exists */
+	/** Returns true if the respective edge exists */
 	inline bool operator()(const T a, const T b) const
 	{
 		return transC[getIndex(a)][getIndex(b)];
@@ -162,7 +163,7 @@ public:
 	friend llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const AdjList<U, Z> &l);
 
 private:
-	/* Helper for dfs() */
+	/** Helper for dfs() */
 	template <typename FVB, typename FET, typename FEB, typename FEF, typename FVE>
 	void dfsUtil(NodeId i, Timestamp &t, std::vector<NodeStatus> &m, std::vector<NodeId> &p,
 		     std::vector<Timestamp> &d, std::vector<Timestamp> &f, FVB &&atEntryV,
@@ -178,19 +179,19 @@ private:
 					   const std::vector<AdjList<T, Hash> *> &toCombine,
 					   F &&prop);
 
-	/* The node elements.
+	/** The node elements.
 	 * Must be in 1-1 correspondence with the successor list below */
 	std::vector<T> elems;
 
-	/* The successor list for each node */
+	/** The successor list for each node */
 	std::vector<std::vector<NodeId>> nodeSucc;
 
 	std::vector<int> inDegree;
 
-	/* Map that maintains the ID of each element */
+	/** Map that maintains the ID of each element */
 	std::unordered_map<T, NodeId, Hash> ids;
 
-	/* Maintain transitive closure info */
+	/** Maintain transitive closure info */
 	bool calculatedTransC = false;
 	std::vector<llvm::BitVector> transC;
 };

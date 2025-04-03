@@ -26,7 +26,7 @@
 
 #include <cstdint>
 
-/*
+/**
  * Represents a label stamp (positive number).
  */
 class Stamp {

@@ -29,10 +29,7 @@
  **                           LabelVisitor Class
  ******************************************************************************/
 
-/*
- * Visitor for EventLabel objects (CRTP-style).
- */
-
+/** Visitor for EventLabel objects (CRTP-style)  */
 template <typename Subclass> class LabelVisitor {
 
 public:
@@ -390,6 +387,7 @@ protected:
 	GetterT valFun;
 };
 
+/** Visitor for printing an EventLabel */
 class LabelPrinter : public LabelPrinterBase<LabelPrinter> {
 
 public:
@@ -425,6 +423,7 @@ public:
 	}
 };
 
+/** Visitor for printing an EventLabel to a .dot file */ 
 class DotPrinter : public LabelPrinterBase<DotPrinter> {
 
 public:

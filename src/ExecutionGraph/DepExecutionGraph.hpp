@@ -28,7 +28,7 @@
  **                        DepExecutionGraph Class
  ******************************************************************************/
 
-/*
+/**
  * A specialized type of graph that also tracks dependencies. It also takes
  * these dependencies into account when restricting the graph, or when
  * calculating the prefix of an event to save.

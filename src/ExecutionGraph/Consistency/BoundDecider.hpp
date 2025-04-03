@@ -28,6 +28,7 @@ enum class BoundType : std::uint8_t;
 
 enum class BoundCalculationStrategy { Slacked, NonSlacked };
 
+/** Abstract class for bounding the model checker's search space */
 class BoundDecider {
 
 public:
