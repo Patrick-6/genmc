@@ -1940,7 +1940,8 @@ void GenMCDriver::revisitInPlace(const BackwardRevisit &br)
 	rLab->setRf(sLab);
 	rLab->setAddedMax(true); // always true for atomicity violations
 
-	completeRevisitedRMW(rLab);
+	/* CASes shouldn't be handled via IPRs */
+	BUG_ON(rLab->valueMakesRMWSucceed(rLab->getReturnValue()));
 
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug1) << "--- In-place revisiting " << rLab->getPos()
 						<< " <-- " << sLab->getPos() << "\n"
