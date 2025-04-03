@@ -67,19 +67,6 @@ AC_DEFUN([AC_CHECK_HEADERS_ALT],
   fi
 ])
 
-## Check whether llvm::APInt requires 4 arguments
-AC_MSG_CHECKING([whether llvm::APInt requires explicit truncation])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/ADT/APInt.h>
-]],[[
-	llvm::APInt x = llvm::APInt(1, 0, true, true);
- ]])],
-        [AC_DEFINE([LLVM_APINT_REQUIRES_EXPLICIT_TRUNCATION],[1],
-         [Define if llvm::APInt requires explicit truncation.])
-         AC_MSG_RESULT([yes])],
-        [AC_MSG_RESULT([no])])
-
-
 AC_CHECK_HEADERS_ALT([llvm/Transforms/Utils.h llvm/Transforms/Scalar.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS([ffi/ffi.h],[],[
   AC_CHECK_HEADERS([ffi.h],[],[AC_MSG_FAILURE([Could not find header ffi.h.])],[AC_INCLUDES_DEFAULT])

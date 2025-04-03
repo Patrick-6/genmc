@@ -69,7 +69,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#ifdef LLVM_APINT_REQUIRES_EXPLICIT_TRUNCATION
+#if LLVM_VERSION_MAJOR >= 20
 #define APINT_NOCHECK , true
 #else
 #define APINT_NOCHECK
@@ -79,7 +79,8 @@
 #define INT_TO_GV(typ, val)                                                                        \
 	({                                                                                         \
 		llvm::GenericValue __ret;                                                          \
-		__ret.IntVal = llvm::APInt((typ)->getIntegerBitWidth(), (val), true APINT_NOCHECK);\
+		__ret.IntVal =                                                                     \
+			llvm::APInt((typ)->getIntegerBitWidth(), (val), true APINT_NOCHECK);       \
 		__ret;                                                                             \
 	})
 
