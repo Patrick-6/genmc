@@ -90,7 +90,7 @@ LINUX_ANCHOR_FUN=anchor_linux
 MACOS_ANCHOR_FUN=anchor_macos
 
 ## pipeline stages -- we assume the first stage is a build stage
-LINUX_STAGES="build ftest rtest concurrency bounding test regression relinche"
+LINUX_STAGES="build ftest rtest concurrency bounding test relinche regression"
 MACOS_STAGES="build ftest" ## only run quick stages for macos
 
 # for macos, we assume the lates
