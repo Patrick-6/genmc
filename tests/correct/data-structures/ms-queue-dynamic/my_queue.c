@@ -72,17 +72,17 @@ void enqueue(queue_t *q, unsigned int val)
 		if (next == NULL) {
 			if (__VERIFIER_final_CAS(
 				    atomic_compare_exchange_strong_explicit(&tail->next, &next,
-									    node, release, release)))
+									    node, release, relaxed)))
 				break;
 		} else {
 			__VERIFIER_helping_CAS(
 				atomic_compare_exchange_strong_explicit(&q->tail, &tail, next,
-									release, release);
+									release, relaxed);
 			);
 		}
 	}
 	__VERIFIER_helped_CAS(
-		atomic_compare_exchange_strong_explicit(&q->tail, &tail, node, release, release);
+		atomic_compare_exchange_strong_explicit(&q->tail, &tail, node, release, relaxed);
 	);
 	__VERIFIER_hp_free(hp);
 }
@@ -108,12 +108,12 @@ bool dequeue(queue_t *q, unsigned int *retVal)
 			}
 			__VERIFIER_helping_CAS(
 				atomic_compare_exchange_strong_explicit(&q->tail, &tail, next,
-									release, release);
+									release, relaxed);
 			);
 		} else {
 			ret = next->value;
 			if (atomic_compare_exchange_strong_explicit(&q->head, &head, next,
-								    release, release))
+								    release, relaxed))
 				break;
 		}
 	}

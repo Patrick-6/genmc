@@ -80,7 +80,7 @@ anchor_macos() {
     version=$1
     anchor_shared $version
     echo "  before_script:"
-    echo "    - export PATH=/usr/local/opt/llvm/bin:/usr/local/opt/gnu-getopt/bin:/usr/local/opt/flex/bin:/usr/local/opt/bison/bin:$PATH"
+    echo "    - export PATH=/usr/local/opt/llvm/bin:/usr/local/opt/flex/bin:/usr/local/opt/bison/bin:$PATH"
     echo "  variables:"
     echo "    LLVM_VERSION: \"$version\""
     echo ""

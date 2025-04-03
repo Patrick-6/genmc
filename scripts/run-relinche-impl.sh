@@ -46,8 +46,8 @@ print_header() {
 
 	# Print table's header
 	printline
-	printf "| ${CYAN}%-29s${NC} | ${CYAN}%-4s${NC} | ${CYAN}%-6s${NC} | ${CYAN}%-6s${NC} | ${CYAN}%-6s${NC} |\n" \
-	       "Testcase" "Spec" "Result" "Impl execs" "Hints checked"
+	printf "| ${CYAN}%-26s${NC} | ${CYAN}%-4s${NC} | ${CYAN}%-6s${NC} | ${CYAN}%-8s${NC} | ${CYAN}%-8s${NC} |\n" \
+	       "Testcase" "Spec" "Result" "Execs" "Hints"
 	printline
 }
 
@@ -66,8 +66,10 @@ print_info() {
 	SPEC_TYPE="v"
 	if [[ "${args_in}" =~ "DSYNC_INS" ]]; then SPEC_TYPE="${SPEC_TYPE}i"; fi
 	if [[ "${args_in}" =~ "DSYNC_REM" ]]; then SPEC_TYPE="${SPEC_TYPE}r"; fi
-	printf "| ${POWDER_BLUE}%-29s${NC} | ${POWDER_BLUE}%-4s${NC} | " \
-	       "${test_name:5:-3}${line_suffix}" "${SPEC_TYPE}"
+	TEST_COLOR="${POWDER_BLUE}"
+	if [[ -n "${should_fail}" ]]; then TEST_COLOR="${ORANGE}"; fi
+	printf "| ${TEST_COLOR}%-26s${NC} | ${POWDER_BLUE}%-4s${NC} | " \
+	       "${test_name:5:${#test_name}-8}${line_suffix}" "${SPEC_TYPE}"
 }
 
 print_results() {
@@ -80,9 +82,7 @@ print_results() {
     else
 	outcome="${GREEN}SAFE  ${NC}"
     fi
-    printf "${outcome} | % 10s | % 10s |\n" \
-	   "${che_execs}"  "${che_hints}"
-
+    printf "${outcome} | %8s | %8s |\n" "${che_execs}"  "${che_hints}"
     if test -n "${failure}" -o -n "${outcome_failure}"; then
 	echo "${failure_output}"
     fi
@@ -186,7 +186,7 @@ runimpl() {
 
 	    # (after print_info); calculate spec_file name
 	    cds="${dir##*/}"
-	    spec_file="${dir}/${cds}_spec_${SPEC_TYPE}_${model}.in"
+	    spec_file="${dir}/${cds}_spec_${SPEC_TYPE}.in"
 
 	    # run the tool and collect output
 	    che_args=$(echo "${args_in}")
@@ -229,10 +229,10 @@ runimpl() {
 	    fi
 
 	    # extract results
-	    che_execs=$(echo "${che_output_s}" | sed -n 's/.*Number of complete executions explored: \([0-9]\+\).*/\1/p')
-	    che_hints=$(echo "${che_output_s}" | sed -n 's/.*Number of checked hints: \([0-9]\+\).*/\1/p')
-	    che_time=$(echo "${che_output_s}" | sed -n 's/.*Total wall-clock time: \([0-9\.]\+\).*/\1/p')
-	    che_hint_time=$(echo "${che_output_s}" | sed -n 's/.*Relinche time: \([0-9\.]\+\)s.*/\1/p')
+	    che_execs=$(echo "${che_output_s}" | sed -n 's/.*Number of complete executions explored: \([0-9][0-9]*\).*/\1/p')
+	    che_hints=$(echo "${che_output_s}" | sed -n 's/.*Number of checked hints: \([0-9][0-9]*\).*/\1/p')
+	    che_time=$(echo "${che_output_s}" | sed -n 's/.*Total wall-clock time: \([0-9\.][0-9\.]*\).*/\1/p')
+	    che_hint_time=$(echo "${che_output_s}" | sed -n 's/.*Relinche time: \([0-9\.][0-9\.]*\)s.*/\1/p')
 	    if test -n "${che_hint_time}"; then
 		che_genmc_time=$(echo "${che_time}-${che_hint_time}" | bc -l)
 	    fi

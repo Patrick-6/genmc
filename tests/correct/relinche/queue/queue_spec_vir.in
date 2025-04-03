@@ -114,7 +114,7 @@
 ## RF:
 0
 ## HB:
-1   2 1
+1   1 2
 ## Hints:
 2
 1   2 0
@@ -126,7 +126,7 @@
 ## RF:
 0
 ## HB:
-1   1 2
+1   2 1
 ## Hints:
 2
 1   2 0
@@ -150,7 +150,7 @@
 ## RF:
 0
 ## HB:
-1   3 2
+1   2 3
 ## Hints:
 4
 1   3 1
@@ -164,7 +164,7 @@
 ## RF:
 0
 ## HB:
-1   2 3
+1   3 2
 ## Hints:
 4
 1   3 1
@@ -191,7 +191,7 @@
 ## RF:
 0
 ## HB:
-5   1 0   2 0   3 0   3 1   3 2
+5   0 1   2 0   2 1   2 3   3 1
 ## Hints:
 0
 ## Observation (Lins: 2):
@@ -200,7 +200,7 @@
 ## RF:
 0
 ## HB:
-5   0 1   2 0   2 1   2 3   3 1
+5   1 0   2 0   3 0   3 1   3 2
 ## Hints:
 0
 # Specification
@@ -212,7 +212,7 @@
 ## RF:
 0
 ## HB:
-1   4 3
+1   3 4
 ## Hints:
 6
 1   4 2
@@ -228,7 +228,7 @@
 ## RF:
 0
 ## HB:
-1   3 4
+1   4 3
 ## Hints:
 6
 1   4 2
@@ -260,20 +260,6 @@
 ## RF:
 0
 ## HB:
-5   2 1   3 1   4 1   4 2   4 3
-## Hints:
-4
-2   0 2   4 0
-2   0 2   3 0
-2   0 1   3 0
-3   0 1   3 2   4 0
-
-## Observation (Lins: 5):
-## Outcome:
-5   dequeue 0 0   dequeue 0 101   dequeue 0 102   enqueue 101 0   enqueue 102 0
-## RF:
-0
-## HB:
 5   1 2   3 1   3 2   3 4   4 2
 ## Hints:
 4
@@ -281,6 +267,20 @@
 2   0 1   4 0
 2   0 1   3 0
 3   0 2   3 0   4 1
+
+## Observation (Lins: 5):
+## Outcome:
+5   dequeue 0 0   dequeue 0 101   dequeue 0 102   enqueue 101 0   enqueue 102 0
+## RF:
+0
+## HB:
+5   2 1   3 1   4 1   4 2   4 3
+## Hints:
+4
+2   0 2   4 0
+2   0 2   3 0
+2   0 1   3 0
+3   0 1   3 2   4 0
 
 # Specification
 # Statistics:  Size: 5  Hints: 41  Lins: 114
@@ -291,7 +291,7 @@
 ## RF:
 0
 ## HB:
-1   5 4
+1   4 5
 ## Hints:
 8
 1   5 3
@@ -309,7 +309,7 @@
 ## RF:
 0
 ## HB:
-1   4 5
+1   5 4
 ## Hints:
 8
 1   5 3
@@ -346,24 +346,6 @@
 ## RF:
 0
 ## HB:
-5   3 2   4 2   5 2   5 3   5 4
-## Hints:
-8
-2   1 3   5 1
-2   1 3   4 1
-2   1 2   4 1
-2   0 3   5 0
-2   0 3   4 0
-2   0 2   4 0
-3   1 2   4 3   5 1
-3   0 2   4 3   5 0
-
-## Observation (Lins: 18):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   dequeue 0 101   dequeue 0 102   enqueue 101 0   enqueue 102 0
-## RF:
-0
-## HB:
 5   2 3   4 2   4 3   4 5   5 3
 ## Hints:
 8
@@ -376,6 +358,24 @@
 3   1 3   4 1   5 2
 3   0 3   4 0   5 2
 
+## Observation (Lins: 18):
+## Outcome:
+6   dequeue 0 0   dequeue 0 0   dequeue 0 101   dequeue 0 102   enqueue 101 0   enqueue 102 0
+## RF:
+0
+## HB:
+5   3 2   4 2   5 2   5 3   5 4
+## Hints:
+8
+2   1 3   5 1
+2   1 3   4 1
+2   1 2   4 1
+2   0 3   5 0
+2   0 3   4 0
+2   0 2   4 0
+3   1 2   4 3   5 1
+3   0 2   4 3   5 0
+
 # Specification
 # Statistics:  Size: 8  Hints: 18  Lins: 12
 # Observations:
@@ -385,46 +385,7 @@
 ## RF:
 0
 ## HB:
-3   2 1   3 1   3 2
-## Hints:
-3
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-4   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-3   1 2   3 1   3 2
-## Hints:
-3
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-4   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-3   2 1   2 3   3 1
-## Hints:
-3
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-4   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-3   1 3   2 1   2 3
+3   1 2   1 3   2 3
 ## Hints:
 3
 1   3 0
@@ -450,7 +411,46 @@
 ## RF:
 0
 ## HB:
-3   1 2   1 3   2 3
+3   1 2   3 1   3 2
+## Hints:
+3
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+4   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+3   1 3   2 1   2 3
+## Hints:
+3
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+4   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+3   2 1   2 3   3 1
+## Hints:
+3
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+4   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+3   2 1   3 1   3 2
 ## Hints:
 3
 1   3 0
@@ -463,7 +463,7 @@
 ## RF:
 0
 ## HB:
-4   1 0   1 2   1 3   3 2
+4   1 0   1 2   1 3   2 3
 ## Hints:
 0
 ## Observation (Lins: 3):
@@ -472,7 +472,7 @@
 ## RF:
 0
 ## HB:
-4   1 0   1 2   1 3   2 3
+4   1 0   1 2   1 3   3 2
 ## Hints:
 0
 # Specification
@@ -484,55 +484,7 @@
 ## RF:
 0
 ## HB:
-3   3 2   4 2   4 3
-## Hints:
-6
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-5   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-3   2 3   4 2   4 3
-## Hints:
-6
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-5   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-3   3 2   3 4   4 2
-## Hints:
-6
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-5   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-3   2 4   3 2   3 4
+3   2 3   2 4   3 4
 ## Hints:
 6
 1   4 1
@@ -564,7 +516,7 @@
 ## RF:
 0
 ## HB:
-3   2 3   2 4   3 4
+3   2 3   4 2   4 3
 ## Hints:
 6
 1   4 1
@@ -574,20 +526,53 @@
 1   2 1
 1   2 0
 
-## Observation (Lins: 4):
+## Observation (Lins: 2):
 ## Outcome:
-5   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0
+5   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
 ## RF:
 0
 ## HB:
-4   2 1   2 3   2 4   4 3
+3   2 4   3 2   3 4
 ## Hints:
-5
+6
+1   4 1
 1   4 0
+1   3 1
 1   3 0
-2   2 0   4 1
-2   2 0   3 1
-2   0 1   2 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+5   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+3   3 2   3 4   4 2
+## Hints:
+6
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+5   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+3   3 2   4 2   4 3
+## Hints:
+6
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
 
 ## Observation (Lins: 4):
 ## Outcome:
@@ -604,13 +589,28 @@
 2   2 0   3 1
 2   0 1   2 0
 
+## Observation (Lins: 4):
+## Outcome:
+5   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+4   2 1   2 3   2 4   4 3
+## Hints:
+5
+1   4 0
+1   3 0
+2   2 0   4 1
+2   2 0   3 1
+2   0 1   2 0
+
 ## Observation (Lins: 5):
 ## Outcome:
 5   dequeue 0 101   dequeue 0 102   enqueue 101 0   enqueue 102 0   enqueue 103 0
 ## RF:
 0
 ## HB:
-7   1 0   2 0   2 4   3 0   3 1   3 2   3 4
+7   0 1   2 0   2 1   2 3   2 4   3 1   3 4
 ## Hints:
 0
 ## Observation (Lins: 5):
@@ -619,7 +619,7 @@
 ## RF:
 0
 ## HB:
-7   0 1   2 0   2 1   2 3   2 4   3 1   3 4
+7   1 0   2 0   2 4   3 0   3 1   3 2   3 4
 ## Hints:
 0
 # Specification
@@ -631,64 +631,7 @@
 ## RF:
 0
 ## HB:
-3   4 3   5 3   5 4
-## Hints:
-9
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-3   3 4   5 3   5 4
-## Hints:
-9
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-3   4 3   4 5   5 3
-## Hints:
-9
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-3   3 5   4 3   4 5
+3   3 4   3 5   4 5
 ## Hints:
 9
 1   5 2
@@ -726,7 +669,7 @@
 ## RF:
 0
 ## HB:
-3   3 4   3 5   4 5
+3   3 4   5 3   5 4
 ## Hints:
 9
 1   5 2
@@ -739,25 +682,62 @@
 1   3 1
 1   3 0
 
-## Observation (Lins: 10):
+## Observation (Lins: 6):
 ## Outcome:
-6   dequeue 0 0   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0
+6   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
 ## RF:
 0
 ## HB:
-4   3 2   3 4   3 5   5 4
+3   3 5   4 3   4 5
 ## Hints:
-10
+9
+1   5 2
 1   5 1
 1   5 0
+1   4 2
 1   4 1
 1   4 0
-2   3 1   5 2
-2   3 1   4 2
-2   3 0   5 2
-2   3 0   4 2
-2   1 2   3 1
-2   0 2   3 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+6   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+3   4 3   4 5   5 3
+## Hints:
+9
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+6   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+3   4 3   5 3   5 4
+## Hints:
+9
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
 
 ## Observation (Lins: 10):
 ## Outcome:
@@ -779,24 +759,25 @@
 2   1 2   3 1
 2   0 2   3 0
 
-## Observation (Lins: 9):
+## Observation (Lins: 10):
 ## Outcome:
-6   dequeue 0 0   dequeue 0 101   dequeue 0 102   enqueue 101 0   enqueue 102 0   enqueue 103 0
+6   dequeue 0 0   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0
 ## RF:
 0
 ## HB:
-7   2 1   3 1   3 5   4 1   4 2   4 3   4 5
+4   3 2   3 4   3 5   5 4
 ## Hints:
-9
+10
+1   5 1
 1   5 0
-2   4 0   5 2
+1   4 1
+1   4 0
+2   3 1   5 2
+2   3 1   4 2
 2   3 0   5 2
-2   3 0   5 1
-2   0 2   4 0
+2   3 0   4 2
+2   1 2   3 1
 2   0 2   3 0
-2   0 1   3 0
-3   3 2   4 0   5 1
-3   0 1   3 2   4 0
 
 ## Observation (Lins: 9):
 ## Outcome:
@@ -817,40 +798,32 @@
 3   3 0   4 1   5 2
 3   0 2   3 0   4 1
 
-## Observation (Lins: 5):
+## Observation (Lins: 9):
 ## Outcome:
-6   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0
+6   dequeue 0 0   dequeue 0 101   dequeue 0 102   enqueue 101 0   enqueue 102 0   enqueue 103 0
 ## RF:
 0
 ## HB:
-12   1 0   2 0   2 1   3 0   4 0   4 1   4 3   5 0   5 1   5 2   5 3   5 4
+7   2 1   3 1   3 5   4 1   4 2   4 3   4 5
 ## Hints:
-0
+9
+1   5 0
+2   4 0   5 2
+2   3 0   5 2
+2   3 0   5 1
+2   0 2   4 0
+2   0 2   3 0
+2   0 1   3 0
+3   3 2   4 0   5 1
+3   0 1   3 2   4 0
+
 ## Observation (Lins: 5):
 ## Outcome:
 6   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0
 ## RF:
 0
 ## HB:
-12   0 1   2 0   2 1   3 0   3 1   3 4   4 1   5 0   5 1   5 2   5 3   5 4
-## Hints:
-0
-## Observation (Lins: 5):
-## Outcome:
-6   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-12   1 0   1 2   2 0   3 0   4 0   4 1   4 2   4 3   4 5   5 0   5 2   5 3
-## Hints:
-0
-## Observation (Lins: 5):
-## Outcome:
-6   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-12   0 2   1 0   1 2   3 0   3 2   3 5   4 0   4 1   4 2   4 3   4 5   5 2
+12   0 1   0 2   1 2   3 0   3 1   3 2   3 4   3 5   4 1   4 2   4 5   5 2
 ## Hints:
 0
 ## Observation (Lins: 5):
@@ -868,7 +841,34 @@
 ## RF:
 0
 ## HB:
-12   0 1   0 2   1 2   3 0   3 1   3 2   3 4   3 5   4 1   4 2   4 5   5 2
+12   0 1   2 0   2 1   3 0   3 1   3 4   4 1   5 0   5 1   5 2   5 3   5 4
+## Hints:
+0
+## Observation (Lins: 5):
+## Outcome:
+6   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+12   0 2   1 0   1 2   3 0   3 2   3 5   4 0   4 1   4 2   4 3   4 5   5 2
+## Hints:
+0
+## Observation (Lins: 5):
+## Outcome:
+6   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+12   1 0   1 2   2 0   3 0   4 0   4 1   4 2   4 3   4 5   5 0   5 2   5 3
+## Hints:
+0
+## Observation (Lins: 5):
+## Outcome:
+6   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+12   1 0   2 0   2 1   3 0   4 0   4 1   4 3   5 0   5 1   5 2   5 3   5 4
 ## Hints:
 0
 # Specification
@@ -880,73 +880,7 @@
 ## RF:
 0
 ## HB:
-3   5 4   6 4   6 5
-## Hints:
-12
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-3   4 5   6 4   6 5
-## Hints:
-12
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-3   5 4   5 6   6 4
-## Hints:
-12
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-3   4 6   5 4   5 6
+3   4 5   4 6   5 6
 ## Hints:
 12
 1   6 3
@@ -990,7 +924,7 @@
 ## RF:
 0
 ## HB:
-3   4 5   4 6   5 6
+3   4 5   6 4   6 5
 ## Hints:
 12
 1   6 3
@@ -1006,30 +940,71 @@
 1   4 1
 1   4 0
 
-## Observation (Lins: 36):
+## Observation (Lins: 24):
 ## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
 ## RF:
 0
 ## HB:
-4   4 3   4 5   4 6   6 5
+3   4 6   5 4   5 6
 ## Hints:
-15
+12
+1   6 3
 1   6 2
 1   6 1
 1   6 0
+1   5 3
 1   5 2
 1   5 1
 1   5 0
-2   4 2   6 3
-2   4 2   5 3
-2   4 1   6 3
-2   4 1   5 3
-2   4 0   6 3
-2   4 0   5 3
-2   2 3   4 2
-2   1 3   4 1
-2   0 3   4 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+3   5 4   5 6   6 4
+## Hints:
+12
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+3   5 4   6 4   6 5
+## Hints:
+12
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
 
 ## Observation (Lins: 36):
 ## Outcome:
@@ -1056,33 +1031,30 @@
 2   1 3   4 1
 2   0 3   4 0
 
-## Observation (Lins: 28):
+## Observation (Lins: 36):
 ## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 101   dequeue 0 102   enqueue 101 0   enqueue 102 0   enqueue 103 0
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0
 ## RF:
 0
 ## HB:
-7   3 2   4 2   4 6   5 2   5 3   5 4   5 6
+4   4 3   4 5   4 6   6 5
 ## Hints:
-18
+15
+1   6 2
 1   6 1
 1   6 0
-2   5 1   6 3
-2   5 0   6 3
+1   5 2
+1   5 1
+1   5 0
+2   4 2   6 3
+2   4 2   5 3
 2   4 1   6 3
-2   4 1   6 2
+2   4 1   5 3
 2   4 0   6 3
-2   4 0   6 2
-2   1 3   5 1
+2   4 0   5 3
+2   2 3   4 2
 2   1 3   4 1
-2   1 2   4 1
-2   0 3   5 0
 2   0 3   4 0
-2   0 2   4 0
-3   4 3   5 1   6 2
-3   4 3   5 0   6 2
-3   1 2   4 3   5 1
-3   0 2   4 3   5 0
 
 ## Observation (Lins: 28):
 ## Outcome:
@@ -1112,27 +1084,33 @@
 3   1 3   4 1   5 2
 3   0 3   4 0   5 2
 
-## Observation (Lins: 14):
+## Observation (Lins: 28):
 ## Outcome:
-7   dequeue 0 0   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0
+7   dequeue 0 0   dequeue 0 0   dequeue 0 101   dequeue 0 102   enqueue 101 0   enqueue 102 0   enqueue 103 0
 ## RF:
 0
 ## HB:
-12   2 1   3 1   3 2   4 1   5 1   5 2   5 4   6 1   6 2   6 3   6 4   6 5
+7   3 2   4 2   4 6   5 2   5 3   5 4   5 6
 ## Hints:
-12
-2   0 3   6 0
+18
+1   6 1
+1   6 0
+2   5 1   6 3
+2   5 0   6 3
+2   4 1   6 3
+2   4 1   6 2
+2   4 0   6 3
+2   4 0   6 2
+2   1 3   5 1
+2   1 3   4 1
+2   1 2   4 1
 2   0 3   5 0
 2   0 3   4 0
-2   0 2   5 0
 2   0 2   4 0
-2   0 1   4 0
-3   0 2   5 3   6 0
-3   0 2   4 3   6 0
-3   0 1   4 3   6 0
-3   0 1   4 3   5 0
-3   0 1   4 2   5 0
-4   0 1   4 2   5 3   6 0
+3   4 3   5 1   6 2
+3   4 3   5 0   6 2
+3   1 2   4 3   5 1
+3   0 2   4 3   5 0
 
 ## Observation (Lins: 14):
 ## Outcome:
@@ -1140,65 +1118,21 @@
 ## RF:
 0
 ## HB:
-12   1 2   3 1   3 2   4 1   4 2   4 5   5 2   6 1   6 2   6 3   6 4   6 5
+12   1 2   1 3   2 3   4 1   4 2   4 3   4 5   4 6   5 2   5 3   5 6   6 3
 ## Hints:
 12
 2   0 3   6 0
-2   0 3   5 0
-2   0 3   4 0
+2   0 2   6 0
 2   0 2   5 0
+2   0 1   6 0
 2   0 1   5 0
 2   0 1   4 0
-3   0 2   5 3   6 0
-3   0 2   4 0   5 3
-3   0 2   4 0   5 1
-3   0 1   5 3   6 0
-3   0 1   4 3   6 0
-4   0 2   4 3   5 1   6 0
-
-## Observation (Lins: 14):
-## Outcome:
-7   dequeue 0 0   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-12   2 1   2 3   3 1   4 1   5 1   5 2   5 3   5 4   5 6   6 1   6 3   6 4
-## Hints:
-12
-2   0 3   6 0
-2   0 3   4 0
-2   0 2   6 0
-2   0 2   5 0
-2   0 2   4 0
-2   0 1   4 0
 3   0 3   5 0   6 2
-3   0 3   4 2   5 0
-3   0 1   4 3   6 0
-3   0 1   4 2   6 0
-3   0 1   4 2   5 0
-4   0 1   4 3   5 0   6 2
-
-## Observation (Lins: 14):
-## Outcome:
-7   dequeue 0 0   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0
-## RF:
-0
-## HB:
-12   1 3   2 1   2 3   4 1   4 3   4 6   5 1   5 2   5 3   5 4   5 6   6 3
-## Hints:
-12
-2   0 3   6 0
-2   0 2   6 0
-2   0 2   5 0
-2   0 2   4 0
-2   0 1   6 0
-2   0 1   4 0
-3   0 3   5 0   6 2
-3   0 3   4 0   6 2
+3   0 3   5 0   6 1
 3   0 3   4 0   6 1
-3   0 1   5 0   6 2
-3   0 1   4 2   5 0
-4   0 3   4 2   5 0   6 1
+3   0 2   4 0   6 1
+3   0 2   4 0   5 1
+4   0 3   4 0   5 1   6 2
 
 ## Observation (Lins: 14):
 ## Outcome:
@@ -1228,39 +1162,91 @@
 ## RF:
 0
 ## HB:
-12   1 2   1 3   2 3   4 1   4 2   4 3   4 5   4 6   5 2   5 3   5 6   6 3
+12   1 2   3 1   3 2   4 1   4 2   4 5   5 2   6 1   6 2   6 3   6 4   6 5
+## Hints:
+12
+2   0 3   6 0
+2   0 3   5 0
+2   0 3   4 0
+2   0 2   5 0
+2   0 1   5 0
+2   0 1   4 0
+3   0 2   5 3   6 0
+3   0 2   4 0   5 3
+3   0 2   4 0   5 1
+3   0 1   5 3   6 0
+3   0 1   4 3   6 0
+4   0 2   4 3   5 1   6 0
+
+## Observation (Lins: 14):
+## Outcome:
+7   dequeue 0 0   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+12   1 3   2 1   2 3   4 1   4 3   4 6   5 1   5 2   5 3   5 4   5 6   6 3
 ## Hints:
 12
 2   0 3   6 0
 2   0 2   6 0
 2   0 2   5 0
+2   0 2   4 0
 2   0 1   6 0
-2   0 1   5 0
 2   0 1   4 0
 3   0 3   5 0   6 2
-3   0 3   5 0   6 1
+3   0 3   4 0   6 2
 3   0 3   4 0   6 1
-3   0 2   4 0   6 1
-3   0 2   4 0   5 1
-4   0 3   4 0   5 1   6 2
+3   0 1   5 0   6 2
+3   0 1   4 2   5 0
+4   0 3   4 2   5 0   6 1
+
+## Observation (Lins: 14):
+## Outcome:
+7   dequeue 0 0   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+12   2 1   2 3   3 1   4 1   5 1   5 2   5 3   5 4   5 6   6 1   6 3   6 4
+## Hints:
+12
+2   0 3   6 0
+2   0 3   4 0
+2   0 2   6 0
+2   0 2   5 0
+2   0 2   4 0
+2   0 1   4 0
+3   0 3   5 0   6 2
+3   0 3   4 2   5 0
+3   0 1   4 3   6 0
+3   0 1   4 2   6 0
+3   0 1   4 2   5 0
+4   0 1   4 3   5 0   6 2
+
+## Observation (Lins: 14):
+## Outcome:
+7   dequeue 0 0   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0
+## RF:
+0
+## HB:
+12   2 1   3 1   3 2   4 1   5 1   5 2   5 4   6 1   6 2   6 3   6 4   6 5
+## Hints:
+12
+2   0 3   6 0
+2   0 3   5 0
+2   0 3   4 0
+2   0 2   5 0
+2   0 2   4 0
+2   0 1   4 0
+3   0 2   5 3   6 0
+3   0 2   4 3   6 0
+3   0 1   4 3   6 0
+3   0 1   4 3   5 0
+3   0 1   4 2   5 0
+4   0 1   4 2   5 3   6 0
 
 # Specification
 # Statistics:  Size: 30  Hints: 96  Lins: 48
 # Observations:
-## Observation (Lins: 1):
-## Outcome:
-5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   1 2   3 1   3 2   4 1   4 2   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
 ## Observation (Lins: 1):
 ## Outcome:
 5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
@@ -1282,6 +1268,20 @@
 0
 ## HB:
 6   1 2   1 3   1 4   2 3   2 4   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   1 2   1 3   1 4   2 3   4 2   4 3
 ## Hints:
 4
 1   4 0
@@ -1323,7 +1323,7 @@
 ## RF:
 0
 ## HB:
-6   1 2   1 3   1 4   2 3   4 2   4 3
+6   1 2   1 3   1 4   3 2   4 2   4 3
 ## Hints:
 4
 1   4 0
@@ -1337,7 +1337,77 @@
 ## RF:
 0
 ## HB:
-6   1 2   1 3   1 4   3 2   4 2   4 3
+6   1 2   1 3   2 3   4 1   4 2   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   1 2   1 3   3 2   4 1   4 2   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   1 2   1 4   2 4   3 1   3 2   3 4
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   1 2   1 4   3 1   3 2   3 4   4 2
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   1 2   3 1   3 2   3 4   4 1   4 2
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   1 2   3 1   3 2   4 1   4 2   4 3
 ## Hints:
 4
 1   4 0
@@ -1379,77 +1449,7 @@
 ## RF:
 0
 ## HB:
-6   1 4   2 1   2 3   2 4   3 1   3 4
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   2 1   2 3   2 4   3 1   3 4   4 1
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
 6   1 3   2 1   2 3   2 4   4 1   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   1 2   1 4   2 4   3 1   3 2   3 4
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   2 1   3 1   3 2   4 1   4 2   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   2 1   2 3   3 1   4 1   4 2   4 3
 ## Hints:
 4
 1   4 0
@@ -1477,63 +1477,7 @@
 ## RF:
 0
 ## HB:
-6   1 2   1 3   3 2   4 1   4 2   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   1 2   1 3   2 3   4 1   4 2   4 3
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   2 1   3 1   3 2   3 4   4 1   4 2
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   1 2   3 1   3 2   3 4   4 1   4 2
-## Hints:
-4
-1   4 0
-1   3 0
-1   2 0
-1   1 0
-
-## Observation (Lins: 1):
-## Outcome:
-5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   2 1   2 4   3 1   3 2   3 4   4 1
+6   1 4   2 1   2 3   2 4   3 1   3 4
 ## Hints:
 4
 1   4 0
@@ -1561,7 +1505,7 @@
 ## RF:
 0
 ## HB:
-6   1 2   1 4   3 1   3 2   3 4   4 2
+6   2 1   2 3   2 4   3 1   3 4   4 1
 ## Hints:
 4
 1   4 0
@@ -1583,40 +1527,69 @@
 1   2 0
 1   1 0
 
-## Observation (Lins: 4):
+## Observation (Lins: 1):
 ## Outcome:
-5   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
 ## RF:
 0
 ## HB:
-7   1 0   1 2   1 3   1 4   3 2   4 2   4 3
+6   2 1   2 3   3 1   4 1   4 2   4 3
 ## Hints:
-0
-## Observation (Lins: 4):
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
 ## Outcome:
-5   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
 ## RF:
 0
 ## HB:
-7   1 0   1 2   1 3   1 4   2 3   4 2   4 3
+6   2 1   2 4   3 1   3 2   3 4   4 1
 ## Hints:
-0
-## Observation (Lins: 4):
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
 ## Outcome:
-5   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
 ## RF:
 0
 ## HB:
-7   1 0   1 2   1 3   1 4   3 2   3 4   4 2
+6   2 1   3 1   3 2   3 4   4 1   4 2
 ## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
+## Observation (Lins: 1):
+## Outcome:
+5   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
 0
+## HB:
+6   2 1   3 1   3 2   4 1   4 2   4 3
+## Hints:
+4
+1   4 0
+1   3 0
+1   2 0
+1   1 0
+
 ## Observation (Lins: 4):
 ## Outcome:
 5   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
 ## RF:
 0
 ## HB:
-7   1 0   1 2   1 3   1 4   2 4   3 2   3 4
+7   1 0   1 2   1 3   1 4   2 3   2 4   3 4
 ## Hints:
 0
 ## Observation (Lins: 4):
@@ -1634,30 +1607,39 @@
 ## RF:
 0
 ## HB:
-7   1 0   1 2   1 3   1 4   2 3   2 4   3 4
+7   1 0   1 2   1 3   1 4   2 3   4 2   4 3
+## Hints:
+0
+## Observation (Lins: 4):
+## Outcome:
+5   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+7   1 0   1 2   1 3   1 4   2 4   3 2   3 4
+## Hints:
+0
+## Observation (Lins: 4):
+## Outcome:
+5   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+7   1 0   1 2   1 3   1 4   3 2   3 4   4 2
+## Hints:
+0
+## Observation (Lins: 4):
+## Outcome:
+5   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+7   1 0   1 2   1 3   1 4   3 2   4 2   4 3
 ## Hints:
 0
 # Specification
 # Statistics:  Size: 34  Hints: 234  Lins: 114
 # Observations:
-## Observation (Lins: 2):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   2 3   4 2   4 3   5 2   5 3   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
 ## Observation (Lins: 2):
 ## Outcome:
 6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
@@ -1683,6 +1665,24 @@
 0
 ## HB:
 6   2 3   2 4   2 5   3 4   3 5   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   2 3   2 4   2 5   3 4   5 3   5 4
 ## Hints:
 8
 1   5 1
@@ -1736,7 +1736,7 @@
 ## RF:
 0
 ## HB:
-6   2 3   2 4   2 5   3 4   5 3   5 4
+6   2 3   2 4   2 5   4 3   5 3   5 4
 ## Hints:
 8
 1   5 1
@@ -1754,7 +1754,97 @@
 ## RF:
 0
 ## HB:
-6   2 3   2 4   2 5   4 3   5 3   5 4
+6   2 3   2 4   3 4   5 2   5 3   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   2 3   2 4   4 3   5 2   5 3   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   2 3   2 5   3 5   4 2   4 3   4 5
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   2 3   2 5   4 2   4 3   4 5   5 3
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   2 3   4 2   4 3   4 5   5 2   5 3
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   2 3   4 2   4 3   5 2   5 3   5 4
 ## Hints:
 8
 1   5 1
@@ -1808,97 +1898,7 @@
 ## RF:
 0
 ## HB:
-6   2 5   3 2   3 4   3 5   4 2   4 5
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 2   3 4   3 5   4 2   4 5   5 2
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
 6   2 4   3 2   3 4   3 5   5 2   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   2 3   2 5   3 5   4 2   4 3   4 5
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 2   4 2   4 3   5 2   5 3   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 2   3 4   4 2   5 2   5 3   5 4
 ## Hints:
 8
 1   5 1
@@ -1934,79 +1934,7 @@
 ## RF:
 0
 ## HB:
-6   2 3   2 4   4 3   5 2   5 3   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   2 3   2 4   3 4   5 2   5 3   5 4
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 2   4 2   4 3   4 5   5 2   5 3
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   2 3   4 2   4 3   4 5   5 2   5 3
-## Hints:
-8
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-1   3 1
-1   3 0
-1   2 1
-1   2 0
-
-## Observation (Lins: 2):
-## Outcome:
-6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 2   3 5   4 2   4 3   4 5   5 2
+6   2 5   3 2   3 4   3 5   4 2   4 5
 ## Hints:
 8
 1   5 1
@@ -2042,7 +1970,7 @@
 ## RF:
 0
 ## HB:
-6   2 3   2 5   4 2   4 3   4 5   5 3
+6   3 2   3 4   3 5   4 2   4 5   5 2
 ## Hints:
 8
 1   5 1
@@ -2072,22 +2000,77 @@
 1   2 1
 1   2 0
 
-## Observation (Lins: 5):
+## Observation (Lins: 2):
 ## Outcome:
-6   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
 ## RF:
 0
 ## HB:
-7   2 1   2 3   2 4   2 5   4 3   5 3   5 4
+6   3 2   3 4   4 2   5 2   5 3   5 4
 ## Hints:
-7
+8
+1   5 1
 1   5 0
+1   4 1
 1   4 0
+1   3 1
 1   3 0
-2   2 0   5 1
-2   2 0   4 1
-2   2 0   3 1
-2   0 1   2 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 2   3 5   4 2   4 3   4 5   5 2
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 2   4 2   4 3   4 5   5 2   5 3
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
+
+## Observation (Lins: 2):
+## Outcome:
+6   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 2   4 2   4 3   5 2   5 3   5 4
+## Hints:
+8
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+1   3 1
+1   3 0
+1   2 1
+1   2 0
 
 ## Observation (Lins: 5):
 ## Outcome:
@@ -2095,41 +2078,7 @@
 ## RF:
 0
 ## HB:
-7   2 1   2 3   2 4   2 5   3 4   5 3   5 4
-## Hints:
-7
-1   5 0
-1   4 0
-1   3 0
-2   2 0   5 1
-2   2 0   4 1
-2   2 0   3 1
-2   0 1   2 0
-
-## Observation (Lins: 5):
-## Outcome:
-6   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-7   2 1   2 3   2 4   2 5   4 3   4 5   5 3
-## Hints:
-7
-1   5 0
-1   4 0
-1   3 0
-2   2 0   5 1
-2   2 0   4 1
-2   2 0   3 1
-2   0 1   2 0
-
-## Observation (Lins: 5):
-## Outcome:
-6   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-7   2 1   2 3   2 4   2 5   3 5   4 3   4 5
+7   2 1   2 3   2 4   2 5   3 4   3 5   4 5
 ## Hints:
 7
 1   5 0
@@ -2163,7 +2112,58 @@
 ## RF:
 0
 ## HB:
-7   2 1   2 3   2 4   2 5   3 4   3 5   4 5
+7   2 1   2 3   2 4   2 5   3 4   5 3   5 4
+## Hints:
+7
+1   5 0
+1   4 0
+1   3 0
+2   2 0   5 1
+2   2 0   4 1
+2   2 0   3 1
+2   0 1   2 0
+
+## Observation (Lins: 5):
+## Outcome:
+6   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+7   2 1   2 3   2 4   2 5   3 5   4 3   4 5
+## Hints:
+7
+1   5 0
+1   4 0
+1   3 0
+2   2 0   5 1
+2   2 0   4 1
+2   2 0   3 1
+2   0 1   2 0
+
+## Observation (Lins: 5):
+## Outcome:
+6   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+7   2 1   2 3   2 4   2 5   4 3   4 5   5 3
+## Hints:
+7
+1   5 0
+1   4 0
+1   3 0
+2   2 0   5 1
+2   2 0   4 1
+2   2 0   3 1
+2   0 1   2 0
+
+## Observation (Lins: 5):
+## Outcome:
+6   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+7   2 1   2 3   2 4   2 5   4 3   5 3   5 4
 ## Hints:
 7
 1   5 0
@@ -2180,16 +2180,7 @@
 ## RF:
 0
 ## HB:
-10   1 0   2 0   2 4   2 5   3 0   3 1   3 2   3 4   3 5   5 4
-## Hints:
-0
-## Observation (Lins: 9):
-## Outcome:
-6   dequeue 0 101   dequeue 0 102   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-10   1 0   2 0   2 4   2 5   3 0   3 1   3 2   3 4   3 5   4 5
+10   0 1   2 0   2 1   2 3   2 4   2 5   3 1   3 4   3 5   4 5
 ## Hints:
 0
 ## Observation (Lins: 9):
@@ -2207,7 +2198,16 @@
 ## RF:
 0
 ## HB:
-10   0 1   2 0   2 1   2 3   2 4   2 5   3 1   3 4   3 5   4 5
+10   1 0   2 0   2 4   2 5   3 0   3 1   3 2   3 4   3 5   4 5
+## Hints:
+0
+## Observation (Lins: 9):
+## Outcome:
+6   dequeue 0 101   dequeue 0 102   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+10   1 0   2 0   2 4   2 5   3 0   3 1   3 2   3 4   3 5   5 4
 ## Hints:
 0
 # Specification
@@ -2219,381 +2219,7 @@
 ## RF:
 0
 ## HB:
-6   4 3   4 5   4 6   5 3   5 6   6 3
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 4   3 5   4 5   6 3   6 4   6 5
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   4 3   5 3   5 4   5 6   6 3   6 4
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 4   5 3   5 4   5 6   6 3   6 4
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   4 3   4 6   5 3   5 4   5 6   6 3
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 6   4 3   4 6   5 3   5 4   5 6
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 4   3 6   5 3   5 4   5 6   6 4
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 4   3 6   4 6   5 3   5 4   5 6
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   4 3   4 5   4 6   5 3   6 3   6 5
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 5   4 3   4 5   4 6   6 3   6 5
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 4   3 5   5 4   6 3   6 4   6 5
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 6   4 3   4 5   4 6   5 3   5 6
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 5   3 6   4 3   4 5   4 6   6 5
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 5   3 6   4 3   4 5   4 6   5 6
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 4   3 5   3 6   5 4   6 4   6 5
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 4   3 5   3 6   4 5   6 4   6 5
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 4   3 5   3 6   5 4   5 6   6 4
-## Hints:
-12
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-1   4 2
-1   4 1
-1   4 0
-1   3 2
-1   3 1
-1   3 0
-
-## Observation (Lins: 6):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   3 4   3 5   3 6   4 6   5 4   5 6
+6   3 4   3 5   3 6   4 5   4 6   5 6
 ## Hints:
 12
 1   6 2
@@ -2637,7 +2263,7 @@
 ## RF:
 0
 ## HB:
-6   3 4   3 5   3 6   4 5   4 6   5 6
+6   3 4   3 5   3 6   4 5   6 4   6 5
 ## Hints:
 12
 1   6 2
@@ -2659,7 +2285,7 @@
 ## RF:
 0
 ## HB:
-6   3 5   4 3   4 5   6 3   6 4   6 5
+6   3 4   3 5   3 6   4 6   5 4   5 6
 ## Hints:
 12
 1   6 2
@@ -2681,7 +2307,139 @@
 ## RF:
 0
 ## HB:
-6   4 3   4 5   5 3   6 3   6 4   6 5
+6   3 4   3 5   3 6   5 4   5 6   6 4
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 4   3 5   3 6   5 4   6 4   6 5
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 4   3 5   4 5   6 3   6 4   6 5
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 4   3 5   5 4   6 3   6 4   6 5
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 4   3 6   4 6   5 3   5 4   5 6
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 4   3 6   5 3   5 4   5 6   6 4
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 4   5 3   5 4   5 6   6 3   6 4
 ## Hints:
 12
 1   6 2
@@ -2725,6 +2483,248 @@
 ## RF:
 0
 ## HB:
+6   3 5   3 6   4 3   4 5   4 6   5 6
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 5   3 6   4 3   4 5   4 6   6 5
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 5   4 3   4 5   4 6   6 3   6 5
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 5   4 3   4 5   6 3   6 4   6 5
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 6   4 3   4 5   4 6   5 3   5 6
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   3 6   4 3   4 6   5 3   5 4   5 6
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   4 3   4 5   4 6   5 3   5 6   6 3
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   4 3   4 5   4 6   5 3   6 3   6 5
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   4 3   4 5   5 3   6 3   6 4   6 5
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   4 3   4 6   5 3   5 4   5 6   6 3
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   4 3   5 3   5 4   5 6   6 3   6 4
+## Hints:
+12
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+1   4 2
+1   4 1
+1   4 0
+1   3 2
+1   3 1
+1   3 0
+
+## Observation (Lins: 6):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
 6   4 3   5 3   5 4   6 3   6 4   6 5
 ## Hints:
 12
@@ -2747,79 +2747,7 @@
 ## RF:
 0
 ## HB:
-7   3 2   3 4   3 5   3 6   4 5   6 4   6 5
-## Hints:
-14
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-2   3 1   6 2
-2   3 1   5 2
-2   3 1   4 2
-2   3 0   6 2
-2   3 0   5 2
-2   3 0   4 2
-2   1 2   3 1
-2   0 2   3 0
-
-## Observation (Lins: 12):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-7   3 2   3 4   3 5   3 6   5 4   6 4   6 5
-## Hints:
-14
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-2   3 1   6 2
-2   3 1   5 2
-2   3 1   4 2
-2   3 0   6 2
-2   3 0   5 2
-2   3 0   4 2
-2   1 2   3 1
-2   0 2   3 0
-
-## Observation (Lins: 12):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-7   3 2   3 4   3 5   3 6   5 4   5 6   6 4
-## Hints:
-14
-1   6 1
-1   6 0
-1   5 1
-1   5 0
-1   4 1
-1   4 0
-2   3 1   6 2
-2   3 1   5 2
-2   3 1   4 2
-2   3 0   6 2
-2   3 0   5 2
-2   3 0   4 2
-2   1 2   3 1
-2   0 2   3 0
-
-## Observation (Lins: 12):
-## Outcome:
-7   dequeue 0 0   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-7   3 2   3 4   3 5   3 6   4 6   5 4   5 6
+7   3 2   3 4   3 5   3 6   4 5   4 6   5 6
 ## Hints:
 14
 1   6 1
@@ -2867,7 +2795,79 @@
 ## RF:
 0
 ## HB:
-7   3 2   3 4   3 5   3 6   4 5   4 6   5 6
+7   3 2   3 4   3 5   3 6   4 5   6 4   6 5
+## Hints:
+14
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+2   3 1   6 2
+2   3 1   5 2
+2   3 1   4 2
+2   3 0   6 2
+2   3 0   5 2
+2   3 0   4 2
+2   1 2   3 1
+2   0 2   3 0
+
+## Observation (Lins: 12):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+7   3 2   3 4   3 5   3 6   4 6   5 4   5 6
+## Hints:
+14
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+2   3 1   6 2
+2   3 1   5 2
+2   3 1   4 2
+2   3 0   6 2
+2   3 0   5 2
+2   3 0   4 2
+2   1 2   3 1
+2   0 2   3 0
+
+## Observation (Lins: 12):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+7   3 2   3 4   3 5   3 6   5 4   5 6   6 4
+## Hints:
+14
+1   6 1
+1   6 0
+1   5 1
+1   5 0
+1   4 1
+1   4 0
+2   3 1   6 2
+2   3 1   5 2
+2   3 1   4 2
+2   3 0   6 2
+2   3 0   5 2
+2   3 0   4 2
+2   1 2   3 1
+2   0 2   3 0
+
+## Observation (Lins: 12):
+## Outcome:
+7   dequeue 0 0   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+7   3 2   3 4   3 5   3 6   5 4   6 4   6 5
 ## Hints:
 14
 1   6 1
@@ -2987,34 +2987,7 @@
 ## RF:
 0
 ## HB:
-15   1 0   2 0   2 1   3 0   3 6   4 0   4 1   4 3   4 6   5 0   5 1   5 2   5 3   5 4   5 6
-## Hints:
-0
-## Observation (Lins: 14):
-## Outcome:
-7   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-15   0 1   2 0   2 1   3 0   3 1   3 4   3 6   4 1   4 6   5 0   5 1   5 2   5 3   5 4   5 6
-## Hints:
-0
-## Observation (Lins: 14):
-## Outcome:
-7   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-15   1 0   1 2   2 0   3 0   3 6   4 0   4 1   4 2   4 3   4 5   4 6   5 0   5 2   5 3   5 6
-## Hints:
-0
-## Observation (Lins: 14):
-## Outcome:
-7   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-15   0 2   1 0   1 2   3 0   3 2   3 5   3 6   4 0   4 1   4 2   4 3   4 5   4 6   5 2   5 6
+15   0 1   0 2   1 2   3 0   3 1   3 2   3 4   3 5   3 6   4 1   4 2   4 5   4 6   5 2   5 6
 ## Hints:
 0
 ## Observation (Lins: 14):
@@ -3032,7 +3005,34 @@
 ## RF:
 0
 ## HB:
-15   0 1   0 2   1 2   3 0   3 1   3 2   3 4   3 5   3 6   4 1   4 2   4 5   4 6   5 2   5 6
+15   0 1   2 0   2 1   3 0   3 1   3 4   3 6   4 1   4 6   5 0   5 1   5 2   5 3   5 4   5 6
+## Hints:
+0
+## Observation (Lins: 14):
+## Outcome:
+7   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+15   0 2   1 0   1 2   3 0   3 2   3 5   3 6   4 0   4 1   4 2   4 3   4 5   4 6   5 2   5 6
+## Hints:
+0
+## Observation (Lins: 14):
+## Outcome:
+7   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+15   1 0   1 2   2 0   3 0   3 6   4 0   4 1   4 2   4 3   4 5   4 6   5 0   5 2   5 3   5 6
+## Hints:
+0
+## Observation (Lins: 14):
+## Outcome:
+7   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+15   1 0   2 0   2 1   3 0   3 6   4 0   4 1   4 3   4 6   5 0   5 1   5 2   5 3   5 4   5 6
 ## Hints:
 0
 # Specification
@@ -3070,345 +3070,33 @@
 ## RF:
 0
 ## HB:
-6   5 4   6 4   6 5   7 4   7 5   7 6
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   4 5   6 4   6 5   7 4   7 5   7 6
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   5 4   5 6   6 4   7 4   7 5   7 6
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   4 6   5 4   5 6   7 4   7 5   7 6
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   4 5   4 6   6 5   7 4   7 5   7 6
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   4 5   4 6   5 6   7 4   7 5   7 6
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   5 4   6 4   6 5   6 7   7 4   7 5
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   4 5   6 4   6 5   6 7   7 4   7 5
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   5 4   5 7   6 4   6 5   6 7   7 4
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   4 7   5 4   5 7   6 4   6 5   6 7
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   4 5   4 7   6 4   6 5   6 7   7 5
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   4 5   4 7   5 7   6 4   6 5   6 7
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-6   4 6   5 4   5 6   5 7   7 4   7 6
-## Hints:
-16
-1   7 3
-1   7 2
-1   7 1
-1   7 0
-1   6 3
-1   6 2
-1   6 1
-1   6 0
-1   5 3
-1   5 2
-1   5 1
-1   5 0
-1   4 3
-1   4 2
-1   4 1
-1   4 0
-
-## Observation (Lins: 24):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
 6   4 5   4 6   4 7   5 6   5 7   7 6
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   4 5   4 6   4 7   5 6   7 5   7 6
 ## Hints:
 16
 1   7 3
@@ -3486,7 +3174,7 @@
 ## RF:
 0
 ## HB:
-6   4 5   4 6   4 7   5 6   7 5   7 6
+6   4 5   4 6   4 7   6 5   7 5   7 6
 ## Hints:
 16
 1   7 3
@@ -3512,7 +3200,137 @@
 ## RF:
 0
 ## HB:
-6   4 5   4 6   4 7   6 5   7 5   7 6
+6   4 5   4 6   5 6   7 4   7 5   7 6
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   4 5   4 6   6 5   7 4   7 5   7 6
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   4 5   4 7   5 7   6 4   6 5   6 7
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   4 5   4 7   6 4   6 5   6 7   7 5
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   4 5   6 4   6 5   6 7   7 4   7 5
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   4 5   6 4   6 5   7 4   7 5   7 6
 ## Hints:
 16
 1   7 3
@@ -3590,7 +3408,85 @@
 ## RF:
 0
 ## HB:
+6   4 6   5 4   5 6   5 7   7 4   7 6
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   4 6   5 4   5 6   7 4   7 5   7 6
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
 6   4 7   5 4   5 6   5 7   6 4   6 7
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   4 7   5 4   5 7   6 4   6 5   6 7
 ## Hints:
 16
 1   7 3
@@ -3662,6 +3558,110 @@
 1   4 1
 1   4 0
 
+## Observation (Lins: 24):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   5 4   5 6   6 4   7 4   7 5   7 6
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   5 4   5 7   6 4   6 5   6 7   7 4
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   5 4   6 4   6 5   6 7   7 4   7 5
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
+## Observation (Lins: 24):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 0   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+6   5 4   6 4   6 5   7 4   7 5   7 6
+## Hints:
+16
+1   7 3
+1   7 2
+1   7 1
+1   7 0
+1   6 3
+1   6 2
+1   6 1
+1   6 0
+1   5 3
+1   5 2
+1   5 1
+1   5 0
+1   4 3
+1   4 2
+1   4 1
+1   4 0
+
 ## Observation (Lins: 42):
 ## Outcome:
 8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
@@ -3700,6 +3700,37 @@
 0
 ## HB:
 7   4 3   4 5   4 6   4 7   5 6   5 7   7 6
+## Hints:
+21
+1   7 2
+1   7 1
+1   7 0
+1   6 2
+1   6 1
+1   6 0
+1   5 2
+1   5 1
+1   5 0
+2   4 2   7 3
+2   4 2   6 3
+2   4 2   5 3
+2   4 1   7 3
+2   4 1   6 3
+2   4 1   5 3
+2   4 0   7 3
+2   4 0   6 3
+2   4 0   5 3
+2   2 3   4 2
+2   1 3   4 1
+2   0 3   4 0
+
+## Observation (Lins: 42):
+## Outcome:
+8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+7   4 3   4 5   4 6   4 7   5 6   7 5   7 6
 ## Hints:
 21
 1   7 2
@@ -3792,37 +3823,6 @@
 ## RF:
 0
 ## HB:
-7   4 3   4 5   4 6   4 7   5 6   7 5   7 6
-## Hints:
-21
-1   7 2
-1   7 1
-1   7 0
-1   6 2
-1   6 1
-1   6 0
-1   5 2
-1   5 1
-1   5 0
-2   4 2   7 3
-2   4 2   6 3
-2   4 2   5 3
-2   4 1   7 3
-2   4 1   6 3
-2   4 1   5 3
-2   4 0   7 3
-2   4 0   6 3
-2   4 0   5 3
-2   2 3   4 2
-2   1 3   4 1
-2   0 3   4 0
-
-## Observation (Lins: 42):
-## Outcome:
-8   dequeue 0 0   dequeue 0 0   dequeue 0 0   dequeue 0 101   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
 7   4 3   4 5   4 6   4 7   6 5   7 5   7 6
 ## Hints:
 21
@@ -3854,7 +3854,7 @@
 ## RF:
 0
 ## HB:
-10   2 3   4 2   4 3   4 5   4 6   4 7   5 3   5 6   5 7   7 6
+10   2 3   4 2   4 3   4 5   4 6   4 7   5 3   5 6   5 7   6 7
 ## Hints:
 28
 1   7 1
@@ -3892,7 +3892,7 @@
 ## RF:
 0
 ## HB:
-10   2 3   4 2   4 3   4 5   4 6   4 7   5 3   5 6   5 7   6 7
+10   2 3   4 2   4 3   4 5   4 6   4 7   5 3   5 6   5 7   7 6
 ## Hints:
 28
 1   7 1
@@ -4006,112 +4006,7 @@
 ## RF:
 0
 ## HB:
-15   1 2   3 1   3 2   4 1   4 2   4 5   4 7   5 2   5 7   6 1   6 2   6 3   6 4   6 5   6 7
-## Hints:
-25
-1   7 0
-2   6 0   7 3
-2   5 0   7 3
-2   5 0   7 2
-2   5 0   7 1
-2   4 0   7 3
-2   4 0   7 1
-2   0 3   6 0
-2   0 3   5 0
-2   0 3   4 0
-2   0 2   5 0
-2   0 1   5 0
-2   0 1   4 0
-3   5 3   6 0   7 2
-3   5 3   6 0   7 1
-3   4 3   6 0   7 1
-3   4 0   5 3   7 2
-3   4 0   5 1   7 2
-3   0 2   5 3   6 0
-3   0 2   4 0   5 3
-3   0 2   4 0   5 1
-3   0 1   5 3   6 0
-3   0 1   4 3   6 0
-4   4 3   5 1   6 0   7 2
-4   0 2   4 3   5 1   6 0
-
-## Observation (Lins: 28):
-## Outcome:
-8   dequeue 0 0   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-15   2 1   3 1   3 2   4 1   4 7   5 1   5 2   5 4   5 7   6 1   6 2   6 3   6 4   6 5   6 7
-## Hints:
-25
-1   7 0
-2   6 0   7 3
-2   5 0   7 3
-2   5 0   7 2
-2   4 0   7 3
-2   4 0   7 2
-2   4 0   7 1
-2   0 3   6 0
-2   0 3   5 0
-2   0 3   4 0
-2   0 2   5 0
-2   0 2   4 0
-2   0 1   4 0
-3   5 3   6 0   7 2
-3   4 3   6 0   7 2
-3   4 3   6 0   7 1
-3   4 3   5 0   7 1
-3   4 2   5 0   7 1
-3   0 2   5 3   6 0
-3   0 2   4 3   6 0
-3   0 1   4 3   6 0
-3   0 1   4 3   5 0
-3   0 1   4 2   5 0
-4   4 2   5 3   6 0   7 1
-4   0 1   4 2   5 3   6 0
-
-## Observation (Lins: 28):
-## Outcome:
-8   dequeue 0 0   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-15   2 1   2 3   3 1   4 1   4 7   5 1   5 2   5 3   5 4   5 6   5 7   6 1   6 3   6 4   6 7
-## Hints:
-25
-1   7 0
-2   6 0   7 3
-2   6 0   7 2
-2   5 0   7 2
-2   4 0   7 3
-2   4 0   7 2
-2   4 0   7 1
-2   0 3   6 0
-2   0 3   4 0
-2   0 2   6 0
-2   0 2   5 0
-2   0 2   4 0
-2   0 1   4 0
-3   5 0   6 2   7 3
-3   4 3   6 0   7 1
-3   4 2   6 0   7 1
-3   4 2   5 0   7 3
-3   4 2   5 0   7 1
-3   0 3   5 0   6 2
-3   0 3   4 2   5 0
-3   0 1   4 3   6 0
-3   0 1   4 2   6 0
-3   0 1   4 2   5 0
-4   4 3   5 0   6 2   7 1
-4   0 1   4 3   5 0   6 2
-
-## Observation (Lins: 28):
-## Outcome:
-8   dequeue 0 0   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-15   1 3   2 1   2 3   4 1   4 3   4 6   4 7   5 1   5 2   5 3   5 4   5 6   5 7   6 3   6 7
+15   1 2   1 3   2 3   4 1   4 2   4 3   4 5   4 6   4 7   5 2   5 3   5 6   5 7   6 3   6 7
 ## Hints:
 25
 1   7 0
@@ -4119,26 +4014,26 @@
 2   6 0   7 2
 2   6 0   7 1
 2   5 0   7 2
-2   4 0   7 2
+2   5 0   7 1
 2   4 0   7 1
 2   0 3   6 0
 2   0 2   6 0
 2   0 2   5 0
-2   0 2   4 0
 2   0 1   6 0
+2   0 1   5 0
 2   0 1   4 0
 3   5 0   6 2   7 3
-3   5 0   6 2   7 1
-3   4 2   5 0   7 1
-3   4 0   6 2   7 3
+3   5 0   6 1   7 3
 3   4 0   6 1   7 3
+3   4 0   6 1   7 2
+3   4 0   5 1   7 2
 3   0 3   5 0   6 2
-3   0 3   4 0   6 2
+3   0 3   5 0   6 1
 3   0 3   4 0   6 1
-3   0 1   5 0   6 2
-3   0 1   4 2   5 0
-4   4 2   5 0   6 1   7 3
-4   0 3   4 2   5 0   6 1
+3   0 2   4 0   6 1
+3   0 2   4 0   5 1
+4   4 0   5 1   6 2   7 3
+4   0 3   4 0   5 1   6 2
 
 ## Observation (Lins: 28):
 ## Outcome:
@@ -4181,7 +4076,42 @@
 ## RF:
 0
 ## HB:
-15   1 2   1 3   2 3   4 1   4 2   4 3   4 5   4 6   4 7   5 2   5 3   5 6   5 7   6 3   6 7
+15   1 2   3 1   3 2   4 1   4 2   4 5   4 7   5 2   5 7   6 1   6 2   6 3   6 4   6 5   6 7
+## Hints:
+25
+1   7 0
+2   6 0   7 3
+2   5 0   7 3
+2   5 0   7 2
+2   5 0   7 1
+2   4 0   7 3
+2   4 0   7 1
+2   0 3   6 0
+2   0 3   5 0
+2   0 3   4 0
+2   0 2   5 0
+2   0 1   5 0
+2   0 1   4 0
+3   5 3   6 0   7 2
+3   5 3   6 0   7 1
+3   4 3   6 0   7 1
+3   4 0   5 3   7 2
+3   4 0   5 1   7 2
+3   0 2   5 3   6 0
+3   0 2   4 0   5 3
+3   0 2   4 0   5 1
+3   0 1   5 3   6 0
+3   0 1   4 3   6 0
+4   4 3   5 1   6 0   7 2
+4   0 2   4 3   5 1   6 0
+
+## Observation (Lins: 28):
+## Outcome:
+8   dequeue 0 0   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+15   1 3   2 1   2 3   4 1   4 3   4 6   4 7   5 1   5 2   5 3   5 4   5 6   5 7   6 3   6 7
 ## Hints:
 25
 1   7 0
@@ -4189,36 +4119,97 @@
 2   6 0   7 2
 2   6 0   7 1
 2   5 0   7 2
-2   5 0   7 1
+2   4 0   7 2
 2   4 0   7 1
 2   0 3   6 0
 2   0 2   6 0
 2   0 2   5 0
+2   0 2   4 0
 2   0 1   6 0
-2   0 1   5 0
 2   0 1   4 0
 3   5 0   6 2   7 3
-3   5 0   6 1   7 3
+3   5 0   6 2   7 1
+3   4 2   5 0   7 1
+3   4 0   6 2   7 3
 3   4 0   6 1   7 3
-3   4 0   6 1   7 2
-3   4 0   5 1   7 2
 3   0 3   5 0   6 2
-3   0 3   5 0   6 1
+3   0 3   4 0   6 2
 3   0 3   4 0   6 1
-3   0 2   4 0   6 1
-3   0 2   4 0   5 1
-4   4 0   5 1   6 2   7 3
-4   0 3   4 0   5 1   6 2
+3   0 1   5 0   6 2
+3   0 1   4 2   5 0
+4   4 2   5 0   6 1   7 3
+4   0 3   4 2   5 0   6 1
 
-## Observation (Lins: 14):
+## Observation (Lins: 28):
 ## Outcome:
-8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+8   dequeue 0 0   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
 ## RF:
 0
 ## HB:
-22   1 0   2 0   2 1   2 3   3 0   3 1   4 0   5 0   5 1   5 4   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 0   7 1   7 3   7 4   7 5
+15   2 1   2 3   3 1   4 1   4 7   5 1   5 2   5 3   5 4   5 6   5 7   6 1   6 3   6 4   6 7
 ## Hints:
+25
+1   7 0
+2   6 0   7 3
+2   6 0   7 2
+2   5 0   7 2
+2   4 0   7 3
+2   4 0   7 2
+2   4 0   7 1
+2   0 3   6 0
+2   0 3   4 0
+2   0 2   6 0
+2   0 2   5 0
+2   0 2   4 0
+2   0 1   4 0
+3   5 0   6 2   7 3
+3   4 3   6 0   7 1
+3   4 2   6 0   7 1
+3   4 2   5 0   7 3
+3   4 2   5 0   7 1
+3   0 3   5 0   6 2
+3   0 3   4 2   5 0
+3   0 1   4 3   6 0
+3   0 1   4 2   6 0
+3   0 1   4 2   5 0
+4   4 3   5 0   6 2   7 1
+4   0 1   4 3   5 0   6 2
+
+## Observation (Lins: 28):
+## Outcome:
+8   dequeue 0 0   dequeue 0 101   dequeue 0 102   dequeue 0 103   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
 0
+## HB:
+15   2 1   3 1   3 2   4 1   4 7   5 1   5 2   5 4   5 7   6 1   6 2   6 3   6 4   6 5   6 7
+## Hints:
+25
+1   7 0
+2   6 0   7 3
+2   5 0   7 3
+2   5 0   7 2
+2   4 0   7 3
+2   4 0   7 2
+2   4 0   7 1
+2   0 3   6 0
+2   0 3   5 0
+2   0 3   4 0
+2   0 2   5 0
+2   0 2   4 0
+2   0 1   4 0
+3   5 3   6 0   7 2
+3   4 3   6 0   7 2
+3   4 3   6 0   7 1
+3   4 3   5 0   7 1
+3   4 2   5 0   7 1
+3   0 2   5 3   6 0
+3   0 2   4 3   6 0
+3   0 1   4 3   6 0
+3   0 1   4 3   5 0
+3   0 1   4 2   5 0
+4   4 2   5 3   6 0   7 1
+4   0 1   4 2   5 3   6 0
+
 ## Observation (Lins: 14):
 ## Outcome:
 8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
@@ -4235,6 +4226,15 @@
 0
 ## HB:
 22   0 1   0 2   0 3   1 2   1 3   3 2   4 0   4 1   4 2   4 3   4 5   4 6   4 7   5 1   5 2   5 3   5 6   5 7   6 2   7 2   7 3   7 6
+## Hints:
+0
+## Observation (Lins: 14):
+## Outcome:
+8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+22   0 1   0 2   0 3   1 2   3 1   3 2   4 0   4 1   4 2   4 3   4 5   4 6   4 7   5 1   5 2   5 6   6 2   7 1   7 2   7 3   7 5   7 6
 ## Hints:
 0
 ## Observation (Lins: 14):
@@ -4261,52 +4261,7 @@
 ## RF:
 0
 ## HB:
-22   0 1   0 2   0 3   1 2   3 1   3 2   4 0   4 1   4 2   4 3   4 5   4 6   4 7   5 1   5 2   5 6   6 2   7 1   7 2   7 3   7 5   7 6
-## Hints:
-0
-## Observation (Lins: 14):
-## Outcome:
-8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-22   1 0   2 0   2 1   3 0   3 1   3 2   4 0   5 0   5 1   5 4   6 0   6 1   6 2   6 4   6 5   7 0   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-0
-## Observation (Lins: 14):
-## Outcome:
-8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-22   0 1   2 0   2 1   3 0   3 1   3 2   4 0   4 1   4 5   5 1   6 0   6 1   6 2   6 4   6 5   7 0   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-0
-## Observation (Lins: 14):
-## Outcome:
-8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-22   1 0   1 2   2 0   3 0   3 1   3 2   4 0   5 0   5 1   5 2   5 4   5 6   6 0   6 2   6 4   7 0   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-0
-## Observation (Lins: 14):
-## Outcome:
-8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-22   0 2   1 0   1 2   3 0   3 1   3 2   4 0   4 2   4 6   5 0   5 1   5 2   5 4   5 6   6 2   7 0   7 1   7 2   7 3   7 4   7 5   7 6
-## Hints:
-0
-## Observation (Lins: 14):
-## Outcome:
-8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-22   0 1   0 2   2 1   3 0   3 1   3 2   4 0   4 1   4 2   4 5   4 6   5 1   6 1   6 2   6 5   7 0   7 1   7 2   7 3   7 4   7 5   7 6
+22   0 1   0 2   0 3   2 1   3 1   3 2   4 0   4 1   4 2   4 3   4 5   4 6   4 7   5 1   6 1   6 2   6 5   7 1   7 2   7 3   7 5   7 6
 ## Hints:
 0
 ## Observation (Lins: 14):
@@ -4324,43 +4279,7 @@
 ## RF:
 0
 ## HB:
-22   0 1   0 2   0 3   2 1   3 1   3 2   4 0   4 1   4 2   4 3   4 5   4 6   4 7   5 1   6 1   6 2   6 5   7 1   7 2   7 3   7 5   7 6
-## Hints:
-0
-## Observation (Lins: 14):
-## Outcome:
-8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-22   0 1   2 0   2 1   2 3   3 0   3 1   4 0   4 1   4 5   5 1   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 0   7 1   7 3   7 4   7 5
-## Hints:
-0
-## Observation (Lins: 14):
-## Outcome:
-8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-22   1 0   1 3   2 0   2 1   2 3   3 0   4 0   5 0   5 1   5 3   5 4   5 7   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 0   7 3   7 4
-## Hints:
-0
-## Observation (Lins: 14):
-## Outcome:
-8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-22   0 3   1 0   1 3   2 0   2 1   2 3   4 0   4 3   4 7   5 0   5 1   5 3   5 4   5 7   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 3
-## Hints:
-0
-## Observation (Lins: 14):
-## Outcome:
-8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
-## RF:
-0
-## HB:
-22   0 1   0 3   2 0   2 1   2 3   3 1   4 0   4 1   4 3   4 5   4 7   5 1   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 1   7 3   7 5
+22   0 1   0 2   2 1   3 0   3 1   3 2   4 0   4 1   4 2   4 5   4 6   5 1   6 1   6 2   6 5   7 0   7 1   7 2   7 3   7 4   7 5   7 6
 ## Hints:
 0
 ## Observation (Lins: 14):
@@ -4378,7 +4297,7 @@
 ## RF:
 0
 ## HB:
-22   1 0   1 2   1 3   2 0   3 0   3 2   4 0   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 0   6 2   6 4   7 0   7 2   7 3   7 4   7 6
+22   0 1   0 3   2 0   2 1   2 3   3 1   4 0   4 1   4 3   4 5   4 7   5 1   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 1   7 3   7 5
 ## Hints:
 0
 ## Observation (Lins: 14):
@@ -4387,7 +4306,7 @@
 ## RF:
 0
 ## HB:
-22   0 2   1 0   1 2   1 3   3 0   3 2   4 0   4 2   4 6   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 2   7 0   7 2   7 3   7 4   7 6
+22   0 1   2 0   2 1   2 3   3 0   3 1   4 0   4 1   4 5   5 1   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 0   7 1   7 3   7 4   7 5
 ## Hints:
 0
 ## Observation (Lins: 14):
@@ -4396,7 +4315,7 @@
 ## RF:
 0
 ## HB:
-22   1 0   1 2   1 3   2 0   2 3   3 0   4 0   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 0   6 2   6 3   6 4   6 7   7 0   7 3   7 4
+22   0 1   2 0   2 1   3 0   3 1   3 2   4 0   4 1   4 5   5 1   6 0   6 1   6 2   6 4   6 5   7 0   7 1   7 2   7 3   7 4   7 5   7 6
 ## Hints:
 0
 ## Observation (Lins: 14):
@@ -4405,7 +4324,7 @@
 ## RF:
 0
 ## HB:
-22   0 3   1 0   1 2   1 3   2 0   2 3   4 0   4 3   4 7   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 0   6 2   6 3   6 4   6 7   7 3
+22   0 2   0 3   1 0   1 2   1 3   2 3   4 0   4 2   4 3   4 6   4 7   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 2   6 3   6 7   7 3
 ## Hints:
 0
 ## Observation (Lins: 14):
@@ -4423,6 +4342,87 @@
 ## RF:
 0
 ## HB:
-22   0 2   0 3   1 0   1 2   1 3   2 3   4 0   4 2   4 3   4 6   4 7   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 2   6 3   6 7   7 3
+22   0 2   1 0   1 2   1 3   3 0   3 2   4 0   4 2   4 6   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 2   7 0   7 2   7 3   7 4   7 6
+## Hints:
+0
+## Observation (Lins: 14):
+## Outcome:
+8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+22   0 2   1 0   1 2   3 0   3 1   3 2   4 0   4 2   4 6   5 0   5 1   5 2   5 4   5 6   6 2   7 0   7 1   7 2   7 3   7 4   7 5   7 6
+## Hints:
+0
+## Observation (Lins: 14):
+## Outcome:
+8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+22   0 3   1 0   1 2   1 3   2 0   2 3   4 0   4 3   4 7   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 0   6 2   6 3   6 4   6 7   7 3
+## Hints:
+0
+## Observation (Lins: 14):
+## Outcome:
+8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+22   0 3   1 0   1 3   2 0   2 1   2 3   4 0   4 3   4 7   5 0   5 1   5 3   5 4   5 7   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 3
+## Hints:
+0
+## Observation (Lins: 14):
+## Outcome:
+8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+22   1 0   1 2   1 3   2 0   2 3   3 0   4 0   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 0   6 2   6 3   6 4   6 7   7 0   7 3   7 4
+## Hints:
+0
+## Observation (Lins: 14):
+## Outcome:
+8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+22   1 0   1 2   1 3   2 0   3 0   3 2   4 0   5 0   5 1   5 2   5 3   5 4   5 6   5 7   6 0   6 2   6 4   7 0   7 2   7 3   7 4   7 6
+## Hints:
+0
+## Observation (Lins: 14):
+## Outcome:
+8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+22   1 0   1 2   2 0   3 0   3 1   3 2   4 0   5 0   5 1   5 2   5 4   5 6   6 0   6 2   6 4   7 0   7 1   7 2   7 3   7 4   7 5   7 6
+## Hints:
+0
+## Observation (Lins: 14):
+## Outcome:
+8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+22   1 0   1 3   2 0   2 1   2 3   3 0   4 0   5 0   5 1   5 3   5 4   5 7   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 0   7 3   7 4
+## Hints:
+0
+## Observation (Lins: 14):
+## Outcome:
+8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+22   1 0   2 0   2 1   2 3   3 0   3 1   4 0   5 0   5 1   5 4   6 0   6 1   6 2   6 3   6 4   6 5   6 7   7 0   7 1   7 3   7 4   7 5
+## Hints:
+0
+## Observation (Lins: 14):
+## Outcome:
+8   dequeue 0 101   dequeue 0 102   dequeue 0 103   dequeue 0 104   enqueue 101 0   enqueue 102 0   enqueue 103 0   enqueue 104 0
+## RF:
+0
+## HB:
+22   1 0   2 0   2 1   3 0   3 1   3 2   4 0   5 0   5 1   5 4   6 0   6 1   6 2   6 4   6 5   7 0   7 1   7 2   7 3   7 4   7 5   7 6
 ## Hints:
 0

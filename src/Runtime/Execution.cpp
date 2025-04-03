@@ -80,8 +80,8 @@ using namespace llvm;
 	({                                                                                         \
 		llvm::GenericValue __result;                                                       \
 		if (auto *iTyp = llvm::dyn_cast<IntegerType>(typ))                                 \
-			__result.IntVal =                                                          \
-				APInt(iTyp->getBitWidth(), (val).get(), iTyp->getSignBit());       \
+			__result.IntVal = APInt(iTyp->getBitWidth(), (val).get(),                  \
+						iTyp->getSignBit() APINT_NOCHECK);                 \
 		else                                                                               \
 			__result.PointerVal = (void *)(val).get();                                 \
 		__result;                                                                          \
@@ -2314,7 +2314,7 @@ GenericValue Interpreter::executePtrToIntInst(Value *SrcVal, Type *DstTy, Execut
 	GenericValue Dest, Src = getOperandValue(SrcVal, SF);
 	assert(SrcVal->getType()->isPointerTy() && "Invalid PtrToInt instruction");
 
-	Dest.IntVal = APInt(DBitWidth, (intptr_t)Src.PointerVal);
+	Dest.IntVal = APInt(DBitWidth, (intptr_t)Src.PointerVal, false APINT_NOCHECK);
 	return Dest;
 }
 
@@ -3082,7 +3082,8 @@ void Interpreter::callOptBegin(Function *F, const std::vector<GenericValue> &Arg
 	updateCtrlDeps(getCurThr().id, currPos()); // add a ctrl dep on optionals
 
 	GenericValue result;
-	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), expand, true); // signed
+	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), expand,
+			      true APINT_NOCHECK); // signed
 	returnValueToCaller(F->getReturnType(), result);
 	return;
 }
@@ -3615,7 +3616,7 @@ void Interpreter::callHazptrProtect(Function *F, const std::vector<GenericValue>
 void Interpreter::callHazptrClear(Function *F, const std::vector<GenericValue> &ArgVals,
 				  const std::unique_ptr<EventDeps> &specialDeps)
 {
-	auto *typ = Type::getVoidTy(F->getParent()->getContext())->getPointerTo();
+	auto *typ = PointerType::getUnqual(F->getParent()->getContext());
 	auto asize = getTypeSize(typ);
 	auto atyp = TYPE_TO_ATYPE(typ);
 	auto *hp = GVTOP(ArgVals[0]);
