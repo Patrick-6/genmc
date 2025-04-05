@@ -718,8 +718,28 @@ void GenMCDriver::handleRecoveryEnd()
 
 void GenMCDriver::run()
 {
-	/* Explore all graphs and print the results */
-	explore();
+	auto *EE = getEE();
+
+	EE->setExecutionContext(createExecutionContext(getExec().getGraph()));
+	while (!isHalting()) {
+		EE->reset();
+
+		/* Get main program function and run the program */
+		EE->runAsMain(getConf()->programEntryFun);
+		if (getConf()->persevere)
+			EE->runRecovery();
+
+		auto validExecution = false;
+		while (!validExecution) {
+			auto item = getExec().getWorkqueue().getNext();
+			if (!item) {
+				if (popExecution())
+					continue;
+				return;
+			}
+			validExecution = restrictAndRevisit(item) && isRevisitValid(*item);
+		}
+	}
 }
 
 bool GenMCDriver::isHalting() const
@@ -898,32 +918,6 @@ std::vector<ThreadInfo> createExecutionContext(const ExecutionGraph &g)
 		tis.push_back(bLab->getThreadInfo());
 	}
 	return tis;
-}
-
-void GenMCDriver::explore()
-{
-	auto *EE = getEE();
-
-	EE->setExecutionContext(createExecutionContext(getExec().getGraph()));
-	while (!isHalting()) {
-		EE->reset();
-
-		/* Get main program function and run the program */
-		EE->runAsMain(getConf()->programEntryFun);
-		if (getConf()->persevere)
-			EE->runRecovery();
-
-		auto validExecution = false;
-		while (!validExecution) {
-			auto item = getExec().getWorkqueue().getNext();
-			if (!item) {
-				if (popExecution())
-					continue;
-				return;
-			}
-			validExecution = restrictAndRevisit(item) && isRevisitValid(*item);
-		}
-	}
 }
 
 bool isUninitializedAccess(const SAddr &addr, const Event &pos)

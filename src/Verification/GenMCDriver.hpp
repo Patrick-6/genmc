@@ -357,10 +357,6 @@ protected:
 private:
 	/*** Exploration-related ***/
 
-	/** The workhorse for run().
-	 * Exhaustively explores all  consistent executions of a program */
-	void explore();
-
 	/** Returns whether a revisit results to a valid execution
 	 * (e.g., consistent, accessing allocated memory, etc) */
 	bool isRevisitValid(const Revisit &revisit);
