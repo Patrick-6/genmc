@@ -26,7 +26,6 @@
 
 #include <functional>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 /** An adjacency-list representation of an ordered unlabeled graph */
@@ -38,10 +37,9 @@ public:
 	using Timestamp = unsigned int;
 
 	/** Node status during DFS exploration */
-	enum class NodeStatus { unseen, entered, left };
+	enum class NodeStatus : std::uint8_t { unseen, entered, left };
 
-public:
-	AdjList() {}
+	AdjList() = default;
 	AdjList(const std::vector<T> &es) : elems(es)
 	{
 		auto size = elems.size();
@@ -49,9 +47,8 @@ public:
 		nodeSucc.resize(size);
 		inDegree.resize(size);
 		transC.resize(size);
-		calculatedTransC = false;
 
-		for (auto i = 0u; i < size; i++) {
+		for (auto i = 0U; i < size; i++) {
 			ids[elems[i]] = i;
 			transC[i].resize(size);
 		}
@@ -63,9 +60,8 @@ public:
 		nodeSucc.resize(size);
 		inDegree.resize(size);
 		transC.resize(size);
-		calculatedTransC = false;
 
-		for (auto i = 0u; i < size; i++) {
+		for (auto i = 0U; i < size; i++) {
 			ids[elems[i]] = i;
 			transC[i].resize(size);
 		}
@@ -79,30 +75,36 @@ public:
 	using const_adj_iterator = std::vector<NodeId>::const_iterator;
 
 	/** Iterators -- they iterate over the nodes of the graph */
-	iterator begin() { return elems.begin(); };
-	iterator end() { return elems.end(); };
-	const_iterator begin() const { return elems.begin(); };
-	const_iterator end() const { return elems.end(); };
+	auto begin() -> iterator { return elems.begin(); };
+	auto end() -> iterator { return elems.end(); };
+	auto begin() const -> const_iterator { return elems.begin(); };
+	auto end() const -> const_iterator { return elems.end(); };
 
-	adj_iterator adj_begin(T a) { return nodeSucc[getIndex(a)].begin(); }
-	adj_iterator adj_end(T a) { return nodeSucc[getIndex(a)].end(); }
-	adj_iterator adj_begin(NodeId a) { return nodeSucc[a].begin(); }
-	adj_iterator adj_end(NodeId a) { return nodeSucc[a].end(); }
-	const_adj_iterator adj_begin(T a) const { return nodeSucc[getIndex(a)].begin(); }
-	const_adj_iterator adj_end(T a) const { return nodeSucc[getIndex(a)].end(); }
-	const_adj_iterator adj_begin(NodeId a) const { return nodeSucc[a].begin(); }
-	const_adj_iterator adj_end(NodeId a) const { return nodeSucc[a].end(); }
+	auto adj_begin(T el) -> adj_iterator { return nodeSucc[getIndex(el)].begin(); }
+	auto adj_end(T el) -> adj_iterator { return nodeSucc[getIndex(el)].end(); }
+	auto adj_begin(NodeId el) -> adj_iterator { return nodeSucc[el].begin(); }
+	auto adj_end(NodeId el) -> adj_iterator { return nodeSucc[el].end(); }
+	auto adj_begin(T el) const -> const_adj_iterator { return nodeSucc[getIndex(el)].begin(); }
+	auto adj_end(T el) const -> const_adj_iterator { return nodeSucc[getIndex(el)].end(); }
+	[[nodiscard]] auto adj_begin(NodeId el) const -> const_adj_iterator
+	{
+		return nodeSucc[el].begin();
+	}
+	[[nodiscard]] auto adj_end(NodeId el) const -> const_adj_iterator
+	{
+		return nodeSucc[el].end();
+	}
 
 	/** Returns the elements (nodes) of the graph */
-	const std::vector<T> &getElems() const { return elems; }
+	auto getElems() const -> const std::vector<T> & { return elems; }
 
-	unsigned int getIndex(T a) const { return ids.at(a); }
+	auto getIndex(T el) const -> unsigned int { return ids.at(el); }
 
 	/** Returns the number of elements in the graph */
-	unsigned int size() const { return elems.size(); }
+	[[nodiscard]] auto size() const -> unsigned int { return elems.size(); }
 
 	/** Returns true when the graph has no elements */
-	bool empty() const { return size() == 0; }
+	[[nodiscard]] auto empty() const -> bool { return size() == 0; }
 
 	/** Adds a node to the graph */
 	void addNode(T a);
@@ -117,10 +119,10 @@ public:
 	void addEdgesFromTo(const std::vector<T> &froms, const std::vector<T> &tos);
 
 	/** Returns the in-degree of each element */
-	const std::vector<int> &getInDegrees() const;
+	[[nodiscard]] auto getInDegrees() const -> const std::vector<int> &;
 
 	/** Returns true if the in-degree and out-degree of a node is 0 */
-	bool hasNoEdges(T a) const
+	auto hasNoEdges(T a) const -> bool
 	{
 		return inDegree[getIndex(a)] == 0 && nodeSucc[getIndex(a)].size() == 0;
 	}
@@ -138,29 +140,30 @@ public:
 			    FVE &&atExitV, FEND &&atEnd) const;
 
 	/** Returns a topological sorting of the graph */
-	std::vector<T> topoSort();
+	auto topoSort() -> std::vector<T>;
 
 	/** Runs prop on all topological sortings */
-	template <typename F> bool allTopoSort(F &&prop) const;
+	template <typename F> auto allTopoSort(F &&prop) const -> bool;
 
 	template <typename F>
-	static bool combineAllTopoSort(const std::vector<AdjList<T, Hash> *> &toCombine, F &&prop);
+	static auto combineAllTopoSort(const std::vector<AdjList<T, Hash> *> &toCombine, F &&prop)
+		-> bool;
 
 	void transClosure();
 
-	bool isIrreflexive();
+	auto isIrreflexive() -> bool;
 
 	/** Returns true if the respective edge exists */
-	inline bool operator()(const T a, const T b) const
+	auto operator()(const T a, const T b) const -> bool
 	{
 		return transC[getIndex(a)][getIndex(b)];
 	}
-	inline bool operator()(const T a, NodeId b) const { return transC[getIndex(a)][b]; }
-	inline bool operator()(NodeId a, const T b) const { return transC[a][getIndex(b)]; }
-	inline bool operator()(NodeId a, NodeId b) const { return transC[a][b]; }
+	auto operator()(const T a, NodeId b) const -> bool { return transC[getIndex(a)][b]; }
+	auto operator()(NodeId a, const T b) const -> bool { return transC[a][getIndex(b)]; }
+	auto operator()(NodeId a, NodeId b) const -> bool { return transC[a][b]; }
 
 	template <typename U, typename Z>
-	friend llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const AdjList<U, Z> &l);
+	friend auto operator<<(llvm::raw_ostream &s, const AdjList<U, Z> &l) -> llvm::raw_ostream &;
 
 private:
 	/** Helper for dfs() */
@@ -170,14 +173,14 @@ private:
 		     FET &&atTreeE, FEB &&atBackE, FEF &&atForwE, FVE &&atExitV) const;
 
 	template <typename F>
-	bool allTopoSortUtil(std::vector<T> &current, std::vector<bool> visited,
-			     std::vector<int> &inDegree, F &&prop, bool &found) const;
+	auto allTopoSortUtil(std::vector<T> &current, std::vector<bool> visited,
+			     std::vector<int> &inDegree, F &&prop, bool &found) const -> bool;
 
 	template <typename F>
-	static bool combineAllTopoSortUtil(unsigned int index, std::vector<std::vector<T>> &current,
+	static auto combineAllTopoSortUtil(unsigned int index, std::vector<std::vector<T>> &current,
 					   bool &found,
 					   const std::vector<AdjList<T, Hash> *> &toCombine,
-					   F &&prop);
+					   F &&prop) -> bool;
 
 	/** The node elements.
 	 * Must be in 1-1 correspondence with the successor list below */

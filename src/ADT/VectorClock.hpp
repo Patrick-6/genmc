@@ -41,6 +41,11 @@ class EventLabel;
 class VectorClock {
 
 public:
+	VectorClock(const VectorClock &) = default;
+	VectorClock(VectorClock &&) = delete;
+	auto operator=(const VectorClock &) -> VectorClock & = default;
+	auto operator=(VectorClock &&) -> VectorClock & = delete;
+
 	/** Discriminator for LLVM-style RTTI (dyn_cast<> et al).
 	 * It is public to allow clients perform a switch() on it */
 	enum VectorClockKind {
@@ -52,42 +57,42 @@ protected:
 	VectorClock(VectorClockKind k) : kind(k) {}
 
 public:
-	virtual ~VectorClock(){};
+	virtual ~VectorClock() {};
 
 	/** Returns the kind of this vector clock */
-	VectorClockKind getKind() const { return kind; }
+	[[nodiscard]] auto getKind() const -> VectorClockKind { return kind; }
 
 	/** Returns the size of this vector clock */
-	virtual unsigned int size() const = 0;
+	[[nodiscard]] virtual auto size() const -> unsigned int = 0;
 
 	/** Returns true if this vector clock is empty */
-	bool empty() const { return size() == 0; }
+	[[nodiscard]] auto empty() const -> bool;
 
 	virtual void clear() = 0;
 
 	/** Returns true if this clock contains e */
-	virtual bool contains(const Event e) const = 0;
-	bool contains(const EventLabel *lab) const;
+	[[nodiscard]] virtual auto contains(Event e) const -> bool = 0;
+	auto contains(const EventLabel *lab) const -> bool;
 
 	/** Updates the clock based on another clock **of the same kind** */
-	virtual View &update(const View &v) = 0;
-	virtual DepView &update(const DepView &v) = 0;
-	virtual VectorClock &update(const VectorClock &v) = 0;
+	virtual auto update(const View &v) -> View & = 0;
+	virtual auto update(const DepView &v) -> DepView & = 0;
+	virtual auto update(const VectorClock &v) -> VectorClock & = 0;
 
 	/** Ensures event E is included in the clock */
-	virtual VectorClock &updateIdx(Event e) = 0;
+	virtual auto updateIdx(Event e) -> VectorClock & = 0;
 
-	virtual int getMax(int thread) const = 0;
-	int getMax(Event e) const { return getMax(e.thread); }
+	[[nodiscard]] virtual auto getMax(int thread) const -> int = 0;
+	[[nodiscard]] auto getMax(Event e) const -> int;
 
 	virtual void setMax(Event e) = 0;
 
 	/** Clones a VectorClock */
-	std::unique_ptr<VectorClock> clone() const;
+	[[nodiscard]] auto clone() const -> std::unique_ptr<VectorClock>;
 
 	/** Printing facilities */
 	virtual void printData(llvm::raw_ostream &s) const = 0;
-	friend llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const VectorClock &v);
+	friend auto operator<<(llvm::raw_ostream &s, const VectorClock &v) -> llvm::raw_ostream &;
 
 private:
 	/** The kind of this VectorClock */
@@ -96,7 +101,7 @@ private:
 
 /** Helper cloner class */
 struct VectorClockCloner {
-	VectorClock *operator()(const VectorClock &x) const { return x.clone().release(); }
+	auto operator()(const VectorClock &x) const -> VectorClock * { return x.clone().release(); }
 	// VectorClock *operator()(VectorClock &&x) const { return new VectorClock(std::move(x)); }
 };
 

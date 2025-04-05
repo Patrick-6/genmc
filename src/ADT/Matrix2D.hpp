@@ -193,7 +193,7 @@ private:
 	/** Indexing */
 	[[nodiscard]] auto computeIndex(unsigned int i, unsigned int j) const -> unsigned int
 	{
-		return i * size() + j;
+		return (i * size()) + j;
 	}
 
 	[[nodiscard]] auto at(unsigned int a, unsigned int b) const -> bool

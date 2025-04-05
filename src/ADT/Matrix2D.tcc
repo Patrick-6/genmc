@@ -20,7 +20,7 @@
 
 #include <vector>
 
-template <class T> int binSearch(const std::vector<T> &arr, int len, T what)
+template <class T> auto binSearch(const std::vector<T> &arr, int len, T what) -> int
 {
 	int low = 0;
 	int high = len - 1;
@@ -36,41 +36,41 @@ template <class T> int binSearch(const std::vector<T> &arr, int len, T what)
 	return -1; /* not found */
 }
 
-template <typename T> std::vector<T> Matrix2D<T>::getInEdges(const T &e) const
+template <typename T> auto Matrix2D<T>::getInEdges(const T &e) const -> std::vector<T>
 {
 	std::vector<T> result;
 
 	auto eI = getMapper()(e);
-	for (auto i = 0u; i < size(); i++) {
+	for (auto i = 0U; i < size(); i++) {
 		if (at(i, eI))
 			result.push_back(getMapper().getElem(i));
 	}
 	return result;
 }
 
-template <typename T> std::vector<T> Matrix2D<T>::getOutEdges(const T &e) const
+template <typename T> auto Matrix2D<T>::getOutEdges(const T &e) const -> std::vector<T>
 {
 	std::vector<T> result;
 
 	auto eI = getMapper()(e);
-	for (auto i = 0u; i < size(); i++) {
+	for (auto i = 0U; i < size(); i++) {
 		if (at(eI, i))
 			result.push_back(getMapper().getElem(i));
 	}
 	return result;
 }
 
-template <typename T> bool Matrix2D<T>::hasNoEdges(const T &e) const
+template <typename T> auto Matrix2D<T>::hasNoEdges(const T &e) const -> bool
 {
 	auto eI = getMapper()(e);
-	for (auto i = 0u; i < size(); i++) {
+	for (auto i = 0U; i < size(); i++) {
 		if (at(i, eI) || at(eI, i))
 			return false;
 	}
 	return true;
 }
 
-template <typename T> bool Matrix2D<T>::hasElement(const T &e) const
+template <typename T> auto Matrix2D<T>::hasElement(const T &e) const -> bool
 {
 	return std::find(getMapper().begin(), getMapper().end(), e) != getMapper().end();
 }
@@ -78,17 +78,17 @@ template <typename T> bool Matrix2D<T>::hasElement(const T &e) const
 /*
  * Get in-degrees for event es, according to adjacency matrix
  */
-template <typename T> std::vector<int> Matrix2D<T>::getInDegrees() const
+template <typename T> auto Matrix2D<T>::getInDegrees() const -> std::vector<int>
 {
 	std::vector<int> inDegree(size(), 0);
 
-	for (auto i = 0u; i < size(); i++)
-		for (auto j = 0u; j < size(); j++)
+	for (auto i = 0U; i < size(); i++)
+		for (auto j = 0U; j < size(); j++)
 			inDegree[i] += (int)at(j, i);
 	return inDegree;
 }
 
-template <typename T> std::vector<T> Matrix2D<T>::topoSort() const
+template <typename T> auto Matrix2D<T>::topoSort() const -> std::vector<T>
 {
 	std::vector<T> sorted;
 	std::vector<unsigned int> stack;
@@ -97,7 +97,7 @@ template <typename T> std::vector<T> Matrix2D<T>::topoSort() const
 	auto inDegree = getInDegrees();
 
 	/* Propagate events with no incoming edges to stack */
-	for (auto i = 0u; i < inDegree.size(); i++)
+	for (auto i = 0U; i < inDegree.size(); i++)
 		if (inDegree[i] == 0)
 			stack.push_back(i);
 
@@ -108,7 +108,7 @@ template <typename T> std::vector<T> Matrix2D<T>::topoSort() const
 		sorted.push_back(getMapper().getElem(nextI));
 		stack.pop_back();
 
-		for (auto i = 0u; i < size(); i++) {
+		for (auto i = 0U; i < size(); i++) {
 			/* Finds all nodes with incoming edges from nextI */
 			if (!at(nextI, i))
 				continue;
@@ -124,8 +124,8 @@ template <typename T> std::vector<T> Matrix2D<T>::topoSort() const
 
 template <typename T>
 template <typename F>
-bool Matrix2D<T>::allTopoSortUtil(std::vector<T> &current, std::vector<bool> visited,
-				  std::vector<int> &inDegree, F &&prop, bool &found) const
+auto Matrix2D<T>::allTopoSortUtil(std::vector<T> &current, std::vector<bool> visited,
+				  std::vector<int> &inDegree, F &&prop, bool &found) const -> bool
 {
 	/* If we have already found a sorting satisfying "prop", return */
 	if (found)
@@ -137,11 +137,11 @@ bool Matrix2D<T>::allTopoSortUtil(std::vector<T> &current, std::vector<bool> vis
 	 */
 	auto scheduled = false;
 
-	for (auto i = 0u; i < size(); i++) {
+	for (auto i = 0U; i < size(); i++) {
 		/* If ith-event can be added */
 		if (inDegree[i] == 0 && !visited[i]) {
 			/* Reduce in-degrees of its neighbors */
-			for (auto j = 0u; j < size(); j++)
+			for (auto j = 0U; j < size(); j++)
 				if (at(i, j))
 					--inDegree[j];
 			/* Add event in current sorting, mark as visited, and recurse */
@@ -157,7 +157,7 @@ bool Matrix2D<T>::allTopoSortUtil(std::vector<T> &current, std::vector<bool> vis
 			/* Reset visited, current sorting, and inDegree */
 			visited[i] = false;
 			current.pop_back();
-			for (auto j = 0u; j < size(); j++)
+			for (auto j = 0U; j < size(); j++)
 				if (at(i, j))
 					++inDegree[j];
 			/* Mark that at least one event has been added to the current sorting */
@@ -176,7 +176,7 @@ bool Matrix2D<T>::allTopoSortUtil(std::vector<T> &current, std::vector<bool> vis
 	return found;
 }
 
-template <typename T> template <typename F> bool Matrix2D<T>::allTopoSort(F &&prop) const
+template <typename T> template <typename F> auto Matrix2D<T>::allTopoSort(F &&prop) const -> bool
 {
 	std::vector<bool> visited(size(), false);
 	std::vector<T> current;
@@ -188,9 +188,9 @@ template <typename T> template <typename F> bool Matrix2D<T>::allTopoSort(F &&pr
 
 template <typename T>
 template <typename F>
-bool Matrix2D<T>::combineAllTopoSortUtil(unsigned int index, std::vector<std::vector<T>> &current,
+auto Matrix2D<T>::combineAllTopoSortUtil(unsigned int index, std::vector<std::vector<T>> &current,
 					 bool &found, const std::vector<Matrix2D<T> *> &toCombine,
-					 F &&prop)
+					 F &&prop) -> bool
 {
 	/* If we have found a valid combination already, return */
 	if (found)
@@ -216,7 +216,7 @@ bool Matrix2D<T>::combineAllTopoSortUtil(unsigned int index, std::vector<std::ve
 
 template <typename T>
 template <typename F>
-bool Matrix2D<T>::combineAllTopoSort(const std::vector<Matrix2D<T> *> &toCombine, F &&prop)
+auto Matrix2D<T>::combineAllTopoSort(const std::vector<Matrix2D<T> *> &toCombine, F &&prop) -> bool
 {
 	std::vector<std::vector<T>> current; /* The current sorting for each matrix */
 	bool found = false;
@@ -234,11 +234,11 @@ void Matrix2D<T>::addEdgesFromTo(const std::vector<T> &froms, const std::vector<
 
 template <typename T> void Matrix2D<T>::addEdge(const T &a, const T &b) { (*this)(a, b) = true; }
 
-template <typename T> bool Matrix2D<T>::empty() const { return size() == 0; }
+template <typename T> auto Matrix2D<T>::empty() const -> bool { return size() == 0; }
 
-template <typename T> bool Matrix2D<T>::isIrreflexive() const
+template <typename T> auto Matrix2D<T>::isIrreflexive() const -> bool
 {
-	for (auto i = 0u; i < size(); i++)
+	for (auto i = 0U; i < size(); i++)
 		if (at(i, i))
 			return false;
 	return true;
@@ -275,26 +275,30 @@ template <typename T> void Matrix2D<T>::addEdgeAndTransitive(const T &a, const T
 	at(aI, bI) = true;
 }
 
-template <typename T> llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const typename Matrix2D<T>::Mapper &gi)
+template <typename T>
+auto operator<<(llvm::raw_ostream &s, const typename Matrix2D<T>::Mapper &gi) -> llvm::raw_ostream &
 {
 	for (auto &e : gi.elems_)
 		s << e << " ";
 	return s;
 }
 
-template <unsigned> llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const typename Matrix2D<unsigned>::Mapper &gi)
+template <unsigned>
+auto operator<<(llvm::raw_ostream &s, const typename Matrix2D<unsigned>::Mapper &gi)
+	-> llvm::raw_ostream &
 {
-	for (auto i = 0u; i < gi.size(); ++i)
+	for (auto i = 0U; i < gi.size(); ++i)
 		s << i << " ";
 	return s;
 }
 
-template <typename T> llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const Matrix2D<T> &matrix)
+template <typename T>
+auto operator<<(llvm::raw_ostream &s, const Matrix2D<T> &matrix) -> llvm::raw_ostream &
 {
 	s << "Elements: " << matrix.getMapper() << "\n";
 
-	for (auto i = 0u; i < matrix.size(); i++) {
-		for (auto j = 0u; j < matrix.size(); j++)
+	for (auto i = 0U; i < matrix.size(); i++) {
+		for (auto j = 0U; j < matrix.size(); j++)
 			s << matrix(i, j) << " ";
 		s << "\n";
 	}
