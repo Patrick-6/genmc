@@ -398,6 +398,25 @@ void GenMCDriver::resetExplorationOptions()
 	unmoot();
 	setRescheduledRead(Event::getInit());
 	resetThreadPrioritization();
+
+	/* Check whether the event that led to this execs needs thread prioritization */
+	auto &g = getExec().getGraph();
+	auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(getExec().getLastAdded()));
+	if (!rLab)
+		return;
+
+	if (llvm::isa<LockCasReadLabel>(rLab) &&
+	    llvm::isa_and_nonnull<LockNotAcqBlockLabel>(g.po_imm_succ(rLab)) &&
+	    !getConf()->bound.has_value()) {
+		threadPrios = {rLab->getRf()->getPos()};
+		return;
+	}
+
+	auto rpreds = po_preds(g, rLab);
+	auto oLabIt = std::ranges::find_if(
+		rpreds, [&](auto &oLab) { return llvm::isa<SpeculativeReadLabel>(&oLab); });
+	if (llvm::isa<SpeculativeReadLabel>(rLab) || oLabIt != rpreds.end())
+		threadPrios = {rLab->getPos()};
 }
 
 void GenMCDriver::handleExecutionStart()
@@ -431,6 +450,9 @@ void GenMCDriver::handleExecutionStart()
 		BUG_ON(!thr.ECStack.empty());
 		thr.ECStack = thr.initEC;
 	}
+
+	/* Set various exploration options for this execution */
+	resetExplorationOptions();
 }
 
 std::pair<std::vector<SVal>, std::vector<Event>> GenMCDriver::extractValPrefix(Event pos)
@@ -882,7 +904,6 @@ void GenMCDriver::explore()
 {
 	auto *EE = getEE();
 
-	resetExplorationOptions();
 	EE->setExecutionContext(createExecutionContext(getExec().getGraph()));
 	while (!isHalting()) {
 		EE->reset();
@@ -894,13 +915,6 @@ void GenMCDriver::explore()
 
 		auto validExecution = false;
 		while (!validExecution) {
-			/*
-			 * restrictAndRevisit() might deem some execution infeasible,
-			 * so we have to reset all exploration options before
-			 * calling it again
-			 */
-			resetExplorationOptions();
-
 			auto item = getExec().getWorkqueue().getNext();
 			if (!item) {
 				if (popExecution())
@@ -2413,10 +2427,10 @@ void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab,
 	if (sLab->getAddr().isStatic() &&
 	    g.getInitLabel()->getAccessValue(sLab->getAccess()) == sLab->getVal())
 		++valid;
-	WARN_ON_ONCE(
-		valid > 0 &&
-			std::ranges::count_if(loads, [](auto *lab) { return lab->isConfirming(); }),
-		"confirmation-aba-found", "Possible ABA pattern! Consider running without -confirmation.\n");
+	WARN_ON_ONCE(valid > 0 && std::ranges::count_if(
+					  loads, [](auto *lab) { return lab->isConfirming(); }),
+		     "confirmation-aba-found",
+		     "Possible ABA pattern! Consider running without -confirmation.\n");
 
 	/* Do not bother with revisits that will be unconfirmed/lead to ABAs */
 	loads.erase(std::remove_if(loads.begin(), loads.end(),
@@ -2570,10 +2584,7 @@ bool GenMCDriver::prefixContainsSameLoc(const BackwardRevisit &r, const EventLab
 	return false;
 }
 
-bool GenMCDriver::inRevisitPrefix(const EventLabel *eLab)
-{
-	return !eLab->isRevisitable();
-}
+bool GenMCDriver::inRevisitPrefix(const EventLabel *eLab) { return !eLab->isRevisitable(); }
 
 bool GenMCDriver::isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLabel *lab)
 {
@@ -2822,23 +2833,12 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 		return !violatesAtomicity(sLab);
 	}
 
-	/* Blocked barrier: block thread */
+	/* Blocked barrier or blocked lock: block thread */
 	if (llvm::isa<BWaitReadLabel>(rLab) &&
-	    rLab->getAccessValue(rLab->getAccess()) != findBarrierInitValue(g, rLab->getAccess())) {
+	    rLab->getAccessValue(rLab->getAccess()) != findBarrierInitValue(g, rLab->getAccess()))
 		blockThread(BarrierBlockLabel::create(rLab->getPos().next()));
-	}
-
-	/* Blocked lock -> prioritize locking thread */
-	if (llvm::isa<LockCasReadLabel>(rLab)) {
+	if (llvm::isa<LockCasReadLabel>(rLab))
 		blockThread(LockNotAcqBlockLabel::create(rLab->getPos().next()));
-		if (!getConf()->bound.has_value())
-			threadPrios = {rLab->getRf()->getPos()};
-	}
-	auto rpreds = po_preds(g, rLab);
-	auto oLabIt = std::ranges::find_if(
-		rpreds, [&](auto &oLab) { return llvm::isa<SpeculativeReadLabel>(&oLab); });
-	if (llvm::isa<SpeculativeReadLabel>(rLab) || oLabIt != rpreds.end())
-		threadPrios = {rLab->getPos()};
 	return true;
 }
 
