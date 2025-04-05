@@ -30,8 +30,7 @@ enum class WriteAttr {
 	None = 0x0,
 	Local = 0x1,
 	Final = 0x2,
-	RevBlocker = 0x4,
-	WWRacy = 0x8,
+	WWRacy = 0x4,
 };
 
 ENABLE_BITMASK_OPERATORS(WriteAttr);

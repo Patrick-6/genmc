@@ -863,11 +863,7 @@ public:
 	/** Checks whether the write part has the specified attributes */
 	bool hasAttr(WriteAttr a) const { return !!(wattr & a); }
 
-	virtual void reset() override
-	{
-		ReadLabel::reset();
-		wattr &= ~(WriteAttr::RevBlocker);
-	}
+	virtual void reset() override { ReadLabel::reset(); }
 
 	DEFINE_CREATE_CLONE(FaiRead)
 
@@ -972,11 +968,7 @@ public:
 	/** Checks whether the write part has the specified attributes */
 	bool hasAttr(WriteAttr a) const { return !!(wattr & a); }
 
-	virtual void reset() override
-	{
-		ReadLabel::reset();
-		wattr &= ~(WriteAttr::RevBlocker);
-	}
+	virtual void reset() override { ReadLabel::reset(); }
 
 	DEFINE_CREATE_CLONE(CasRead)
 
@@ -1207,7 +1199,6 @@ public:
 	{
 		MemAccessLabel::reset();
 		readerList.clear();
-		wattr &= ~(WriteAttr::RevBlocker);
 	}
 
 	DEFINE_CREATE_CLONE(Write)
