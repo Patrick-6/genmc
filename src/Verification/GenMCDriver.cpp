@@ -2048,6 +2048,8 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 		return;
 
 	calcRevisits(lab);
+	if (violatesAtomicity(lab))
+		moot();
 }
 
 SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
@@ -2683,19 +2685,19 @@ std::unique_ptr<ExecutionGraph> GenMCDriver::copyGraph(const BackwardRevisit *br
 	return og;
 }
 
-bool GenMCDriver::calcRevisits(WriteLabel *sLab)
+void GenMCDriver::calcRevisits(WriteLabel *sLab)
 {
 	auto &g = getExec().getGraph();
 	auto loads = getRevisitableApproximation(sLab);
 
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug3) << "Revisitable: " << format(loads) << "\n";);
 	if (tryOptimizeRevisits(sLab, loads))
-		return true;
+		return;
 
 	/* If operating in estimation mode, don't actually revisit */
 	if (inEstimationMode()) {
 		getExec().getChoiceMap().update(loads, sLab);
-		return checkAtomicity(sLab) && !isMoot();
+		return;
 	}
 
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug3)
@@ -2707,8 +2709,6 @@ bool GenMCDriver::calcRevisits(WriteLabel *sLab)
 
 		getExec().getWorkqueue().add(std::move(br));
 	}
-
-	return checkAtomicity(sLab) && !isMoot();
 }
 
 WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
@@ -2777,7 +2777,8 @@ bool GenMCDriver::revisitWrite(const WriteForwardRevisit &ri)
 
 	wLab->moveCo(g.getEventLabel(ri.getPred()));
 	wLab->setAddedMax(false);
-	return calcRevisits(wLab);
+	calcRevisits(wLab);
+	return !violatesAtomicity(wLab);
 }
 
 bool GenMCDriver::revisitOptional(const OptionalForwardRevisit &oi)
@@ -2816,8 +2817,10 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 		return true;
 
 	/* If the revisited label became an RMW, add the store part and revisit */
-	if (auto *sLab = completeRevisitedRMW(rLab))
-		return calcRevisits(sLab);
+	if (auto *sLab = completeRevisitedRMW(rLab)) {
+		calcRevisits(sLab);
+		return !violatesAtomicity(sLab);
+	}
 
 	/* Blocked barrier: block thread */
 	if (llvm::isa<BWaitReadLabel>(rLab) &&

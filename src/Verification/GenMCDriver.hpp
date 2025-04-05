@@ -535,9 +535,8 @@ private:
 	 * pushes them to the worklist. */
 	void calcCoOrderings(WriteLabel *sLab, const std::vector<EventLabel *> &cos);
 
-	/** Calculates revisit options and pushes them to the worklist.
-	 * Returns true if the current exploration should continue */
-	bool calcRevisits(WriteLabel *lab);
+	/** Calculates revisit options and pushes them to the worklist */
+	void calcRevisits(WriteLabel *lab);
 
 	/** Modifies the graph accordingly when revisiting a write (MO).
 	 * May trigger backward-revisit explorations.
