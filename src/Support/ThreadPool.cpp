@@ -25,7 +25,7 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> driver)
 	using ThreadT = std::packaged_task<GenMCDriver::Result(
 		unsigned int, std::unique_ptr<GenMCDriver> driver)>;
 
-	ThreadT thread([this](unsigned int i, std::unique_ptr<GenMCDriver> driver) {
+	ThreadT thread([this](unsigned int /*i*/, std::unique_ptr<GenMCDriver> driver) {
 		while (true) {
 			auto taskUP = popTask();
 
