@@ -493,9 +493,6 @@ private:
 	/** Helper: Optimizes revisits of reads that will lead to a failed speculation */
 	void optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<ReadLabel *> &loads);
 
-	/** Helper: Optimize the revisit in case SLAB is a RevBlocker */
-	bool tryOptimizeRevBlockerAddition(const WriteLabel *sLab, std::vector<ReadLabel *> &loads);
-
 	/** Opt: Tries to optimize revisiting from LAB. It may modify
 	 * LOADS, and returns whether we can skip revisiting altogether */
 	bool tryOptimizeRevisits(WriteLabel *lab, std::vector<ReadLabel *> &loads);
@@ -534,13 +531,6 @@ private:
 	bool revisitModifiesGraph(const BackwardRevisit &r) const;
 
 	bool prefixContainsSameLoc(const BackwardRevisit &r, const EventLabel *lab) const;
-
-	bool isConflictingNonRevBlocker(const EventLabel *pLab, const WriteLabel *sLab,
-					const Event &s);
-
-	/** Helper: Checks whether the execution should continue upon SLAB revisited LOADS.
-	 * Returns true if yes, and false (+moot) otherwise  */
-	bool checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<ReadLabel *> &loads);
 
 	/** Calculates all possible coherence placings for SLAB and
 	 * pushes them to the worklist. */
@@ -598,9 +588,6 @@ private:
 	/** Checks whether the addition of WLAB creates an atomicity violation.
 	 * If so, returns false and moots the execution if possible. */
 	bool checkAtomicity(const WriteLabel *wLab);
-
-	/** Helper: Annotates a store as RevBlocker, if possible */
-	void annotateStoreHELPER(WriteLabel *wLab);
 
 	/** SAVer: Checks whether the addition of an event changes our
 	 * perspective of a potential spinloop */
