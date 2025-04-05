@@ -35,6 +35,7 @@
 #include <cstddef>
 #include <cstdint>
 
+/** C11 memory ordering */
 enum class MemOrdering : std::uint8_t {
 	NotAtomic = 0,
 	Relaxed = 1,
@@ -51,7 +52,7 @@ auto operator>(MemOrdering, MemOrdering) -> bool = delete;
 auto operator<=(MemOrdering, MemOrdering) -> bool = delete;
 auto operator>=(MemOrdering, MemOrdering) -> bool = delete;
 
-/* Helper to validate unknown integral types */
+/** Helper to validate unknown integral types */
 template <typename Int>
 requires std::integral<Int>
 inline auto isValidMemOrdering(Int i) -> bool
@@ -60,7 +61,7 @@ inline auto isValidMemOrdering(Int i) -> bool
 	       i <= static_cast<Int>(MemOrdering::LAST) && i != 2;
 }
 
-/* Returns whether ord is stronger than other */
+/** Returns whether ord is stronger than other */
 inline auto isStrongerThan(MemOrdering ord, MemOrdering other) -> bool
 {
 	static const bool lookup[7][7] = {
@@ -91,7 +92,7 @@ inline auto isAtLeastOrStrongerThan(MemOrdering ord, MemOrdering other) -> bool
 	return lookup[static_cast<size_t>(ord)][static_cast<size_t>(other)];
 }
 
-/* Translates an LLVM ordering to our internal one; assumes the
+/** Translates an LLVM ordering to our internal one; assumes the
  * ordering is one we support (i.e., currently not Unordered)*/
 inline auto fromLLVMOrdering(llvm::AtomicOrdering ord) -> MemOrdering
 {

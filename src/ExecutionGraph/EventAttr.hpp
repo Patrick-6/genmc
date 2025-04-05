@@ -23,7 +23,7 @@
 
 #include "ADT/Bitmask.hpp"
 
-/*
+/**
  * Attributes for write events
  */
 enum class WriteAttr {

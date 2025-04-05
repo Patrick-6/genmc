@@ -26,14 +26,14 @@
 #include <utility>
 #include <vector>
 
-/*
+/**
  * An efficient 2D-matrix representation.
  * The elements are mapped to integers, and the matrix is represented as a vector of integers.
  */
 template <typename T> class Matrix2D {
 
 private:
-	/*
+	/**
 	 * Helper class to get the element mapping, that also provides a
 	 * specialization for the case where T = unsigned.
 	 *
@@ -88,78 +88,78 @@ private:
 	using Mapper = IndexMapper<T>;
 
 public:
-	/* Constructor */
+	/** Constructor */
 	template <typename... Args>
 	Matrix2D(Args &&...args)
 		: indexMapper_(std::forward<Args>(args)...),
 		  matrix_(indexMapper_.size() * indexMapper_.size(), false)
 	{}
 
-	/* Returns the number of incoming/outgoing edges */
+	/** Returns the number of incoming/outgoing edges */
 	[[nodiscard]] auto getInEdges(const T &e) const -> std::vector<T>;
 	[[nodiscard]] auto getOutEdges(const T &e) const -> std::vector<T>;
 
-	/* Returns true if e has no incoming and outgoing edges */
+	/** Returns true if e has no incoming and outgoing edges */
 	[[nodiscard]] auto hasNoEdges(const T &e) const -> bool;
 
-	/* Return true if the node is in the Matrix */
+	/** Return true if the node is in the Matrix */
 	[[nodiscard]] auto hasElement(const T &e) const -> bool;
 
-	/* Returns a vector that corresponds 1-to-1 to the in-degrees
+	/** Returns a vector that corresponds 1-to-1 to the in-degrees
 	 * of the matrix's elements */
 	[[nodiscard]] auto getInDegrees() const -> std::vector<int>;
 
-	/* Returns a topological sorting of the matrix */
+	/** Returns a topological sorting of the matrix */
 	[[nodiscard]] auto topoSort() const -> std::vector<T>;
 
-	/* Calls "prop" on all topological sortings of the matrix,
+	/** Calls "prop" on all topological sortings of the matrix,
 	 * until one where "prop" returns true is found.
 	 * Returns whether such a sorting is found */
 	template <typename F> auto allTopoSort(F &&prop) const -> bool;
 
-	/* Runs prop on each combination of topological sortings of matrices in
+	/** Runs prop on each combination of topological sortings of matrices in
 	 * "toCombine", until a combination that satisfies "prop" is found.
 	 * Returns whether a valid combination was found */
 	template <typename F>
 	static auto combineAllTopoSort(const std::vector<Matrix2D<T> *> &toCombine, F &&prop)
 		-> bool;
 
-	/* For each "f" in "froms", adds edges to all the "tos"*/
+	/** For each "f" in "froms", adds edges to all the "tos"*/
 	void addEdgesFromTo(const std::vector<T> &froms, const std::vector<T> &tos);
 
-	/* Adds the edge a->b */
+	/** Adds the edge a->b */
 	void addEdge(const T &a, const T &b);
 
-	/* Adds the edge a-> and transitively closes */
+	/** Adds the edge a-> and transitively closes */
 	void addEdgeAndTransitive(const T &a, const T &b);
 
-	/* Adds the edges in the range of pairs RANGE */
+	/** Adds the edges in the range of pairs RANGE */
 	void addEdges(std::ranges::input_range auto &&range)
 	{
 		for (const auto &v : range)
 			addEdge(v.first, v.second);
 	}
 
-	/* Empties the matrix */
+	/** Empties the matrix */
 	void clear()
 	{
 		matrix_.clear();
 		indexMapper_.clear();
 	}
 
-	/* Returns the number of elements in the matrix */
+	/** Returns the number of elements in the matrix */
 	[[nodiscard]] auto size() const -> unsigned int { return getMapper().size(); }
 
-	/* Returns true when the matrix has no elements */
+	/** Returns true when the matrix has no elements */
 	[[nodiscard]] auto empty() const -> bool;
 
-	/* Returns true if the matrix is irreflexive */
+	/** Returns true if the matrix is irreflexive */
 	[[nodiscard]] auto isIrreflexive() const -> bool;
 
-	/* Transitively closes the matrix */
+	/** Transitively closes the matrix */
 	void transClosure();
 
-	/* Operators */
+	/** Operators */
 	auto operator()(const T &a, const T &b) const -> bool
 	{
 		return at(getMapper()(a), getMapper()(b));
@@ -179,21 +179,21 @@ public:
 	friend auto operator<<(llvm::raw_ostream &s, const Matrix2D<U> &m) -> llvm::raw_ostream &;
 
 private:
-	/* Workhorse of allTopoSort() */
+	/** Workhorse of allTopoSort() */
 	template <typename F>
 	auto allTopoSortUtil(std::vector<T> &current, std::vector<bool> visited,
 			     std::vector<int> &inDegree, F &&prop, bool &found) const -> bool;
 
-	/* Workhorse of combineAllTopoSort() */
+	/** Workhorse of combineAllTopoSort() */
 	template <typename F>
 	static auto combineAllTopoSortUtil(unsigned int index, std::vector<std::vector<T>> &current,
 					   bool &found, const std::vector<Matrix2D<T> *> &toCombine,
 					   F &&prop) -> bool;
 
-	/* Indexing */
+	/** Indexing */
 	[[nodiscard]] auto computeIndex(unsigned int i, unsigned int j) const -> unsigned int
 	{
-		return i * size() + j;
+		return (i * size()) + j;
 	}
 
 	[[nodiscard]] auto at(unsigned int a, unsigned int b) const -> bool

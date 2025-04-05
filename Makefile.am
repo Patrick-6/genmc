@@ -107,7 +107,7 @@ genmc_LDADD = libgenmc.a -lpthread $(COVERAGE_LDFLAGS)
 include Makefile.am.coverage
 
 @DX_RULES@
-MOSTLYCLEANFILES = DX_CLEANFILES
+MOSTLYCLEANFILES = $(DX_CLEANFILES)
 
 if LINT
 lint-local: $(libgenmc_a_SOURCES) $(genmc_SOURCES)

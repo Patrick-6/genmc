@@ -30,7 +30,7 @@
  **                           DriverHandlerDispatcher Class
  ******************************************************************************/
 
-/*
+/**
  * Calls the appropriate Driver handler for a particular label kind.
  */
 class DriverHandlerDispatcher : public LabelVisitor<DriverHandlerDispatcher> {
