@@ -55,7 +55,7 @@ public:
 	using StoreList = llvm::simple_ilist<WriteLabel>;
 	using LocMap = std::unordered_map<SAddr, StoreList>;
 	using InitValGetter = std::function<SVal(const AAccess &)>;
-	using PoList = llvm::simple_ilist<EventLabel, llvm::ilist_tag<genmcDetail::po_tag>>;
+	using PoList = llvm::simple_ilist<EventLabel, llvm::ilist_tag<po_tag>>;
 	using PoLists = std::vector<PoList>;
 
 	ExecutionGraph(InitValGetter f) : initValGetter_(std::move(f))

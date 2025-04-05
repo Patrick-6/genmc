@@ -25,8 +25,7 @@
 #include <memory>
 #include <vector>
 
-/** A generic trie for sequences of comparable elements with random access
- * iterator.
+/** A generic trie for random-access sequences of comparable elements.
  *
  * Inspired by the Trie class in LLVM 2.9.
  */

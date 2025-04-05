@@ -72,9 +72,7 @@ public:
  **                        EventLabel Class (Abstract)
  ******************************************************************************/
 
-namespace genmcDetail {
 struct po_tag {};
-} // namespace genmcDetail
 
 /**
  * An abstract class for modeling event labels. Contains the bare minimum
@@ -84,7 +82,7 @@ struct po_tag {};
  * by querying the execution graph.
  */
 class EventLabel : public llvm::ilist_node<EventLabel>,
-		   public llvm::ilist_node<EventLabel, llvm::ilist_tag<genmcDetail::po_tag>> {
+		   public llvm::ilist_node<EventLabel, llvm::ilist_tag<po_tag>> {
 
 public:
 	/* Discriminator for LLVM-style RTTI (dyn_cast<> et al).
@@ -514,6 +512,7 @@ public:
 	JoinBlockLabel(Event pos, unsigned childId) : BlockLabel(JoinBlock, pos), childId(childId)
 	{}
 
+	/** Returns the ID of the child waited on */
 	const unsigned &getChildId() const { return childId; }
 
 	DEFINE_STANDARD_MEMBERS(JoinBlock)
@@ -533,12 +532,13 @@ class ReadOptBlockLabel : public BlockLabel {
 public:
 	ReadOptBlockLabel(Event pos, SAddr addr) : BlockLabel(ReadOptBlock, pos), addr(addr) {}
 
+	/** Returns the address waited on */
 	const SAddr &getAddr() const { return addr; }
 
 	DEFINE_STANDARD_MEMBERS(ReadOptBlock)
 
 private:
-	SAddr addr; /// the address waiting on
+	SAddr addr;
 };
 
 /*******************************************************************************

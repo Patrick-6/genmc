@@ -25,10 +25,8 @@
 #include <llvm/Support/raw_ostream.h>
 #include <set>
 
-namespace genmcDetail {
 struct out_tag {};
 struct err_tag {};
-} // namespace genmcDetail
 
 template <typename U> class Logger {
 
@@ -39,7 +37,7 @@ protected:
 public:
 	Logger(VerbosityLevel l = VerbosityLevel::Warning) : buffer_(str_)
 	{
-		if (std::is_same<U, genmcDetail::err_tag>::value)
+		if (std::is_same<U, err_tag>::value)
 			buffer_ << l;
 	}
 
@@ -56,7 +54,7 @@ public:
 		 * 2. Stream ops are atomic according to POSIX:
 		 *    http://www.gnu.org/s/libc/manual/html_node/Streams-and-Threads.html
 		 */
-		if (std::is_same<U, genmcDetail::out_tag>::value)
+		if (std::is_same<U, out_tag>::value)
 			llvm::outs() << buffer_.str();
 		else
 			llvm::errs() << buffer_.str();
@@ -107,24 +105,24 @@ inline VerbosityLevel logLevel = VerbosityLevel::Tip;
 	if (level > logLevel)                                                                      \
 		;                                                                                  \
 	else                                                                                       \
-		Logger<genmcDetail::err_tag>(level)
+		Logger<err_tag>(level)
 
 #define LOG_ONCE(id, level)                                                                        \
 	if (level > logLevel)                                                                      \
 		;                                                                                  \
 	else                                                                                       \
-		LoggerOnce<genmcDetail::err_tag>(id, level)
+		LoggerOnce<err_tag>(id, level)
 
 #define PRINT(level)                                                                               \
 	if (level > logLevel)                                                                      \
 		;                                                                                  \
 	else                                                                                       \
-		Logger<genmcDetail::out_tag>(level)
+		Logger<out_tag>(level)
 
 #define PRINT_ONCE(level)                                                                          \
 	if (level > logLevel)                                                                      \
 		;                                                                                  \
 	else                                                                                       \
-		Logger<genmcDetail::out_tag>(level)
+		Logger<out_tag>(level)
 
 #endif /* GENMC_LOGGER_HPP */
