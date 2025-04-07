@@ -1761,32 +1761,24 @@ std::vector<EventLabel *> GenMCDriver::getRfsApproximation(ReadLabel *lab)
 
 	/* Remove atomicity violations */
 	auto &before = getPrefixView(lab);
-	auto isSettledRMWInView = [](auto &rLab, auto &before) {
+	auto isSettledRMWInView = [&before](auto &rLab) {
 		auto &g = *rLab.getParent();
 		return rLab.isRMW() && (!rLab.isRevisitable() || before.contains(rLab.getPos()));
 	};
-	auto storeReadBySettledRMWInView = [&isSettledRMWInView](auto *sLab, auto &before,
-								 SAddr addr) {
+	auto atomicityViolationInView = [&isSettledRMWInView, lab](auto *sLab) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(sLab)) {
-			return std::ranges::any_of(wLab->readers(), [&](auto &rLab) {
-				return isSettledRMWInView(rLab, before);
-			});
+			return lab->valueMakesRMWSucceed(wLab->getVal()) &&
+			       std::ranges::any_of(wLab->readers(), isSettledRMWInView);
 		};
 
-		auto *iLab = llvm::dyn_cast<InitLabel>(sLab);
-		BUG_ON(!iLab);
-		return std::ranges::any_of(iLab->rfs(addr), [&](auto &rLab) {
-			return isSettledRMWInView(rLab, before);
-		});
+		auto *iLab = llvm::cast<InitLabel>(sLab);
+		auto addr = lab->getAddr();
+		/* Reads to dynamic addresses cannot have read from Init */
+		return !addr.isDynamic() &&
+		       lab->valueMakesRMWSucceed(iLab->getAccessValue(lab->getAccess())) &&
+		       std::ranges::any_of(iLab->rfs(addr), isSettledRMWInView);
 	};
-	rfs.erase(std::remove_if(rfs.begin(), rfs.end(),
-				 [&](auto &sLab) {
-					 auto oldVal = sLab->getAccessValue(lab->getAccess());
-					 return lab->valueMakesRMWSucceed(oldVal) &&
-						storeReadBySettledRMWInView(sLab, before,
-									    lab->getAddr());
-				 }),
-		  rfs.end());
+	rfs.erase(std::remove_if(rfs.begin(), rfs.end(), atomicityViolationInView), rfs.end());
 	return rfs;
 }
 
