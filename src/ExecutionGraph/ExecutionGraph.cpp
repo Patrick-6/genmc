@@ -99,7 +99,15 @@ void ExecutionGraph::removeLast(unsigned int thread)
 		if (auto *dLab = llvm::dyn_cast_or_null<FreeLabel>(aLab->getFree()))
 			dLab->setAlloc(nullptr);
 	}
-	/* Nothing to do for create/join: childId remains the same */
+	if (auto *cLab = llvm::dyn_cast<ThreadCreateLabel>(lab)) {
+		if (auto *tsLab = llvm::dyn_cast_or_null<ThreadStartLabel>(getFirstThreadLabel(lab->getThread())))
+			tsLab->setCreate(nullptr);
+	}
+	if (auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(lab)) {
+		if (auto *eLab = llvm::dyn_cast_or_null<ThreadFinishLabel>(getLastThreadLabel(tjLab->getChildId())))
+			eLab->setParentJoin(nullptr);
+	}
+	/* Nothing to do for start/finish: childId remains the same */
 	insertionOrder.remove(*lab);
 	poLists[lab->getThread()].remove(*lab);
 	events[thread].pop_back();

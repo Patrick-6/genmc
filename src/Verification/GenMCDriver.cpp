@@ -716,6 +716,17 @@ void GenMCDriver::handleRecoveryEnd()
 	return;
 }
 
+std::vector<ThreadInfo> createExecutionContext(const ExecutionGraph &g)
+{
+	std::vector<ThreadInfo> tis;
+	for (auto i = 1u; i < g.getNumThreads(); i++) { // skip main
+		auto *bLab = g.getFirstThreadLabel(i);
+		BUG_ON(!bLab);
+		tis.push_back(bLab->getThreadInfo());
+	}
+	return tis;
+}
+
 void GenMCDriver::run()
 {
 	auto *EE = getEE();
@@ -907,17 +918,6 @@ bool GenMCDriver::scheduleNext()
 
 	/* Finally, check if any reads needs to be rescheduled */
 	return rescheduleReads();
-}
-
-std::vector<ThreadInfo> createExecutionContext(const ExecutionGraph &g)
-{
-	std::vector<ThreadInfo> tis;
-	for (auto i = 1u; i < g.getNumThreads(); i++) { // skip main
-		auto *bLab = g.getFirstThreadLabel(i);
-		BUG_ON(!bLab);
-		tis.push_back(bLab->getThreadInfo());
-	}
-	return tis;
 }
 
 bool isUninitializedAccess(const SAddr &addr, const Event &pos)
