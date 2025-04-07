@@ -945,11 +945,8 @@ bool GenMCDriver::isRevisitValid(const Revisit &revisit)
 	if (!isExecutionValid(mLab))
 		return false;
 
-	auto *rLab = llvm::dyn_cast<ReadLabel>(mLab);
-	if (rLab && checkInitializedMem(rLab) != VerificationError::VE_OK)
-		return false;
-
 	/* If an extra event is added, re-check consistency */
+	auto *rLab = llvm::dyn_cast<ReadLabel>(mLab);
 	auto *nLab = g.po_imm_succ(mLab);
 	return !rLab || !rLab->isRMW() ||
 	       (isExecutionValid(nLab) && checkForRaces(nLab) == VerificationError::VE_OK);
@@ -2812,6 +2809,9 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 	/*  Try to remove the read from the execution */
 	if (removeCASReadIfBlocks(rLab, revLab))
 		return true;
+
+	if (checkInitializedMem(rLab) != VerificationError::VE_OK)
+		return false;
 
 	/* If the revisited label became an RMW, add the store part and revisit */
 	if (auto *sLab = completeRevisitedRMW(rLab)) {
