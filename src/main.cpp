@@ -73,8 +73,6 @@ static auto buildCompilationArgs(const std::shared_ptr<const Config> &conf) -> s
 		args += " " + f;
 	args += " -I" SRC_INCLUDE_DIR;
 	args += " -I" INCLUDE_DIR;
-	auto inodeFlag = " -D__CONFIG_GENMC_INODE_DATA_SIZE=" + std::to_string(conf->maxFileSize);
-	args += " " + inodeFlag;
 	args += " -S -emit-llvm";
 	args += " -o " + getOutFilename(conf);
 	args += " " + conf->inputFile;
@@ -216,11 +214,7 @@ void run(GenMCDriver *driver, llvm::Interpreter *EE)
 	EE->setExecutionContext(createExecutionContext(driver->getExec().getGraph()));
 	do {
 		EE->reset();
-
-		/* Get main program function and run the program */
 		EE->runAsMain(driver->getConf()->programEntryFun);
-		if (driver->getConf()->persevere)
-			EE->runRecovery();
 	} while (!driver->done());
 }
 

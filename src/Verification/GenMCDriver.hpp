@@ -190,10 +190,6 @@ public:
 	void handleExecutionStart();
 	void handleExecutionEnd();
 
-	/** Pers: Functions that run at the start/end of the recovery routine */
-	void handleRecoveryStart();
-	void handleRecoveryEnd();
-
 	/** Whether there are more executions to be explored */
 	bool done();
 
@@ -333,9 +329,6 @@ protected:
 	 * interpreter. */
 	std::optional<SVal> getReadRetValue(const ReadLabel *rLab);
 	SVal getRecReadRetValue(const ReadLabel *rLab);
-
-	/** Pers: Returns true if we are currently running the recovery routine */
-	bool inRecoveryMode() const;
 
 	/** Est: Returns true if we are currently running in estimation mode */
 	bool inEstimationMode() const { return std::holds_alternative<EstimationMode>(mode); }

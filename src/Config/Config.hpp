@@ -64,13 +64,6 @@ struct Config {
 	unsigned int maxExtSize{};
 	bool dotPrintOnlyClientEvents{};
 
-	/*** Persistency options ***/
-	bool persevere{};
-	unsigned int blockSize{};
-	unsigned int maxFileSize{};
-	JournalDataFS journalData{};
-	bool disableDelalloc{};
-
 	/*** Transformation options ***/
 	std::optional<unsigned> unroll;
 	VSet<std::string> noUnrollFuns;

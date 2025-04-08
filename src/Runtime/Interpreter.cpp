@@ -107,28 +107,6 @@ void Interpreter::reset()
 	std::for_each(threads_begin(), threads_end(), [this](Thread &thr) { resetThread(thr.id); });
 }
 
-void Interpreter::setupRecoveryRoutine(int tid)
-{
-	BUG_ON(tid >= getNumThreads());
-	dynState.currentThread = tid;
-
-	/* Only fill the stack if a recovery routine actually exists... */
-	ERROR_ON(!recoveryRoutine, "No recovery routine specified!\n");
-	callFunction(recoveryRoutine, {}, nullptr);
-
-	/* Also set up initSF, if it is the first invocation */
-	if (getThrById(tid).initEC.empty())
-		getThrById(tid).initEC = ECStack();
-	return;
-}
-
-void Interpreter::cleanupRecoveryRoutine(int tid)
-{
-	/* Nothing to do -- yet */
-	dynState.currentThread = 0;
-	return;
-}
-
 Thread &Interpreter::addNewThread(Thread &&thread)
 {
 	if (thread.id == getNumThreads()) {
@@ -158,13 +136,6 @@ Thread &Interpreter::createAddNewThread(llvm::Function *F, SVal arg, int tid, in
 	thr.ECStack.push_back(SF);
 	thr.tls = threadLocalVars;
 	return addNewThread(std::move(thr));
-}
-
-Thread &Interpreter::createAddRecoveryThread(int tid)
-{
-	Thread rec(recoveryRoutine, tid);
-	rec.tls = threadLocalVars;
-	return addNewThread(std::move(rec));
 }
 
 void Interpreter::collectStaticAddresses(SAddrAllocator &alloctor)
@@ -221,47 +192,6 @@ void Interpreter::setupErrorPolicy(Module *M, const Config *userConf)
 
 	errnoAddr = GVTOP(getConstantValue(errnoVar));
 	errnoTyp = errnoVar->getValueType();
-	return;
-}
-
-void Interpreter::setupFsInfo(Module *M, const Config *userConf)
-{
-	recoveryRoutine = M->getFunction("__VERIFIER_recovery_routine");
-
-	/* Setup config options first */
-	auto &FI = MI->fsInfo;
-	FI.blockSize = userConf->blockSize;
-	FI.maxFileSize = userConf->maxFileSize;
-	FI.journalData = userConf->journalData;
-	FI.delalloc = FI.journalData == JournalDataFS::ordered && !userConf->disableDelalloc;
-
-	auto *inodeVar = M->getGlobalVariable("__genmc_dir_inode");
-	auto *fileVar = M->getGlobalVariable("__genmc_dummy_file");
-
-	/* unistd.h not included -- not dealing with fs stuff */
-	if (!inodeVar || !fileVar)
-		return;
-
-	FI.inodeTyp = dyn_cast<StructType>(inodeVar->getValueType());
-	FI.fileTyp = dyn_cast<StructType>(fileVar->getValueType());
-	BUG_ON(!FI.inodeTyp || !FI.fileTyp);
-
-	/* Initialize the directory's inode -- assume that the first field is int
-	 * We track this here to have custom naming info */
-	unsigned int inodeSize = getTypeSize(FI.inodeTyp);
-	FI.dirInode = static_cast<char *>(GVTOP(getConstantValue(inodeVar)));
-
-	Type *intTyp = FI.inodeTyp->getElementType(0);
-	unsigned int intSize = getTypeSize(intTyp);
-
-	unsigned int count = 0;
-	unsigned int intPtrSize = getTypeSize(intTyp->getPointerTo());
-	auto *SL = getDataLayout().getStructLayout(FI.inodeTyp);
-	for (auto &fname : FI.filenames) {
-		auto *addr = (char *)FI.dirInode + SL->getElementOffset(4) + count * intPtrSize;
-		dynState.nameToInodeAddr[fname] = addr;
-		++count;
-	}
 	return;
 }
 
@@ -363,9 +293,6 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
 
 	/* Set up the system error policy */
 	setupErrorPolicy(mod, userConf);
-
-	/* Also run a recovery routine if it is required to do so */
-	setupFsInfo(mod, userConf);
 
 	/* Setup the interpreter for the exploration */
 	mainFun = mod->getFunction(userConf->programEntryFun);

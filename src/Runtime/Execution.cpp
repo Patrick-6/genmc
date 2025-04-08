@@ -307,123 +307,8 @@ unsigned int Interpreter::getTypeSize(Type *typ) const
 	return (size_t)getDataLayout().getTypeAllocSize(typ);
 }
 
-void *Interpreter::getFileFromFd(int fd) const
-{
-	if (!dynState.fdToFile.inBounds(fd))
-		return nullptr;
-	return dynState.fdToFile[fd];
-}
-
-void Interpreter::setFdToFile(int fd, void *fileAddr)
-{
-	if (fd >= dynState.fdToFile.size())
-		dynState.fdToFile.grow(fd);
-	dynState.fdToFile[fd] = fileAddr;
-}
-
-void *Interpreter::getDirInode() const { return MI->fsInfo.dirInode; }
-
-void *Interpreter::getInodeAddrFromName(const std::string &filename) const
-{
-	return dynState.nameToInodeAddr.at(filename);
-}
-
 /* Should match include/pthread.h (or barrier/mutex/thread decls) */
 #define GENMC_PTHREAD_BARRIER_SERIAL_THREAD -1
-
-/* Should match the definitions in include/unistd.h */
-#define GENMC_SEEK_SET 0 /* Seek from beginning of file.  */
-#define GENMC_SEEK_CUR 1 /* Seek from current position.  */
-#define GENMC_SEEK_END 2 /* Seek from end of file.  */
-
-/* Should match those in include/fcntl.h (and be in the valid list below) */
-#define GENMC_O_RDONLY 00000000
-#define GENMC_O_WRONLY 00000001
-#define GENMC_O_RDWR 00000002
-#define GENMC_O_CREAT 00000100
-#define GENMC_O_TRUNC 00001000
-#define GENMC_O_APPEND 00002000
-#define GENMC_O_SYNC 04010000
-#define GENMC_O_DSYNC 00010000
-
-/* List of valid flags for the open flags argument -- FIXME: We do not support all flags */
-#define GENMC_VALID_OPEN_FLAGS                                                                     \
-	(GENMC_O_RDONLY | GENMC_O_WRONLY | GENMC_O_RDWR | GENMC_O_CREAT | GENMC_O_TRUNC |          \
-	 GENMC_O_APPEND | GENMC_O_SYNC | GENMC_O_DSYNC)
-
-#define GENMC_O_ACCMODE 00000003
-#define GENMC_ACC_MODE(x) ("\004\002\006\006"[(x) & GENMC_O_ACCMODE])
-#define GENMC_OPEN_FMODE(flag) (((flag + 1) & GENMC_O_ACCMODE))
-
-#define GENMC_FMODE_READ 0x1
-#define GENMC_FMODE_WRITE 0x2
-
-/* Fetching different fields of a file description (model @ include/unistd.h) */
-#define GET_FILE_OFFSET_ADDR(file)                                                                 \
-	({                                                                                         \
-		auto *SL = getDataLayout().getStructLayout(MI->fsInfo.fileTyp);                    \
-		auto __off = (char *)file + SL->getElementOffset(4);                               \
-		__off;                                                                             \
-	})
-#define GET_FILE_POS_LOCK_ADDR(file)                                                               \
-	({                                                                                         \
-		auto *SL = getDataLayout().getStructLayout(MI->fsInfo.fileTyp);                    \
-		auto __lock = (char *)file + SL->getElementOffset(3);                              \
-		__lock;                                                                            \
-	})
-#define GET_FILE_FLAGS_ADDR(file)                                                                  \
-	({                                                                                         \
-		auto *SL = getDataLayout().getStructLayout(MI->fsInfo.fileTyp);                    \
-		auto __flags = (char *)file + SL->getElementOffset(2);                             \
-		__flags;                                                                           \
-	})
-#define GET_FILE_COUNT_ADDR(file)                                                                  \
-	({                                                                                         \
-		auto *SL = getDataLayout().getStructLayout(MI->fsInfo.fileTyp);                    \
-		auto __count = (char *)file + SL->getElementOffset(1);                             \
-		__count;                                                                           \
-	})
-#define GET_FILE_INODE_ADDR(file)                                                                  \
-	({                                                                                         \
-		auto *SL = getDataLayout().getStructLayout(MI->fsInfo.fileTyp);                    \
-		auto __inode = (char *)file + SL->getElementOffset(0);                             \
-		__inode;                                                                           \
-	})
-
-/* Fetching different offsets of an inode */
-#define GET_INODE_DATA_ADDR(inode)                                                                 \
-	({                                                                                         \
-		auto *SL = getDataLayout().getStructLayout(MI->fsInfo.inodeTyp);                   \
-		auto __data = (char *)inode + SL->getElementOffset(4);                             \
-		__data;                                                                            \
-	})
-#define GET_INODE_IDISKSIZE_ADDR(inode)                                                            \
-	({                                                                                         \
-		auto *SL = getDataLayout().getStructLayout(MI->fsInfo.inodeTyp);                   \
-		auto __disksize = (char *)inode + SL->getElementOffset(3);                         \
-		__disksize;                                                                        \
-	})
-#define GET_INODE_ITRANSACTION_ADDR(inode)                                                         \
-	({                                                                                         \
-		auto *SL = getDataLayout().getStructLayout(MI->fsInfo.inodeTyp);                   \
-		auto __trans = (char *)inode + SL->getElementOffset(2);                            \
-		__trans;                                                                           \
-	})
-#define GET_INODE_ISIZE_ADDR(inode)                                                                \
-	({                                                                                         \
-		auto *SL = getDataLayout().getStructLayout(MI->fsInfo.inodeTyp);                   \
-		auto __isize = (char *)inode + SL->getElementOffset(1);                            \
-		__isize;                                                                           \
-	})
-#define GET_INODE_LOCK_ADDR(inode)                                                                 \
-	({                                                                                         \
-		auto *SL = getDataLayout().getStructLayout(MI->fsInfo.inodeTyp);                   \
-		auto __lock = (char *)inode + SL->getElementOffset(0);                             \
-		__lock;                                                                            \
-	})
-#define GET_METADATA_MAPPING(inode) (inode)
-#define GET_DATA_MAPPING(inode) (inode)
-#define GET_JOURNAL_MAPPING(inode) (nullptr)
 
 //===----------------------------------------------------------------------===//
 //                    Binary Instruction Implementations
@@ -3003,10 +2888,6 @@ void Interpreter::handleSystemError(SystemError code, const std::string &msg)
 
 void Interpreter::handleLock(SAddr addr, ASize size, const EventDeps *deps)
 {
-	/* No locking when running the recovery routine */
-	if (getProgramState() == ProgramState::Recovery)
-		return;
-
 	// /* Treatment of locks based on whether LAPOR is enabled */
 	// if (getConf()->LAPOR) {
 	// 	handleLockLAPOR(LockLabelLAPOR::create(pos, addr), deps);
@@ -3047,10 +2928,6 @@ void Interpreter::handleLock(SAddr addr, ASize size, const EventDeps *deps)
 
 void Interpreter::handleUnlock(SAddr addr, ASize size, const EventDeps *deps)
 {
-	/* No locking when running the recovery routine */
-	if (getProgramState() == ProgramState::Recovery)
-		return;
-
 	// /* Treatment of unlocks based on whether LAPOR is enabled */
 	// if (getConf()->LAPOR) {
 	// 	handleUnlockLAPOR(UnlockLabelLAPOR::create(pos, addr), deps);
@@ -3065,8 +2942,7 @@ void Interpreter::handleUnlock(SAddr addr, ASize size, const EventDeps *deps)
 void Interpreter::callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals,
 				 const std::unique_ptr<EventDeps> &specialDeps)
 {
-	auto errT = (getProgramState() == ProgramState::Recovery) ? VerificationError::VE_Recovery
-								  : VerificationError::VE_Safety;
+	auto errT = VerificationError::VE_Safety;
 	std::string err = (ArgVals.size())
 				  ? std::string("Assertion violation: ") +
 					    std::string((char *)getStaticAddr(GVTOP(ArgVals[0])))
@@ -3795,8 +3671,7 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 		thr.prefixLOC.clear();
 		thr.prefixLOC.resize(before.getMax(i) + 2); /* Grow since it can be accessed */
 		scheduleThread(i);
-		if (thr.threadFun == recoveryRoutine)
-			setProgramState(ProgramState::Recovery);
+
 		/* Make sure to refetch references within the loop (invalidation danger) */
 		while ((int)getCurThr().globalInstructions < before.getMax(i)) {
 			int snap = getCurThr().globalInstructions;
@@ -3873,12 +3748,4 @@ int Interpreter::runAsMain(const std::string &main)
 	run();
 	driver->handleExecutionEnd();
 	return dynState.ExitValue.IntVal.getZExtValue();
-}
-
-void Interpreter::runRecovery()
-{
-	setProgramState(llvm::ProgramState::Recovery);
-	driver->handleRecoveryStart();
-	run();
-	driver->handleRecoveryEnd();
 }

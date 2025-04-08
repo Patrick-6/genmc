@@ -28,7 +28,6 @@
 /*** Command-line argument categories ***/
 
 static llvm::cl::OptionCategory clGeneral("Exploration Options");
-static llvm::cl::OptionCategory clPersistency("Persistency Options");
 static llvm::cl::OptionCategory clTransformation("Transformation Options");
 static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
@@ -138,30 +137,6 @@ static llvm::cl::opt<unsigned int> clMaxExtSize(
 	"max-hint-size", llvm::cl::init(std::numeric_limits<unsigned int>::max()),
 	llvm::cl::cat(clDebugging),
 	llvm::cl::desc("Limit the number of edges in hints to be considered (for debugging)"));
-
-/*** Persistency options ***/
-
-static llvm::cl::opt<bool> clPersevere("persevere", llvm::cl::cat(clPersistency),
-				       llvm::cl::desc("Enable persistency checks (Persevere)"));
-
-static llvm::cl::opt<unsigned int> clBlockSize("block-size", llvm::cl::cat(clPersistency),
-					       llvm::cl::init(2),
-					       llvm::cl::desc("Block size (in bytes)"));
-
-static llvm::cl::opt<unsigned int> clMaxFileSize("max-file-size", llvm::cl::cat(clPersistency),
-						 llvm::cl::init(64),
-						 llvm::cl::desc("Maximum file size (in bytes)"));
-
-static llvm::cl::opt<JournalDataFS> clJournalData(
-	"journal-data", llvm::cl::cat(clPersistency), llvm::cl::init(JournalDataFS::ordered),
-	llvm::cl::desc("Specify the journaling mode for file data:"),
-	llvm::cl::values(clEnumValN(JournalDataFS::writeback, "writeback",
-				    "Data ordering not preserved"),
-			 clEnumValN(JournalDataFS::ordered, "ordered", "Data before metadata"),
-			 clEnumValN(JournalDataFS::journal, "journal", "Journal data")));
-
-static llvm::cl::opt<bool> clDisableDelalloc("disable-delalloc", llvm::cl::cat(clPersistency),
-					     llvm::cl::desc("Do not model delayed allocation"));
 
 /*** Transformation options ***/
 
@@ -407,13 +382,6 @@ static void saveConfigOptions(Config &conf)
 	conf.dotPrintOnlyClientEvents = clDotPrintOnlyClientEvents;
 	conf.maxExtSize = clMaxExtSize;
 
-	/* Save persistency options */
-	conf.persevere = clPersevere;
-	conf.blockSize = clBlockSize;
-	conf.maxFileSize = clMaxFileSize;
-	conf.journalData = clJournalData;
-	conf.disableDelalloc = clDisableDelalloc;
-
 	/* Save transformation options */
 	conf.unroll = clLoopUnroll >= 0 ? std::optional(clLoopUnroll.getValue()) : std::nullopt;
 	conf.noUnrollFuns.insert(clNoUnrollFuns.begin(), clNoUnrollFuns.end());
@@ -452,8 +420,7 @@ static void saveConfigOptions(Config &conf)
 void parseConfig(int argc, char **argv, Config &conf)
 {
 	/* Option categories printed */
-	const llvm::cl::OptionCategory *cats[] = {&clGeneral, &clDebugging, &clTransformation,
-						  &clPersistency};
+	const llvm::cl::OptionCategory *cats[] = {&clGeneral, &clDebugging, &clTransformation};
 
 	llvm::cl::SetVersionPrinter(printVersion);
 

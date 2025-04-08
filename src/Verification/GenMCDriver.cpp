@@ -635,8 +635,8 @@ void GenMCDriver::handleExecutionEnd()
 
 	if (getConf()->warnUnfreedMemory)
 		checkUnfreedMemory();
-	if (getConf()->printExecGraphs && !getConf()->persevere)
-		printGraph(); /* Delay printing if persevere is enabled */
+	if (getConf()->printExecGraphs)
+		printGraph();
 
 	GENMC_DEBUG(if (getConf()->boundsHistogram && !inEstimationMode()) trackExecutionBound(););
 
@@ -662,51 +662,6 @@ void GenMCDriver::handleExecutionEnd()
 				     result.relincheResult.status->toString()});
 		}
 	}
-}
-
-void GenMCDriver::handleRecoveryStart()
-{
-	BUG();
-	// if (isExecutionBlocked())
-	// 	return;
-
-	// auto &g = getExec().getGraph();
-	// auto *EE = getEE();
-
-	// /* Make sure that a thread for the recovery routine is
-	//  * added only once in the execution graph*/
-	// if (g.getRecoveryRoutineId() == -1)
-	// 	g.addRecoveryThread();
-
-	// /* We will create a start label for the recovery thread.
-	//  * We synchronize with a persistency barrier, if one exists,
-	//  * otherwise, we synchronize with nothing */
-	// auto tid = g.getRecoveryRoutineId();
-	// auto psb = g.collectAllEvents(
-	// 	[&](const EventLabel *lab) { return llvm::isa<DskPbarrierLabel>(lab); });
-	// if (psb.empty())
-	// 	psb.push_back(Event::getInit());
-	// ERROR_ON(psb.size() > 1, "Usage of only one persistency barrier is allowed!\n");
-
-	// auto tsLab = ThreadStartLabel::create(Event(tid, 0), psb.back(),
-	// 				      ThreadInfo(tid, psb.back().thread, 0, 0));
-	// auto *lab = addLabelToGraph(std::move(tsLab));
-
-	// /* Create a thread for the interpreter, and appropriately
-	//  * add it to the thread list (pthread_create() style) */
-	// EE->createAddRecoveryThread(tid);
-
-	// /* Finally, do all necessary preparations in the interpreter */
-	// getEE()->setupRecoveryRoutine(tid);
-	return;
-}
-
-void GenMCDriver::handleRecoveryEnd()
-{
-	/* Print the graph with the recovery routine */
-	if (getConf()->printExecGraphs)
-		printGraph();
-	getEE()->cleanupRecoveryRoutine(getExec().getGraph().getRecoveryRoutineId());
 }
 
 bool GenMCDriver::done()
@@ -909,11 +864,6 @@ bool GenMCDriver::fullExecutionExceedsBound() const
 bool GenMCDriver::partialExecutionExceedsBound() const
 {
 	return executionExceedsBound(BoundCalculationStrategy::Slacked);
-}
-
-bool GenMCDriver::inRecoveryMode() const
-{
-	return getEE()->getProgramState() == llvm::ProgramState::Recovery;
 }
 
 bool GenMCDriver::inReplay() const
@@ -1783,9 +1733,6 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	auto &g = getExec().getGraph();
 	auto *EE = getEE();
 
-	if (inRecoveryMode() && rLab->getAddr().isVolatile())
-		return {getRecReadRetValue(rLab.get())};
-
 	if (isExecutionDrivenByGraph(&*rLab))
 		return getReadRetValue(llvm::dyn_cast<ReadLabel>(g.getEventLabel(rLab->getPos())));
 
@@ -1974,7 +1921,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug2) << "--- Added store " << lab->getPos() << "\n"
 						<< getExec().getGraph(););
 
-	if (inRecoveryMode() || inReplay())
+	if (inReplay())
 		return;
 
 	calcRevisits(lab);
