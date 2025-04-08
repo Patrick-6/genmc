@@ -71,9 +71,6 @@ std::unique_ptr<Interpreter> Interpreter::create(std::unique_ptr<Module> M,
 					     alloctor);
 }
 
-/* Thread::seed is ODR-used -- we need to provide a definition (C++14) */
-constexpr int Thread::seed;
-
 llvm::raw_ostream &llvm::operator<<(llvm::raw_ostream &s, const Thread &thr)
 {
 	return s << "<" << thr.parentId << ", " << thr.id << ">"
