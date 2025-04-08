@@ -178,14 +178,6 @@ public:
 		return std::unique_ptr<GenMCDriver>(new GenMCDriver(std::forward<Ts>(params)...));
 	}
 
-	/** Creates driver instance(s) and starts verification for the given module. */
-	static auto verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-			   std::unique_ptr<ModuleInfo> modInfo) -> Result;
-
-	static auto estimate(std::shared_ptr<const Config> conf,
-			     const std::unique_ptr<llvm::Module> &mod,
-			     const std::unique_ptr<ModuleInfo> &modInfo) -> Result;
-
 	/**** Generic actions ***/
 
 	/** Sets up the next thread to run in the interpreter */
@@ -202,8 +194,8 @@ public:
 	void handleRecoveryStart();
 	void handleRecoveryEnd();
 
-	/** Starts the verification procedure for a driver */
-	void run();
+	/** Whether there are more executions to be explored */
+	bool done();
 
 	/** Returns the result of the verification procedure */
 	const Result &getResult() const { return result; }
@@ -273,9 +265,14 @@ public:
 
 protected:
 	friend class ThreadPool;
+	friend void run(GenMCDriver *driver, llvm::Interpreter *EE);
+	friend auto estimate(std::shared_ptr<const Config> conf,
+			     const std::unique_ptr<llvm::Module> &mod,
+			     const std::unique_ptr<ModuleInfo> &modInfo) -> GenMCDriver::Result;
+	friend auto verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+			   std::unique_ptr<ModuleInfo> modInfo) -> GenMCDriver::Result;
 
-	GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		    std::unique_ptr<ModuleInfo> MI, ThreadPool *pool = nullptr,
+	GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool = nullptr,
 		    Mode = VerificationMode{});
 
 	/** No copying or copy-assignment of this class is allowed */
@@ -286,7 +283,10 @@ protected:
 	const Config *getConf() const { return userConf.get(); }
 
 	/** Returns a pointer to the interpreter */
-	llvm::Interpreter *getEE() const { return EE.get(); }
+	llvm::Interpreter *getEE() const { return EE; }
+
+	/** Sets pointer to the interpreter */
+	void setEE(llvm::Interpreter *interp) { EE = interp; }
 
 	/** Returns a reference to the current execution */
 	Execution &getExec() { return execStack.back(); }
@@ -718,7 +718,7 @@ private:
 	std::shared_ptr<const Config> userConf;
 
 	/** The interpreter used by the driver */
-	std::unique_ptr<llvm::Interpreter> EE;
+	llvm::Interpreter *EE;
 
 	/** Execution stack */
 	std::vector<Execution> execStack;

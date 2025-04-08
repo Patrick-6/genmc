@@ -21,6 +21,8 @@
 #ifndef GENMC_THREAD_POOL_HPP
 #define GENMC_THREAD_POOL_HPP
 
+#include "ExecutionGraph/DepExecutionGraph.hpp"
+#include "Runtime/Interpreter.h"
 #include "Static/LLVMModule.hpp"
 #include "Support/ThreadPinner.hpp"
 #include "Verification/GenMCDriver.hpp"
@@ -135,6 +137,7 @@ class ThreadPool {
 public:
 	using GlobalQueueT = GlobalWorkQueue;
 	using TaskT = GlobalQueueT::ItemT;
+	using TFunT = void (*)(GenMCDriver *, llvm::Interpreter *);
 
 	/*** Constructors ***/
 
@@ -142,24 +145,38 @@ public:
 	ThreadPool(const ThreadPool &) = delete; /* non-copyable to avoid rcs for now */
 	ThreadPool(ThreadPool &&) = delete;
 	ThreadPool(const std::shared_ptr<const Config> &conf,
-		   const std::unique_ptr<llvm::Module> &mod, const std::unique_ptr<ModuleInfo> &MI)
+		   const std::unique_ptr<llvm::Module> &mod, const std::unique_ptr<ModuleInfo> &MI,
+		   TFunT threadFun)
 		: numWorkers_(conf->threads), pinner_(numWorkers_), joiner_(workers_)
 	{
 
-		/** Set global variables before spawning the threads */
+		/* Set global variables before spawning the threads */
 		shouldHalt_.store(false);
 		remainingTasks_.store(0);
 
+		/* Have a non-empty queue before spawning workers */
+		auto dummyGetter = [](auto &addr) { return SVal(0); };
+		auto execGraph = conf->isDepTrackingModel
+					 ? std::make_unique<DepExecutionGraph>(dummyGetter)
+					 : std::make_unique<ExecutionGraph>(dummyGetter);
+		auto exec = std::make_unique<GenMCDriver::Execution>(
+			std::move(execGraph), std::move(WorkList()), std::move(ChoiceMap()),
+			std::move(SAddrAllocator()), Event::getInit());
+		submit(std::move(exec));
+
+		/* Spawn workers */
 		for (auto i = 0U; i < numWorkers_; i++) {
 			contexts_.push_back(std::make_unique<llvm::LLVMContext>());
 			auto newmod = LLVMModule::cloneModule(mod, contexts_.back());
 			auto newMI = MI->clone(*newmod);
 
-			auto dw = GenMCDriver::create(conf, std::move(newmod), std::move(newMI),
-						      this);
-			if (i == 0)
-				submit(dw->extractState());
-			addWorker(i, std::move(dw));
+			auto dw = GenMCDriver::create(conf, this);
+			std::string buf;
+			auto EE = llvm::Interpreter::create(std::move(newmod), std::move(newMI),
+							    &*dw, dw->getConf(),
+							    dw->getExec().getAllocator(), &buf);
+			dw->setEE(&*EE);
+			addWorker(i, std::move(dw), std::move(EE), threadFun);
 		}
 	}
 
@@ -210,7 +227,8 @@ public:
 
 private:
 	/** Adds a worker thread to the pool */
-	void addWorker(unsigned int index, std::unique_ptr<GenMCDriver> driver);
+	void addWorker(unsigned int index, std::unique_ptr<GenMCDriver> driver,
+		       std::unique_ptr<llvm::Interpreter> EE, TFunT threadFun);
 
 	/** Tries to pop a task from the global queue */
 	auto tryPopPoolQueue() -> TaskT;

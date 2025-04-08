@@ -20,12 +20,15 @@
 
 #include "ThreadPool.hpp"
 
-void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> driver)
+void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> driver,
+			   std::unique_ptr<llvm::Interpreter> EE, TFunT threadFun)
 {
 	using ThreadT = std::packaged_task<GenMCDriver::Result(
-		unsigned int, std::unique_ptr<GenMCDriver> driver)>;
+		unsigned int, std::unique_ptr<GenMCDriver> driver,
+		std::unique_ptr<llvm::Interpreter> EE, TFunT threadFun)>;
 
-	ThreadT thread([this](unsigned int /*i*/, std::unique_ptr<GenMCDriver> driver) {
+	ThreadT thread([this](unsigned int /*i*/, std::unique_ptr<GenMCDriver> driver,
+			      std::unique_ptr<llvm::Interpreter> EE, TFunT threadFun) {
 		while (true) {
 			auto taskUP = popTask();
 
@@ -35,7 +38,7 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> driver)
 
 			/* Prepare the driver and start the exploration */
 			driver->initFromState(std::move(taskUP));
-			driver->run();
+			threadFun(&*driver, &*EE);
 
 			/* If that was the last task, notify everyone */
 			std::lock_guard<std::mutex> lock(stateMtx_);
@@ -49,7 +52,8 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> driver)
 
 	results_.push_back(std::move(thread.get_future()));
 
-	workers_.emplace_back(std::move(thread), i, std::move(driver));
+	workers_.emplace_back(std::move(thread), i, std::move(driver), std::move(EE),
+			      std::move(threadFun));
 	pinner_.pin(workers_.back(), i);
 }
 

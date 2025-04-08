@@ -49,8 +49,7 @@
  ** GENERIC MODEL CHECKING DRIVER
  ***********************************************************/
 
-GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-			 std::unique_ptr<ModuleInfo> modInfo, ThreadPool *pool /* = nullptr */,
+GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool /* = nullptr */,
 			 Mode mode /* = VerificationMode{} */)
 	: mode(mode), pool(pool), userConf(std::move(conf))
 {
@@ -69,11 +68,6 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 	GENMC_DEBUG(hasBounder |= userConf->boundsHistogram;);
 	if (hasBounder)
 		bounder = BoundDecider::create(getConf()->boundType);
-
-	/* Create an interpreter for the program's instructions */
-	std::string buf;
-	EE = llvm::Interpreter::create(std::move(mod), std::move(modInfo), this, getConf(),
-				       getExec().getAllocator(), &buf);
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;
@@ -713,44 +707,22 @@ void GenMCDriver::handleRecoveryEnd()
 	if (getConf()->printExecGraphs)
 		printGraph();
 	getEE()->cleanupRecoveryRoutine(getExec().getGraph().getRecoveryRoutineId());
-	return;
 }
 
-std::vector<ThreadInfo> createExecutionContext(const ExecutionGraph &g)
+bool GenMCDriver::done()
 {
-	std::vector<ThreadInfo> tis;
-	for (auto i = 1u; i < g.getNumThreads(); i++) { // skip main
-		auto *bLab = g.getFirstThreadLabel(i);
-		BUG_ON(!bLab);
-		tis.push_back(bLab->getThreadInfo());
-	}
-	return tis;
-}
 
-void GenMCDriver::run()
-{
-	auto *EE = getEE();
-
-	EE->setExecutionContext(createExecutionContext(getExec().getGraph()));
-	while (!isHalting()) {
-		EE->reset();
-
-		/* Get main program function and run the program */
-		EE->runAsMain(getConf()->programEntryFun);
-		if (getConf()->persevere)
-			EE->runRecovery();
-
-		auto validExecution = false;
-		while (!validExecution) {
-			auto item = getExec().getWorkqueue().getNext();
-			if (!item) {
-				if (popExecution())
-					continue;
-				return;
-			}
-			validExecution = restrictAndRevisit(item) && isRevisitValid(*item);
+	auto validExecution = false;
+	while (!isHalting() && !validExecution) {
+		auto item = getExec().getWorkqueue().getNext();
+		if (!item) {
+			if (popExecution())
+				continue;
+			return true;
 		}
+		validExecution = restrictAndRevisit(item) && isRevisitValid(*item);
 	}
+	return isHalting();
 }
 
 bool GenMCDriver::isHalting() const
@@ -765,45 +737,6 @@ void GenMCDriver::halt(VerificationError status)
 	result.status = status;
 	if (getThreadPool())
 		getThreadPool()->halt();
-}
-
-GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf,
-					std::unique_ptr<llvm::Module> mod,
-					std::unique_ptr<ModuleInfo> modInfo)
-{
-	/* Spawn a single or multiple drivers depending on the configuration */
-	if (conf->threads == 1) {
-		auto driver = GenMCDriver::create(conf, std::move(mod), std::move(modInfo));
-		driver->run();
-		auto res = std::move(driver->getResult());
-		return res;
-	}
-
-	std::vector<std::future<GenMCDriver::Result>> futures;
-	{
-		/* Then, fire up the drivers */
-		ThreadPool pool(conf, mod, modInfo);
-		futures = pool.waitForTasks();
-	}
-
-	GenMCDriver::Result res;
-	for (auto &f : futures) {
-		res += f.get();
-	}
-	return res;
-}
-
-GenMCDriver::Result GenMCDriver::estimate(std::shared_ptr<const Config> conf,
-					  const std::unique_ptr<llvm::Module> &mod,
-					  const std::unique_ptr<ModuleInfo> &modInfo)
-{
-	auto estCtx = std::make_unique<llvm::LLVMContext>();
-	auto newmod = LLVMModule::cloneModule(mod, estCtx);
-	auto newMI = modInfo->clone(*newmod);
-	auto driver = GenMCDriver::create(conf, std::move(newmod), std::move(newMI), nullptr,
-					  GenMCDriver::EstimationMode{conf->estimationMax});
-	driver->run();
-	return std::move(driver->getResult());
 }
 
 /************************************************************
