@@ -90,9 +90,10 @@ void Interpreter::resetThread(unsigned int id)
 	thr.ECStack = {};
 	thr.tls = threadLocalVars;
 	thr.blocked = BlockageType::NotBlocked;
-	thr.globalInstructions = 0;
 	thr.rng.seed(Thread::seed);
+
 	clearDeps(id);
+	dynState.globalInstructions[thr.id] = Event(thr.id, 0);
 }
 
 void Interpreter::reset()
@@ -111,11 +112,13 @@ Thread &Interpreter::addNewThread(Thread &&thread)
 {
 	if (thread.id == getNumThreads()) {
 		dynState.threads.push_back(std::move(thread));
+		dynState.globalInstructions.emplace_back(dynState.threads.back().id, 0);
 		return dynState.threads.back();
 	}
 
 	BUG_ON(dynState.threads[thread.id].threadFun != thread.threadFun ||
 	       dynState.threads[thread.id].id != thread.id);
+	dynState.globalInstructions[thread.id] = Event(thread.id, 0);
 	return dynState.threads[thread.id] = std::move(thread);
 }
 
@@ -125,6 +128,7 @@ Thread &Interpreter::createAddMainThread()
 	Thread main(mainFun, 0);
 	main.tls = threadLocalVars;
 	dynState.threads.clear(); /* make sure its empty */
+	dynState.globalInstructions.clear();
 	return addNewThread(std::move(main));
 }
 
@@ -262,8 +266,7 @@ void Interpreter::updateInternalFunRetDeps(unsigned int tid, Function *F, Instru
 
 	auto iFunCode = internalFunNames.at(name);
 	if (isAllocFunction(name))
-		updateDataDeps(tid, CS, Event(tid, getThrById(tid).globalInstructions));
-	return;
+		updateDataDeps(tid, CS, threadPos(tid));
 }
 
 //===----------------------------------------------------------------------===//

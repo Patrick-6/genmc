@@ -1455,7 +1455,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I)
 
 	ECStack().back().Allocas.add((void *)result.get());
 
-	updateDataDeps(getCurThr().id, &I, Event(getCurThr().id, getCurThr().globalInstructions));
+	updateDataDeps(getCurThr().id, &I, currPos());
 	SetValue(&I, SVAL_TO_GV(result, I.getType()), SF);
 }
 
@@ -3673,14 +3673,14 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 		scheduleThread(i);
 
 		/* Make sure to refetch references within the loop (invalidation danger) */
-		while ((int)getCurThr().globalInstructions < before.getMax(i)) {
-			int snap = getCurThr().globalInstructions;
+		while (currPos().index < before.getMax(i)) {
+			int snap = currPos().index;
 			ExecutionContext &SF = ECStack().back();
 			Instruction &I = *SF.CurInst++;
 			visit(I);
 
 			/* Collect metadata only for global instructions */
-			if (getCurThr().globalInstructions == snap)
+			if (currPos().index == snap)
 				continue;
 			/* If there are no metadata for this instruction, skip */
 			if (!I.getMetadata("dbg"))
@@ -3694,8 +3694,7 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 			/* If the instruction maps to more than one events, we have to fill more
 			 * spots */
 			for (auto i = snap + 2;
-			     i <= std::min((int)getCurThr().globalInstructions, before.getMax(i));
-			     i++)
+			     i <= std::min((int)currPos().index, before.getMax(i)); i++)
 				getCurThr().prefixLOC[i] = std::make_pair(line, file);
 		}
 	}

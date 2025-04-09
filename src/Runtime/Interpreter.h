@@ -180,7 +180,6 @@ public:
 	std::vector<llvm::ExecutionContext> ECStack;
 	std::vector<llvm::ExecutionContext> initEC;
 	std::unordered_map<const void *, llvm::GenericValue> tls;
-	unsigned int globalInstructions;
 	BlockageType blocked;
 	MyRNG rng;
 	std::vector<std::pair<int, std::string>> prefixLOC;
@@ -196,13 +195,13 @@ protected:
 	friend class Interpreter;
 
 	Thread(llvm::Function *F, int id)
-		: id(id), parentId(-1), threadFun(F), initEC(), globalInstructions(0),
-		  blocked(BlockageType::NotBlocked), rng(seed)
+		: id(id), parentId(-1), threadFun(F), initEC(), blocked(BlockageType::NotBlocked),
+		  rng(seed)
 	{}
 
 	Thread(llvm::Function *F, SVal arg, int id, int pid, const llvm::ExecutionContext &SF)
 		: id(id), parentId(pid), threadFun(F), threadArg(arg), initEC({SF}),
-		  globalInstructions(0), blocked(BlockageType::NotBlocked), rng(seed)
+		  blocked(BlockageType::NotBlocked), rng(seed)
 	{}
 };
 
@@ -218,6 +217,7 @@ struct DynamicComponents {
 
 	/* Information about threads as well as the currently executing thread */
 	std::vector<Thread> threads;
+	std::vector<Event> globalInstructions;
 	int currentThread = 0;
 
 	/* Pointer to the dependency tracker */
@@ -310,6 +310,7 @@ public:
 	void setExecutionContext(const std::vector<ThreadInfo> &tis)
 	{
 		dynState.threads.clear();
+		dynState.globalInstructions.clear();
 		createAddMainThread();
 		for (auto &ti : tis)
 			constructAddThreadFromInfo(ti);
@@ -395,18 +396,12 @@ public:
 	std::vector<ExecutionContext> &ECStack() { return getCurThr().ECStack; }
 
 	/* Returns the current (global) position (thread, index) interpreted */
-	Event currPos() const { return Event(getCurThr().id, getCurThr().globalInstructions); };
-	Event nextPos() const { return currPos().next(); };
-	Event incPos()
-	{
-		auto &thr = getCurThr();
-		return Event(thr.id, ++thr.globalInstructions);
-	};
-	Event decPos()
-	{
-		auto &thr = getCurThr();
-		return Event(thr.id, --thr.globalInstructions);
-	};
+	Event currPos() const { return dynState.globalInstructions[getCurThr().id]; }
+	Event nextPos() const { return currPos().next(); }
+	Event incPos() { return ++dynState.globalInstructions[getCurThr().id]; }
+	Event decPos() { return --dynState.globalInstructions[getCurThr().id]; }
+
+	Event threadPos(unsigned int i) const { return dynState.globalInstructions[i]; }
 
 	/* Query interpreter's state */
 	ProgramState getProgramState() const { return dynState.programState; }
@@ -444,8 +439,8 @@ public:
 	create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI, GenMCDriver *driver,
 	       const Config *userConf, SAddrAllocator &alloctor, std::string *ErrorStr = nullptr);
 
-	/// run - Start execution with the specified function and arguments.
-	///
+/// run - Start execution with the specified function and arguments.
+///
 #ifdef LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR
 	virtual GenericValue runFunction(Function *F, const std::vector<GenericValue> &ArgValues);
 #else
