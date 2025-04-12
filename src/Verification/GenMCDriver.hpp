@@ -25,6 +25,7 @@
 #include "Config/Config.hpp"
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
+#include "Support/Hash.hpp"
 #include "Support/SAddrAllocator.hpp"
 #include "Verification/ChoiceMap.hpp"
 #include "Verification/Relinche/LinearizabilityChecker.hpp"
@@ -57,8 +58,9 @@ class GenMCDriver {
 protected:
 	using LocalQueueT = WorkList;
 	using ValuePrefixT = std::unordered_map<
-		unsigned int,
-		Trie<std::vector<SVal>, std::vector<std::unique_ptr<EventLabel>>, SValUCmp>>;
+		std::pair<unsigned int, unsigned int>, // fun_id, tid
+		Trie<std::vector<SVal>, std::vector<std::unique_ptr<EventLabel>>, SValUCmp>,
+		PairHasher<unsigned int, unsigned int>>;
 
 public:
 	/** The operating mode of the driver */
@@ -450,12 +452,13 @@ private:
 	/** Opt: Caches LAB to optimize scheduling next time */
 	void cacheEventLabel(const EventLabel *lab);
 
-	/** Opt: Checks whether SEQ has been seen before for THREAD and
+	/** Opt: Checks whether SEQ has been seen before for <FUN_ID, TID> and
 	 * if so returns its successors. Returns nullptr otherwise. */
 	std::vector<std::unique_ptr<EventLabel>> *
-	retrieveCachedSuccessors(unsigned int thread, const std::vector<SVal> &seq)
+	retrieveCachedSuccessors(std::pair<unsigned int, unsigned int> key,
+				 const std::vector<SVal> &seq)
 	{
-		return seenPrefixes[thread].lookup(seq);
+		return seenPrefixes[key].lookup(seq);
 	}
 
 	/** Adds LAB to graph (maintains well-formedness).

@@ -211,9 +211,9 @@ static auto createExecutionContext(const ExecutionGraph &g) -> std::vector<Threa
 
 void run(GenMCDriver *driver, llvm::Interpreter *EE)
 {
-	EE->setExecutionContext(createExecutionContext(driver->getExec().getGraph()));
 	do {
 		EE->reset();
+		EE->setExecutionContext(createExecutionContext(driver->getExec().getGraph()));
 		EE->runAsMain(driver->getConf()->programEntryFun);
 	} while (!driver->done());
 }

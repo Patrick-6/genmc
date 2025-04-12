@@ -415,36 +415,6 @@ void GenMCDriver::resetExplorationOptions()
 
 void GenMCDriver::handleExecutionStart()
 {
-	const auto &g = getExec().getGraph();
-
-	/* Set-up (optimize) the interpreter for the new exploration */
-	for (auto i = 1u; i < g.getNumThreads(); i++) {
-
-		/* Skip not-yet-created threads */
-		BUG_ON(g.isThreadEmpty(i));
-
-		auto *labFst = g.getFirstThreadLabel(i);
-
-		/* Skip if parent create does not exist yet (or anymore) */
-		if (!labFst->getCreate())
-			continue;
-
-		/* Skip finished threads */
-		auto *labLast = g.getLastThreadLabel(i);
-		if (llvm::isa<ThreadFinishLabel>(labLast))
-			continue;
-
-		/* Skip the recovery thread, if it exists.
-		 * It will be scheduled separately afterwards */
-		if (i == g.getRecoveryRoutineId())
-			continue;
-
-		/* Otherwise, initialize ECStacks in interpreter */
-		auto &thr = getEE()->getThrById(i);
-		BUG_ON(!thr.ECStack.empty());
-		thr.ECStack = thr.initEC;
-	}
-
 	/* Set various exploration options for this execution */
 	resetExplorationOptions();
 }
@@ -480,9 +450,13 @@ bool GenMCDriver::tryOptimizeScheduling(Event pos)
 	if (!getConf()->instructionCaching || inEstimationMode())
 		return false;
 
-	auto next = findNextLabelToAdd(getExec().getGraph(), pos);
+	auto &g = getExec().getGraph();
+	auto key = std::make_pair(g.getFirstThreadLabel(pos.thread)->getThreadInfo().funId,
+				  (unsigned)pos.thread);
+
+	auto next = findNextLabelToAdd(g, pos);
 	auto [vals, last] = extractValPrefix(next);
-	auto *res = retrieveCachedSuccessors(pos.thread, vals);
+	auto *res = retrieveCachedSuccessors(key, vals);
 	if (res == nullptr || res->empty() || res->back()->getIndex() < next.index)
 		return false;
 
@@ -940,7 +914,12 @@ void GenMCDriver::cacheEventLabel(const EventLabel *lab)
 	if (!getConf()->instructionCaching || inEstimationMode())
 		return;
 
+	/* FInd the respective function ID: if no label has been cached, lab is a begin */
 	auto &g = getExec().getGraph();
+	const auto *firstLab = llvm::isa<ThreadStartLabel>(lab)
+				       ? llvm::dyn_cast<ThreadStartLabel>(lab)
+				       : g.getFirstThreadLabel(lab->getThread());
+	auto cacheKey = std::make_pair(firstLab->getThreadInfo().funId, (unsigned)lab->getThread());
 
 	/* Helper that copies and resets the prefix of LAB starting from index FROM. */
 	auto copyPrefix = [&](auto from, auto &lab) {
@@ -957,9 +936,9 @@ void GenMCDriver::cacheEventLabel(const EventLabel *lab)
 
 	/* Extract value prefix and find how much of it has already been cached */
 	auto [vals, indices] = extractValPrefix(lab->getPos());
-	auto commonPrefixLen = seenPrefixes[lab->getThread()].findLongestCommonPrefix(vals);
+	auto commonPrefixLen = seenPrefixes[cacheKey].findLongestCommonPrefix(vals);
 	std::vector<SVal> seenVals(vals.begin(), vals.begin() + commonPrefixLen);
-	auto *data = retrieveCachedSuccessors(lab->getThread(), seenVals);
+	auto *data = retrieveCachedSuccessors(cacheKey, seenVals);
 	BUG_ON(!data);
 
 	/*
@@ -987,9 +966,9 @@ void GenMCDriver::cacheEventLabel(const EventLabel *lab)
 		 * to cache to a different bucket */
 		if (!data->empty() && data->back()->returnsValue()) {
 			seenVals.push_back(vals[seenVals.size()]);
-			auto res = seenPrefixes[lab->getThread()].addSeq(seenVals, {});
+			auto res = seenPrefixes[cacheKey].addSeq(seenVals, {});
 			BUG_ON(!res);
-			data = retrieveCachedSuccessors(lab->getThread(), seenVals);
+			data = retrieveCachedSuccessors(cacheKey, seenVals);
 		}
 		data->push_back(std::move(labs[i]));
 	}

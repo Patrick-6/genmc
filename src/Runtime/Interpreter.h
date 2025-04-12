@@ -173,14 +173,16 @@ public:
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
 	static constexpr int seed = 1995;
 
-	int id;
-	int parentId;
-	llvm::Function *threadFun;
+	Thread() = default;
+
+	int id{};
+	int parentId{};
+	llvm::Function *threadFun{};
 	SVal threadArg;
 	std::vector<llvm::ExecutionContext> ECStack;
 	std::vector<llvm::ExecutionContext> initEC;
 	std::unordered_map<const void *, llvm::GenericValue> tls;
-	BlockageType blocked;
+	BlockageType blocked{};
 	MyRNG rng;
 	std::vector<std::pair<int, std::string>> prefixLOC;
 
