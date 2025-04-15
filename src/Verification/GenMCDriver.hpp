@@ -714,7 +714,7 @@ private:
 	std::shared_ptr<const Config> userConf;
 
 	/** The interpreter used by the driver */
-	llvm::Interpreter *EE;
+	llvm::Interpreter *EE{};
 
 	/** Execution stack */
 	std::vector<Execution> execStack;
