@@ -2999,8 +2999,10 @@ void Interpreter::callLockZNESpinEnd(Function *F, const std::vector<GenericValue
 void Interpreter::callKillThread(Function *F, const std::vector<GenericValue> &ArgVals,
 				 const std::unique_ptr<EventDeps> &specialDeps)
 {
-	if (ArgVals[0].IntVal.getBoolValue())
+	if (ArgVals[0].IntVal.getBoolValue()) {
+		CALL_DRIVER(handleThreadKill, ThreadKillLabel::create(currPos()));
 		ECStack().clear();
+	}
 }
 
 void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVals,

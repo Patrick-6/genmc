@@ -1399,8 +1399,10 @@ std::optional<EventLabel *> GenMCDriver::findConsistentCo(WriteLabel *wLab,
 
 void GenMCDriver::handleThreadKill(std::unique_ptr<ThreadKillLabel> kLab)
 {
-	auto replay = isExecutionDrivenByGraph(&*kLab);
-	BUG_ON(replay);
+	if (isExecutionDrivenByGraph(&*kLab)) {
+		BUG_ON(!inReplay());
+		return;
+	}
 	addLabelToGraph(std::move(kLab));
 }
 
