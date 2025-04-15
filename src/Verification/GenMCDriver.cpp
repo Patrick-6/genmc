@@ -1716,8 +1716,6 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	if (isExecutionDrivenByGraph(&*rLab))
 		return getReadRetValue(llvm::dyn_cast<ReadLabel>(g.getEventLabel(rLab->getPos())));
 
-	if (!rLab->getAnnot())
-		rLab->setAnnot(EE->getCurrentAnnotConcretized());
 	auto *lab = llvm::dyn_cast<ReadLabel>(addLabelToGraph(std::move(rLab)));
 
 	if (checkAccessValidity(lab) != VerificationError::VE_OK ||

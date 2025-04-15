@@ -677,7 +677,7 @@ protected:
 public:
 	ReadLabel(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type, EventLabel *rfLab,
 		  AnnotVP annot, const EventDeps &deps = EventDeps())
-		: ReadLabel(Read, pos, ord, loc, size, type, rfLab, annot, deps)
+		: ReadLabel(Read, pos, ord, loc, size, type, rfLab, std::move(annot), deps)
 	{}
 	ReadLabel(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type, EventLabel *rfLab,
 		  const EventDeps &deps = EventDeps())

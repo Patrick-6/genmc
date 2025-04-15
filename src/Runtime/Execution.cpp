@@ -1535,7 +1535,10 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	case EventLabel::EventLabelKind::__kind: {                                                 \
 		val = CALL_DRIVER_RESET_IF_NONE(                                                   \
 			handleLoad,                                                                \
-			__kind##Label::create(currPos(), ord, ptr, size, atyp, GET_DEPS(deps)));   \
+			__kind##Label::create(                                                     \
+				currPos(), ord, ptr, size, atyp, nullptr,                          \
+				ReadLabel::AnnotVP(getCurrentAnnotConcretized().release()),        \
+				GET_DEPS(deps)));                                                  \
 		break;                                                                             \
 	}
 
@@ -1629,10 +1632,12 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	case switchPair(EventLabel::EventLabelKind::nameR, EventLabel::EventLabelKind::nameW): {   \
 		ret = CALL_DRIVER_RESET_IF_NONE(                                                   \
 			handleLoad,                                                                \
-			nameR##Label::create(currPos(), fromLLVMOrdering(I.getSuccessOrdering()),  \
-					     ptr, size, atyp, GV_TO_SVAL(cmpVal, typ),             \
-					     GV_TO_SVAL(newVal, typ), getWriteAttr(I),             \
-					     GET_DEPS(lDeps)));                                    \
+			nameR##Label::create(                                                      \
+				currPos(), fromLLVMOrdering(I.getSuccessOrdering()), ptr, size,    \
+				atyp, GV_TO_SVAL(cmpVal, typ), GV_TO_SVAL(newVal, typ),            \
+				getWriteAttr(I), nullptr,                                          \
+				ReadLabel::AnnotVP(getCurrentAnnotConcretized().release()),        \
+				GET_DEPS(lDeps)));                                                 \
 		if (!ret.has_value())                                                              \
 			return;                                                                    \
 		cmpRes = *ret == GV_TO_SVAL(cmpVal, typ);                                          \
