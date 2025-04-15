@@ -213,9 +213,8 @@ void GenMCDriver::resetThreadPrioritization() { threadPrios.clear(); }
 
 bool GenMCDriver::isSchedulable(int thread) const
 {
-	auto &thr = getEE()->getThrById(thread);
-	auto *lab = getExec().getGraph().getLastThreadLabel(thread);
-	return !thr.ECStack.empty() && !llvm::isa_and_nonnull<TerminatorLabel>(lab);
+	const auto *lab = getExec().getGraph().getLastThreadLabel(thread);
+	return !llvm::isa_and_nonnull<TerminatorLabel>(lab);
 }
 
 bool GenMCDriver::schedulePrioritized()
