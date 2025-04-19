@@ -1488,14 +1488,9 @@ int GenMCDriver::handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab)
 	/* Prepare the execution context for the new thread */
 	EE->constructAddThreadFromInfo(lab->getChildInfo());
 
-	/* If the thread does not exist in the graph, make an entry for it */
-	if (cid == (long)g.getNumThreads()) {
-		g.addNewThread();
-		BUG_ON(EE->getNumThreads() != g.getNumThreads());
-	} else {
-		BUG_ON(g.getThreadSize(cid) != 1);
-		g.removeLast(cid);
-	}
+	/* This tid should not already exist in the graph */
+	BUG_ON(cid != (long)g.getNumThreads());
+	g.addNewThread();
 
 	/* Create a label and add it to the graph; is the thread symmetric to another one? */
 	auto symm = getSymmetricTidSR(lab, lab->getChildInfo());

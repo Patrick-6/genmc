@@ -110,16 +110,11 @@ void Interpreter::reset()
 
 Thread &Interpreter::addNewThread(Thread &&thread)
 {
-	if (thread.id == getNumThreads()) {
-		dynState.threads.push_back(std::move(thread));
-		dynState.globalInstructions.emplace_back(dynState.threads.back().id, 0);
-		return dynState.threads.back();
-	}
+	BUG_ON(thread.id != getNumThreads());
 
-	BUG_ON(dynState.threads[thread.id].threadFun != thread.threadFun ||
-	       dynState.threads[thread.id].id != thread.id);
-	dynState.globalInstructions[thread.id] = Event(thread.id, 0);
-	return dynState.threads[thread.id] = std::move(thread);
+	dynState.threads.push_back(std::move(thread));
+	dynState.globalInstructions.emplace_back(dynState.threads.back().id, 0);
+	return dynState.threads.back();
 }
 
 /* Creates an entry for the main() function */
