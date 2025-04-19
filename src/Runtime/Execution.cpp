@@ -3732,14 +3732,13 @@ void Interpreter::runAtExitHandlers()
 
 void Interpreter::run()
 {
-	while (driver->scheduleNext()) {
+	while (driver->scheduleNext(dynState.globalInstructions)) {
 		if (driver->tryOptimizeScheduling(currPos()))
 			continue;
 		llvm::ExecutionContext &SF = ECStack().back();
 		llvm::Instruction &I = *SF.CurInst++;
 		visit(I);
 	}
-	return;
 }
 
 int Interpreter::runAsMain(const std::string &main)
