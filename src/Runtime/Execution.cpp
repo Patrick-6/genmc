@@ -3724,6 +3724,10 @@ void Interpreter::runAtExitHandlers()
 			llvm::ExecutionContext &SF = ECStack().back();
 			llvm::Instruction &I = *SF.CurInst++;
 			visit(I);
+			if (!ECStack().empty()) {
+				dynState.globalInstructions[currPos().thread].kind =
+					getInstKind(&*ECStack().back().CurInst);
+			}
 		}
 		// run();
 	}
@@ -3738,6 +3742,10 @@ void Interpreter::run()
 		llvm::ExecutionContext &SF = ECStack().back();
 		llvm::Instruction &I = *SF.CurInst++;
 		visit(I);
+		if (!ECStack().empty()) {
+			dynState.globalInstructions[currPos().thread].kind =
+				getInstKind(&*ECStack().back().CurInst);
+		}
 	}
 }
 
@@ -3749,6 +3757,9 @@ int Interpreter::runAsMain(const std::string &main)
 
 	mainECStack = getThrById(0).initEC = ECStack();
 	setProgramState(llvm::ProgramState::Main);
+	dynState.globalInstructions[currPos().thread].kind =
+		getInstKind(&*ECStack().back().CurInst);
+
 	driver->handleExecutionStart();
 	run();
 	driver->handleExecutionEnd();

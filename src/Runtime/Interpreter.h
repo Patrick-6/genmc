@@ -219,7 +219,7 @@ struct DynamicComponents {
 
 	/* Information about threads as well as the currently executing thread */
 	std::vector<Thread> threads;
-	std::vector<Event> globalInstructions;
+	std::vector<Action> globalInstructions;
 	int currentThread = 0;
 
 	/* Pointer to the dependency tracker */
@@ -398,12 +398,12 @@ public:
 	std::vector<ExecutionContext> &ECStack() { return getCurThr().ECStack; }
 
 	/* Returns the current (global) position (thread, index) interpreted */
-	Event currPos() const { return dynState.globalInstructions[getCurThr().id]; }
+	Event currPos() const { return dynState.globalInstructions[getCurThr().id].event; }
 	Event nextPos() const { return currPos().next(); }
-	Event incPos() { return ++dynState.globalInstructions[getCurThr().id]; }
-	Event decPos() { return --dynState.globalInstructions[getCurThr().id]; }
+	Event incPos() { return ++dynState.globalInstructions[getCurThr().id].event; }
+	Event decPos() { return --dynState.globalInstructions[getCurThr().id].event; }
 
-	Event threadPos(unsigned int i) const { return dynState.globalInstructions[i]; }
+	Event threadPos(unsigned int i) const { return dynState.globalInstructions[i].event; }
 
 	/* Query interpreter's state */
 	ProgramState getProgramState() const { return dynState.programState; }

@@ -240,17 +240,17 @@ bool GenMCDriver::schedulePrioritized()
 	return false;
 }
 
-bool GenMCDriver::scheduleNextLTR(std::span<Event> runnable)
+bool GenMCDriver::scheduleNextLTR(std::span<Action> runnable)
 {
 	auto &g = getExec().getGraph();
 	auto *EE = getEE();
 
 	for (auto &action : runnable) {
-		if (!isSchedulable(action.thread))
+		if (!isSchedulable(action.event.thread))
 			continue;
 
 		/* Found a not-yet-complete thread; schedule it */
-		EE->scheduleThread(action.thread);
+		EE->scheduleThread(action.event.thread);
 		return true;
 	}
 
@@ -258,30 +258,18 @@ bool GenMCDriver::scheduleNextLTR(std::span<Event> runnable)
 	return false;
 }
 
-bool GenMCDriver::isNextThreadInstLoad(int tid)
-{
-	auto &I = getEE()->getThrById(tid).ECStack.back().CurInst;
-
-	/* Overapproximate with function calls some of which might be modeled as loads */
-	auto *ci = llvm::dyn_cast<llvm::CallInst>(I);
-	return llvm::isa<llvm::LoadInst>(I) || llvm::isa<llvm::AtomicCmpXchgInst>(I) ||
-	       llvm::isa<llvm::AtomicRMWInst>(I) ||
-	       (ci && ci->getCalledFunction() &&
-		hasGlobalLoadSemantics(ci->getCalledFunction()->getName().str()));
-}
-
-bool GenMCDriver::scheduleNextWF(std::span<Event> runnable)
+bool GenMCDriver::scheduleNextWF(std::span<Action> runnable)
 {
 	auto &g = getExec().getGraph();
 	auto *EE = getEE();
 
 	/* First, schedule based on the EG */
 	for (auto &action : runnable) {
-		if (!isSchedulable(action.thread))
+		if (!isSchedulable(action.event.thread))
 			continue;
 
-		if (g.containsPos(action.next())) {
-			EE->scheduleThread(action.thread);
+		if (g.containsPos(action.event.next())) {
+			EE->scheduleThread(action.event.thread);
 			return true;
 		}
 	}
@@ -290,13 +278,14 @@ bool GenMCDriver::scheduleNextWF(std::span<Event> runnable)
 	 * Keep an LTR fallback option in case this fails */
 	long fallback = -1;
 	for (auto &action : runnable) {
-		if (!isSchedulable(action.thread))
+		if (!isSchedulable(action.event.thread))
 			continue;
 
 		if (fallback == -1)
-			fallback = action.thread;
-		if (!isNextThreadInstLoad(action.thread)) {
-			EE->scheduleThread(getFirstSchedulableSymmetric(action.thread));
+			fallback = action.event.thread;
+
+		if (action.kind != ActionKind::Load) {
+			EE->scheduleThread(getFirstSchedulableSymmetric(action.event.thread));
 			return true;
 		}
 	}
@@ -325,18 +314,18 @@ int GenMCDriver::getFirstSchedulableSymmetric(int tid)
 	return firstSched;
 }
 
-bool GenMCDriver::scheduleNextWFR(std::span<Event> runnable)
+bool GenMCDriver::scheduleNextWFR(std::span<Action> runnable)
 {
 	auto &g = getExec().getGraph();
 	auto *EE = getEE();
 
 	/* First, schedule based on the EG */
 	for (auto &action : runnable) {
-		if (!isSchedulable(action.thread))
+		if (!isSchedulable(action.event.thread))
 			continue;
 
-		if (g.containsPos(action.next())) {
-			EE->scheduleThread(action.thread);
+		if (g.containsPos(action.event.next())) {
+			EE->scheduleThread(action.event.thread);
 			return true;
 		}
 	}
@@ -344,13 +333,13 @@ bool GenMCDriver::scheduleNextWFR(std::span<Event> runnable)
 	std::vector<int> nonwrites;
 	std::vector<int> writes;
 	for (auto &action : runnable) {
-		if (!isSchedulable(action.thread))
+		if (!isSchedulable(action.event.thread))
 			continue;
 
-		if (!isNextThreadInstLoad(action.thread)) {
-			writes.push_back(action.thread);
+		if (action.kind != ActionKind::Load) {
+			writes.push_back(action.event.thread);
 		} else {
-			nonwrites.push_back(action.thread);
+			nonwrites.push_back(action.event.thread);
 		}
 	}
 
@@ -364,7 +353,7 @@ bool GenMCDriver::scheduleNextWFR(std::span<Event> runnable)
 	return true;
 }
 
-bool GenMCDriver::scheduleNextRandom(std::span<Event> runnable)
+bool GenMCDriver::scheduleNextRandom(std::span<Action> runnable)
 {
 	auto &g = getExec().getGraph();
 	auto *EE = getEE();
@@ -373,7 +362,7 @@ bool GenMCDriver::scheduleNextRandom(std::span<Event> runnable)
 	MyDist dist(0, g.getNumThreads());
 	auto random = dist(rng);
 	for (auto &action : runnable) {
-		auto i = (action.thread + random) % g.getNumThreads();
+		auto i = (action.event.thread + random) % g.getNumThreads();
 
 		if (!isSchedulable(i))
 			continue;
@@ -716,7 +705,7 @@ bool GenMCDriver::scheduleAtomicity()
 	return false;
 }
 
-bool GenMCDriver::scheduleNormal(std::span<Event> runnable)
+bool GenMCDriver::scheduleNormal(std::span<Action> runnable)
 {
 	if (inEstimationMode())
 		return scheduleNextWFR(runnable);
@@ -755,7 +744,7 @@ bool GenMCDriver::rescheduleReads()
 	return false;
 }
 
-bool GenMCDriver::scheduleNext(std::span<Event> runnable)
+bool GenMCDriver::scheduleNext(std::span<Action> runnable)
 {
 	if (isMoot() || isHalting())
 		return false;

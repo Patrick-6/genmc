@@ -183,7 +183,7 @@ public:
 	/**** Generic actions ***/
 
 	/** Sets up the next thread to run in the interpreter */
-	bool scheduleNext(std::span<Event> runnable);
+	bool scheduleNext(std::span<Action> runnable);
 
 	/** Opt: Tries to optimize the scheduling of next instruction by checking the cache */
 	bool tryOptimizeScheduling(Event pos);
@@ -387,19 +387,15 @@ private:
 	/** Tries to schedule according to the current prioritization scheme */
 	bool schedulePrioritized();
 
-	/** Returns true if the next instruction of TID is a load
-	 * Note: assumes there is a next instruction in TID*/
-	bool isNextThreadInstLoad(int tid);
-
 	/** Helpers for schedule according to a policy */
-	bool scheduleNextLTR(std::span<Event> runnable);
-	bool scheduleNextWF(std::span<Event> runnable);
-	bool scheduleNextWFR(std::span<Event> runnable);
-	bool scheduleNextRandom(std::span<Event> runnable);
+	bool scheduleNextLTR(std::span<Action> runnable);
+	bool scheduleNextWF(std::span<Action> runnable);
+	bool scheduleNextWFR(std::span<Action> runnable);
+	bool scheduleNextRandom(std::span<Action> runnable);
 
 	/** Tries to schedule the next instruction according to the
 	 * chosen policy */
-	bool scheduleNormal(std::span<Event> runnable);
+	bool scheduleNormal(std::span<Action> runnable);
 
 	/** Blocks thread with BLAB. BLAB needs to either replace
 	 * the last label or be maximal */

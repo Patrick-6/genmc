@@ -93,7 +93,14 @@ void Interpreter::resetThread(unsigned int id)
 	thr.rng.seed(Thread::seed);
 
 	clearDeps(id);
-	dynState.globalInstructions[thr.id] = Event(thr.id, 0);
+
+	/* We don't _have to_ figure out the initial action for each thread here (since this is
+	 * done by addNewThread() which is called at the beginning of each execution), but
+	 * we can do it just in case this is not the case in the future */
+	BUG_ON(thr.initEC.empty() && thr.id != 0);
+	auto kind = thr.initEC.empty() ? ActionKind::Load
+				       : getInstKind(&*thr.initEC.back().CurInst);
+	dynState.globalInstructions[thr.id] = {kind, Event(thr.id, 0)};
 }
 
 void Interpreter::reset()
@@ -111,10 +118,14 @@ void Interpreter::reset()
 Thread &Interpreter::addNewThread(Thread &&thread)
 {
 	BUG_ON(thread.id != getNumThreads());
-
 	dynState.threads.push_back(std::move(thread));
-	dynState.globalInstructions.emplace_back(dynState.threads.back().id, 0);
-	return dynState.threads.back();
+
+	auto &thr = dynState.threads.back();
+	BUG_ON(thr.initEC.empty() && thr.id != 0);
+	auto kind = thr.initEC.empty() ? ActionKind::Load
+				       : getInstKind(&*thr.initEC.back().CurInst);
+	dynState.globalInstructions.emplace_back(kind, Event(thr.id, 0));
+	return thr;
 }
 
 /* Creates an entry for the main() function */
