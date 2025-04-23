@@ -23,7 +23,6 @@
 
 #include "Support/Error.hpp"
 
-#include <config.h>
 #include <string>
 #include <unordered_map>
 

@@ -22,7 +22,6 @@
 #define GENMC_MEMORY_MODEL_HPP
 
 #include "Support/Error.hpp"
-#include "config.h"
 
 #include <cstdint>
 #include <string>

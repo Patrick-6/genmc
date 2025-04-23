@@ -21,7 +21,6 @@
 #ifndef GENMC_INTERPRETER_ENUM_API_HPP
 #define GENMC_INTERPRETER_ENUM_API_HPP
 
-#include <config.h>
 #include <llvm/Support/raw_ostream.h>
 #include <string>
 #include <unordered_map>

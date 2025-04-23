@@ -26,7 +26,6 @@
 #include "Static/ModuleID.hpp"
 #include "Support/NameInfo.hpp"
 #include "Support/SExpr.hpp"
-#include "config.h"
 #include <llvm/ADT/BitVector.h>
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/IR/DerivedTypes.h>

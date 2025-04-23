@@ -614,7 +614,7 @@ private:
 	const MemAccessLabel *getPreviousVisibleAccessLabel(const EventLabel *start) const;
 
 	/** Opt: Checks whether there is no need to explore the other threads
-	 * (e.g., POS \in B and will not be removed in all subsequent subexplorations),
+	 * (e.g., `POS \in B` and will not be removed in all subsequent subexplorations),
 	 * and if so moots the current execution */
 	void mootExecutionIfFullyBlocked(EventLabel *bLab);
 

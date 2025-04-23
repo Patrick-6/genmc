@@ -26,7 +26,6 @@
 #include "Support/Error.hpp"
 #include "Support/ThreadPinner.hpp"
 #include "Verification/GenMCDriver.hpp"
-#include "config.h"
 #include <llvm/IR/Module.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 

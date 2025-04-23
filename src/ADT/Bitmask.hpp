@@ -74,8 +74,8 @@ requires EnableBitmaskOperators<Enum>::enable
 		return lhs;                                                                        \
 	}
 
-DEFINE_ASSIGNMENT_OPERATOR(|);
-DEFINE_ASSIGNMENT_OPERATOR(&);
-DEFINE_ASSIGNMENT_OPERATOR(^);
+DEFINE_ASSIGNMENT_OPERATOR(|)
+DEFINE_ASSIGNMENT_OPERATOR(&)
+DEFINE_ASSIGNMENT_OPERATOR(^)
 
 #endif /* GENMC_BITMASK_HPP */

@@ -21,7 +21,6 @@
 #include "MDataCollectionPass.hpp"
 #include "Static/LLVMUtils.hpp"
 #include "Support/Error.hpp"
-#include "config.h"
 #include <llvm/ADT/Twine.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/DebugInfo.h>

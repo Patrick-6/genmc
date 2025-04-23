@@ -23,7 +23,6 @@
 
 #include "ASize.hpp"
 #include "Error.hpp"
-#include "config.h"
 
 #include <cstdint>
 

@@ -22,7 +22,6 @@
 #define GENMC_NAME_INFO_HPP
 
 #include "Error.hpp"
-#include "config.h"
 
 #include <string>
 

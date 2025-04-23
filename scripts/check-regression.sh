@@ -55,14 +55,12 @@ out_old="${out_dir}/${res_prefix}_${OLD_COMMIT}.out"
 out_new="${out_dir}/${res_prefix}_${NEW_COMMIT}.out"
 
 # run tests w/ OLD and NEW
-make clean
 git checkout "${OLD_COMMIT}"
-make -j `nproc`
+cmake --build RelWithDebInfo --clean-first -j `nproc`
 TERM=xterm-mono GENMCFLAGS="-disable-estimation" "${DIR}"/fast-driver.sh > "${out_old}"
 
-make clean
 git checkout "${NEW_COMMIT}"
-make -j `nproc`
+cmake --build RelWithDebInfo --clean-first -j `nproc`
 TERM=xterm-mono GENMCFLAGS="-disable-estimation" "${DIR}"/fast-driver.sh > "${out_new}"
 
 # keep only name/model/co + time for tests

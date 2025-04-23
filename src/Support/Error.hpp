@@ -22,7 +22,6 @@
 #define GENMC_ERROR_HPP
 
 #include "Logger.hpp"
-#include "config.h"
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/Format.h>
 #include <llvm/Support/raw_ostream.h>

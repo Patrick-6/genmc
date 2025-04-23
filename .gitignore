@@ -20,6 +20,9 @@ compile_commands.json
 *.out
 
 doc/doxygen
+doc/Doxyfile
+
+.vscode/
 
 Makefile
 Makefile.in
@@ -28,7 +31,6 @@ ar-lib
 autom4te.cache
 compile
 config.h
-config.h.in
 config.guess
 config.status
 config.log
@@ -39,3 +41,15 @@ missing
 stamp-*
 ylwrap
 test-driver
+
+RelWithDebInfo/
+Release/
+Debug/
+Testing/
+**CMakeCache.txt
+**CMakeFiles/
+**CTestTestfile.cmake
+**cmake_install.cmake
+
+scripts/*.log
+coverage_report*

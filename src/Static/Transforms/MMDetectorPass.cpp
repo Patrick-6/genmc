@@ -20,7 +20,6 @@
 
 #include "MMDetectorPass.hpp"
 #include "Static/ModuleInfo.hpp"
-#include "config.h"
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/InstIterator.h>

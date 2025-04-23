@@ -37,7 +37,6 @@
 #include "Support/ThreadPool.hpp"
 #include "Verification/DriverHandlerDispatcher.hpp"
 #include "Verification/Relinche/LinearizabilityChecker.hpp"
-#include "config.h"
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Format.h>

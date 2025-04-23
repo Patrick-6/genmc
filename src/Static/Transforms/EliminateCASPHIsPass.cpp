@@ -19,7 +19,6 @@
  */
 
 #include "EliminateCASPHIsPass.hpp"
-#include "config.h"
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Dominators.h>

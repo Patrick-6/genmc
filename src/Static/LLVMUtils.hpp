@@ -24,7 +24,6 @@
 #include "ADT/VSet.hpp"
 #include "ExecutionGraph/EventAttr.hpp"
 #include "Support/Error.hpp"
-#include "config.h"
 #include <llvm/IR/CFG.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
