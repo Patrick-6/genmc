@@ -32,6 +32,7 @@
 #include "Verification/Relinche/Specification.hpp"
 #include "Verification/Scheduler.hpp"
 #include "Verification/VerificationError.hpp"
+#include "Verification/VerificationResult.hpp"
 #include "Verification/WorkList.hpp"
 #include <llvm/ADT/BitVector.h>
 #include <llvm/IR/Module.h>
@@ -66,56 +67,6 @@ public:
 		unsigned int budget;
 	};
 	using Mode = std::variant<VerificationMode, EstimationMode>;
-
-	/** Verification result */
-	struct Result {
-		VerificationError status = VerificationError::VE_OK; /**< Whether the verification
-									completed successfully */
-		unsigned explored{};	      /**< Number of complete executions explored */
-		unsigned exploredBlocked{};   /**< Number of blocked executions explored */
-		unsigned boundExceeding{};    /**< Number of bound-exceeding executions explored */
-		long double estimationMean{}; /**< The mean of estimations */
-		long double estimationVariance{}; /**< The (biased) variance of the estimations */
-#ifdef ENABLE_GENMC_DEBUG
-		unsigned exploredMoot{}; /**< Number of moot executions _encountered_ */
-		unsigned duplicates{};	 /**< Number of duplicate executions explored */
-		llvm::IndexedMap<int> exploredBounds{}; /**< Number of complete executions not
-							   exceeding each bound */
-#endif
-		std::string message{};				 /**< A message to be printed */
-		VSet<VerificationError> warnings{};		 /**< The warnings encountered */
-		std::unique_ptr<Specification> specification;	 /**< Spec collected (if any) */
-		LinearizabilityChecker::Result relincheResult{}; /**< Spec analysis result */
-
-		Result() = default;
-
-		auto operator+=(Result &&other) -> Result &
-		{
-			/* Propagate latest error */
-			if (other.status != VerificationError::VE_OK)
-				status = other.status;
-			message += other.message;
-			explored += other.explored;
-			exploredBlocked += other.exploredBlocked;
-			boundExceeding += other.boundExceeding;
-			estimationMean += other.estimationMean;
-			estimationVariance += other.estimationVariance;
-#ifdef ENABLE_GENMC_DEBUG
-			exploredMoot += other.exploredMoot;
-			/* Bound-blocked executions are calculated at the end */
-			exploredBounds.grow(other.exploredBounds.size() - 1);
-			for (auto i = 0U; i < other.exploredBounds.size(); i++)
-				exploredBounds[i] += other.exploredBounds[i];
-			duplicates += other.duplicates;
-#endif
-			warnings.insert(other.warnings);
-			if (other.specification)
-				specification->merge(std::move(
-					*other.specification)); // FIXME other is const lvalue
-			relincheResult += std::move(other.relincheResult);
-			return *this;
-		}
-	};
 
 	/** Represents the execution at a given point */
 	struct Execution {
@@ -194,8 +145,8 @@ public:
 	bool done();
 
 	/** Returns the result of the verification procedure */
-	const Result &getResult() const { return result; }
-	Result &getResult() { return result; }
+	const VerificationResult &getResult() const { return result; }
+	VerificationResult &getResult() { return result; }
 
 	/*** Instruction handling ***/
 
@@ -266,9 +217,9 @@ protected:
 	friend void run(GenMCDriver *driver, llvm::Interpreter *EE);
 	friend auto estimate(std::shared_ptr<const Config> conf,
 			     const std::unique_ptr<llvm::Module> &mod,
-			     const std::unique_ptr<ModuleInfo> &modInfo) -> GenMCDriver::Result;
+			     const std::unique_ptr<ModuleInfo> &modInfo) -> VerificationResult;
 	friend auto verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-			   std::unique_ptr<ModuleInfo> modInfo) -> GenMCDriver::Result;
+			   std::unique_ptr<ModuleInfo> modInfo) -> VerificationResult;
 
 	GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool = nullptr,
 		    Mode = VerificationMode{});
@@ -679,7 +630,7 @@ private:
 	bool isMootExecution = false;
 
 	/** Verification result to be returned to caller */
-	Result result{};
+	VerificationResult result{};
 
 	/** Whether we are stopping the exploration (e.g., due to an error found) */
 	bool shouldHalt = false;

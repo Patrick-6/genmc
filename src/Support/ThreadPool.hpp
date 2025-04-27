@@ -26,6 +26,7 @@
 #include "Static/LLVMModule.hpp"
 #include "Support/ThreadPinner.hpp"
 #include "Verification/GenMCDriver.hpp"
+#include "Verification/VerificationResult.hpp"
 #include <llvm/IR/Module.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
@@ -219,7 +220,7 @@ public:
 	}
 
 	/** Waits for all tasks to complete */
-	auto waitForTasks() -> std::vector<std::future<GenMCDriver::Result>>;
+	auto waitForTasks() -> std::vector<std::future<VerificationResult>>;
 
 	/*** Destructor ***/
 
@@ -242,7 +243,7 @@ private:
 	std::vector<std::unique_ptr<llvm::LLVMContext>> contexts_;
 
 	/** Result of each thread */
-	std::vector<std::future<GenMCDriver::Result>> results_;
+	std::vector<std::future<VerificationResult>> results_;
 
 	/** Whether the pool is active (i.e., accepting more jobs) or not */
 	std::atomic<bool> shouldHalt_;

@@ -122,7 +122,7 @@ static void transformInput(const std::shared_ptr<Config> &conf, llvm::Module &mo
 
 static void printEstimationResults(const std::shared_ptr<const Config> &conf,
 				   const std::chrono::high_resolution_clock::time_point &begin,
-				   const GenMCDriver::Result &res)
+				   const VerificationResult &res)
 {
 	PRINT(VerbosityLevel::Error) << res.message;
 	PRINT(VerbosityLevel::Error)
@@ -143,7 +143,7 @@ static void printEstimationResults(const std::shared_ptr<const Config> &conf,
 }
 
 static void printVerificationResults(const std::shared_ptr<const Config> &conf,
-				     const GenMCDriver::Result &res)
+				     const VerificationResult &res)
 {
 	PRINT(VerbosityLevel::Error) << res.message;
 	PRINT(VerbosityLevel::Error)
@@ -189,7 +189,7 @@ static void printVerificationResults(const std::shared_ptr<const Config> &conf,
 }
 
 static void calculateHintsAndSaveSpec(const std::shared_ptr<const Config> &conf,
-				      const GenMCDriver::Result &res)
+				      const VerificationResult &res)
 {
 	auto spec = std::move(*res.specification);
 	spec.calculateHints();
@@ -234,7 +234,7 @@ void run(GenMCDriver *driver, llvm::Interpreter *EE)
 }
 
 auto estimate(std::shared_ptr<const Config> conf, const std::unique_ptr<llvm::Module> &mod,
-	      const std::unique_ptr<ModuleInfo> &modInfo) -> GenMCDriver::Result
+	      const std::unique_ptr<ModuleInfo> &modInfo) -> VerificationResult
 {
 	auto estCtx = std::make_unique<llvm::LLVMContext>();
 	auto newmod = LLVMModule::cloneModule(mod, estCtx);
@@ -252,7 +252,7 @@ auto estimate(std::shared_ptr<const Config> conf, const std::unique_ptr<llvm::Mo
 }
 
 auto verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-	    std::unique_ptr<ModuleInfo> modInfo) -> GenMCDriver::Result
+	    std::unique_ptr<ModuleInfo> modInfo) -> VerificationResult
 {
 	/* Spawn a single or multiple drivers depending on the configuration */
 	if (conf->threads == 1) {
@@ -266,14 +266,14 @@ auto verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mo
 		return std::move(driver->getResult());
 	}
 
-	std::vector<std::future<GenMCDriver::Result>> futures;
+	std::vector<std::future<VerificationResult>> futures;
 	{
 		/* Then, fire up the drivers */
 		ThreadPool pool(conf, mod, modInfo, run);
 		futures = pool.waitForTasks();
 	}
 
-	GenMCDriver::Result res;
+	VerificationResult res;
 	for (auto &f : futures) {
 		res += f.get();
 	}
