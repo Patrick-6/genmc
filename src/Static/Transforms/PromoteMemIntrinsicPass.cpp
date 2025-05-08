@@ -33,16 +33,131 @@
 #include <llvm/IR/Type.h>
 
 #include <ranges>
+#include <utility>
+
+/* We have to do ptr->int->ptr cast for older LLVMs (no opaque ptrs)
+ * Note: Bitcasts wouldn't work due to casting of differently sized pointees */
+#if LLVM_VERSION_MAJOR < 15
+#define CAST_PTR_TO_TYPE_THROUGH_INT(builder, ptr, dstTy, dataLayout)                              \
+	builder.CreateIntToPtr(                                                                    \
+		builder.CreatePtrToInt(                                                            \
+			ptr, dataLayout.getIntPtrType(                                             \
+				     ptr->getContext()) /* Int type of same size as a ptr */),     \
+		dstTy)
+#else
+#define CAST_PTR_TO_TYPE_THROUGH_INT(builder, ptr, dstTy, dataLayout) ptr
+#endif
+
+/* Before LLVM-15, Constant Expression GEP's are implicitly casted to *i8 */
+#if LLVM_VERSION_MAJOR < 15
+#define CONSTEXPR_GET_FIELD_TYPE(MI, Field) Type::getInt8PtrTy(MI->getContext())
+#else
+#define CONSTEXPR_GET_FIELD_TYPE(MI, Field) MI->get##Field()->getType()
+#endif
+
+/* Helper macro that moves constant expressions into their own instructions */
+#define LOWER_CONSTEXPR(builder, MI, Field)                                                        \
+	if (auto *CE = dyn_cast<ConstantExpr>(MI->get##Field())) {                                 \
+		Value *newGEP = builder.Insert(CE->getAsInstruction());                            \
+		Type *destType = CONSTEXPR_GET_FIELD_TYPE(MI, Field);                              \
+		Value *castedGEP = CAST_PTR_TO_TYPE_THROUGH_INT(                                   \
+			builder, newGEP, destType,                                                 \
+			MI->getParent()->getParent()->getParent()->getDataLayout());               \
+		MI->set##Field(castedGEP);                                                         \
+	}
 
 using namespace llvm;
 
-auto isPromotableMemIntrinsicOperand(Value *op) -> bool
+/**
+ * Lower a call to: __memcpy_chk(void * dest, const void * src, size_t len, size_t destlen);
+ *
+ * Reference implementation (see __memcpy_chk source):
+ * 	if dstlen < len
+ * 		__chk_fail ();
+ * 	return memcpy(dest, src, len);
+ *
+ * __memcpy_chk spec:
+ * http://refspecs.linux-foundation.org/LSB_4.0.0/LSB-Core-generic/LSB-Core-generic/libc---memcpy-chk-1.html
+ * __memcpy_chk source:
+ * https://sourceware.org/git/?p=glibc.git;a=blob;f=debug/memcpy_chk.c;h=6f8628ab945c5e8d2738f7382238c1e1006afe41;hb=HEAD
+ * memcpy spec: https://pubs.opengroup.org/onlinepubs/9699919799/functions/memcpy.html
+ */
+static void lowerFortifiedMemCpy(CallInst *CI, Function &F)
 {
-	// Constant to capture MemSet too
+	/* Get arguments */
+	auto *dst_ptr = CI->getArgOperand(0);
+	auto *src_ptr = CI->getArgOperand(1);
+	auto *len = CI->getArgOperand(2);
+	auto *dst_len = CI->getArgOperand(3);
+
+	/* Split the basic block at the call to __memcpy_chk in BB (before call-instr.) and contBB
+	 * (rest of the block) */
+	auto *BB = CI->getParent();
+	auto *contBB =
+		BB->splitBasicBlock(CI); /* Creates a dummy terminator for BB -> remove later */
+
+	/* Insert the llvm.memcpy intrinsic at the start of contBB */
+	IRBuilder<> contBuilder(contBB, contBB->begin());
+	contBuilder.CreateMemCpy(dst_ptr, Align(1), src_ptr, Align(1), len);
+	CI->replaceAllUsesWith(
+		dst_ptr); /* memcpy(...) returns the dst_ptr back, see: memcpy Spec */
+
+	/* Create a new basic block "memcpy__chk_fail" for inside the IF => aborts using an
+	 * unreachable-instruction */
+	auto *failBB = BasicBlock::Create(F.getContext(), "memcpy__chk_fail", &F);
+	auto *assertFailFun = F.getParent()->getFunction("__VERIFIER_assert_fail");
+	CallInst::Create(assertFailFun, {}, "", failBB);
+	new UnreachableInst(F.getContext(), failBB);
+
+	/* Compare arguments: dstlen < len */
+	auto *dummyTerminator = BB->getTerminator();
+	IRBuilder<> termBuilder(dummyTerminator);
+	auto *cmp = termBuilder.CreateICmpULT(dst_len, len);
+
+	/* Replace the dummy terminator: We jump to failBB if the condition holds */
+	dummyTerminator->eraseFromParent();
+	termBuilder.SetInsertPoint(BB);
+	auto *cnd_br = termBuilder.CreateCondBr(cmp, /* True */ failBB, /* False */ contBB);
+}
+
+/**
+ * We collect and lower all calls to the fortified version of memcpy: __memcpy_chk
+ * The fortified version checks for buffer overflows before performing the memcpy.
+ * @see lowerFortifiedMemCpy for implementation details
+ */
+static auto lowerFortifiedCalls(Function &F) -> bool
+{
+	auto modified = false;
+	SmallVector<CallInst *, 8> fortifiedCalls;
+
+	/* Collect call-instructions to __memcpy_chk */
+	for (auto &I : instructions(F)) {
+		auto *ci = dyn_cast<CallInst>(&I);
+		if (!ci)
+			continue;
+
+		auto *calledFun = dyn_cast<Function>(ci->getCalledOperand());
+		if (!calledFun || calledFun->getName() != "__memcpy_chk")
+			continue;
+
+		fortifiedCalls.push_back(ci);
+		modified = true;
+	}
+
+	for (auto *ci : fortifiedCalls)
+		lowerFortifiedMemCpy(ci, F);
+	for (auto *ci : fortifiedCalls)
+		ci->eraseFromParent();
+	return modified;
+}
+
+static auto isPromotableMemIntrinsicOperand(Value *op) -> bool
+{
+	/* Constant to capture MemSet too */
 	return isa<Constant>(op) || isa<AllocaInst>(op) || isa<GetElementPtrInst>(op);
 }
 
-auto getPromotionGEPType(Value *op) -> Type *
+static auto getPromotionGEPType(Value *op) -> Type *
 {
 	BUG_ON(!isPromotableMemIntrinsicOperand(op));
 	if (auto *v = dyn_cast<GlobalVariable>(op))
@@ -54,24 +169,32 @@ auto getPromotionGEPType(Value *op) -> Type *
 	BUG();
 }
 
-void promoteMemCpy(IRBuilder<> &builder, Value *dst, Value *src, const std::vector<Value *> &args,
-		   Type *typ)
+static void promoteMemCpy(IRBuilder<> &builder, Value *dst, Value *src,
+			  const std::vector<Value *> &args, Type *typ, uint64_t &remainingLen)
 {
-	Value *srcGEP =
+	if (remainingLen == 0)
+		return;
+
+	auto *srcGEP =
 		builder.CreateInBoundsGEP(getPromotionGEPType(src), src, args, "memcpy.src.gep");
-	Value *dstGEP =
+	auto *dstGEP =
 		builder.CreateInBoundsGEP(getPromotionGEPType(dst), dst, args, "memcpy.dst.gep");
-	Value *srcLoad = builder.CreateLoad(typ, srcGEP, "memcpy.src.load");
-	Value *dstStore = builder.CreateStore(srcLoad, dstGEP);
+
+	auto len = builder.GetInsertBlock()->getModule()->getDataLayout().getTypeStoreSize(typ);
+	BUG_ON(len > remainingLen);
+
+	remainingLen -= len;
+	auto *srcLoad = builder.CreateLoad(typ, srcGEP, "memcpy.src.load");
+	auto *dstStore = builder.CreateStore(srcLoad, dstGEP);
 }
 
-void promoteMemSet(IRBuilder<> &builder, Value *dst, Value *argVal,
-		   const std::vector<Value *> &args, Type *typ)
+static void promoteMemSet(IRBuilder<> &builder, Value *dst, Value *argVal,
+			  const std::vector<Value *> &args, Type *typ)
 {
 	BUG_ON(!typ->isIntegerTy() && !typ->isPointerTy());
 	BUG_ON(!isa<ConstantInt>(argVal));
 
-	auto &DL = builder.GetInsertBlock()->getParent()->getParent()->getDataLayout();
+	const auto &DL = builder.GetInsertBlock()->getParent()->getParent()->getDataLayout();
 	auto sizeInBits = typ->isIntegerTy() ? typ->getIntegerBitWidth()
 					     : DL.getPointerTypeSizeInBits(typ);
 	long int ival = dyn_cast<ConstantInt>(argVal)->getSExtValue();
@@ -83,7 +206,7 @@ void promoteMemSet(IRBuilder<> &builder, Value *dst, Value *argVal,
 }
 
 template <typename F>
-void promoteMemIntrinsic(Type *typ, std::vector<Value *> &args, F &&promoteFun)
+static void promoteMemIntrinsic(Type *typ, std::vector<Value *> &args, F &&promoteFun)
 {
 	auto *i32Ty = IntegerType::getInt32Ty(typ->getContext());
 
@@ -92,19 +215,19 @@ void promoteMemIntrinsic(Type *typ, std::vector<Value *> &args, F &&promoteFun)
 		return;
 	}
 
-	if (ArrayType *AT = dyn_cast<ArrayType>(typ)) {
+	if (auto *AT = dyn_cast<ArrayType>(typ)) {
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
 		auto n = AT->getNumElements();
 #else
 		auto n = AT->getArrayNumElements();
 #endif
-		for (auto i = 0u; i < n; i++) {
+		for (auto i = 0U; i < n; i++) {
 			args.push_back(Constant::getIntegerValue(i32Ty, APInt(32, i)));
 			promoteMemIntrinsic(AT->getElementType(), args, promoteFun);
 			args.pop_back();
 		}
-	} else if (StructType *ST = dyn_cast<StructType>(typ)) {
-		auto i = 0u;
+	} else if (auto *ST = dyn_cast<StructType>(typ)) {
+		auto i = 0U;
 		for (auto it = ST->element_begin(); i < ST->getNumElements(); ++it, ++i) {
 			args.push_back(Constant::getIntegerValue(i32Ty, APInt(32, i)));
 			promoteMemIntrinsic(*it, args, promoteFun);
@@ -113,13 +236,12 @@ void promoteMemIntrinsic(Type *typ, std::vector<Value *> &args, F &&promoteFun)
 	} else {
 		BUG();
 	}
-	return;
 }
 
-auto canPromoteMemIntrinsic(MemIntrinsic *MI) -> bool
+static auto canPromoteMemIntrinsic(MemIntrinsic *MI) -> bool
 {
 	/* Skip if length is not a constant */
-	ConstantInt *length = dyn_cast<ConstantInt>(MI->getLength());
+	auto *length = dyn_cast<ConstantInt>(MI->getLength());
 	if (!length) {
 		WARN_ONCE("memintr-length", "Cannot promote non-constant-length mem intrinsic!"
 					    "Skipping...\n");
@@ -127,35 +249,27 @@ auto canPromoteMemIntrinsic(MemIntrinsic *MI) -> bool
 	}
 
 	/*
-	 * Check whether the size is 0
-	 * This should not normally be produced by clang, so simply produce a warning.
-	 * If we do find such a case, we might have to just remove the memcpy() call
-	 */
-	uint64_t size = length->getLimitedValue();
-	if (size == 0) {
-		WARN_ONCE("memintr-zero-length", "Cannot promote zero-length mem intrinsic!"
-						 "Skipping...\n");
-		return false;
-	}
-
-	/*
 	 * For memcpy(), make sure source and dest live in the same address space
 	 * (This also makes sure we are not copying from genmc's space to userspace)
 	 */
-	if (auto *MC = dyn_cast<MemCpyInst>(MI))
-		BUG_ON(MC->getSourceAddressSpace() != MC->getDestAddressSpace());
+	auto *MCI = dyn_cast<MemCpyInst>(MI);
+	BUG_ON(MCI && MCI->getSourceAddressSpace() != MCI->getDestAddressSpace());
+	if (MCI && !isPromotableMemIntrinsicOperand(MCI->getDest()) &&
+	    !isPromotableMemIntrinsicOperand(MCI->getSource())) {
+		WARN_ONCE("memintr-opaque", "Cannot promote memcpy() due to both src and dst being "
+					    "opaque! Skipping...\n");
+		return false;
+	}
 
-	if (!isPromotableMemIntrinsicOperand(MI->getDest()) ||
-	    (isa<MemCpyInst>(MI) &&
-	     !isPromotableMemIntrinsicOperand(dyn_cast<MemCpyInst>(MI)->getSource()))) {
+	auto *MSI = dyn_cast<MemSetInst>(MI);
+	if (MSI && !isPromotableMemIntrinsicOperand(MSI->getDest())) {
 		WARN_ONCE("memintr-dst",
-			  "Cannot promote intrinsic due to opaque operand type pointer!"
-			  "Skipping...\n");
+			  "Cannot promote memset() due to dst being opaque! Skipping...\n");
 		return false;
 	}
 
 	/*
-	 * Finally, check whether this is one of the cases we can currently handle
+	 * Finally, this is one of the cases we can currently handle.
 	 * We produce a warning anyway because, e.g., if a small struct has no atomic
 	 * fields, clang might initialize it with memcpy(), and then read it with a
 	 * 64bit access, and mixed-size accesses are __bad__ news
@@ -164,30 +278,91 @@ auto canPromoteMemIntrinsic(MemIntrinsic *MI) -> bool
 	return true;
 }
 
-auto tryPromoteMemCpy(MemCpyInst *MI, SmallVector<llvm::MemIntrinsic *, 8> &promoted) -> bool
+/**
+ * Due to LLVM's use of opaque pointers, we infer the types based on the instruction defining the
+ * value (Alloca, GEP, GlobalVal => @see getPromotionGEPType()). To allow copying between different
+ * (compatible) data-types, we perform a cast either src->dst or dst->src.
+ *
+ * Note: We assume that the compiler only generates memcpy()s between "compatible" types:
+ *  - compatible: struct {i32, i32, i32} and [3 x i32]
+ *  - non-compatible:  struct {i32, i64, i32} and [4 x i32]
+ * Promotion in the second case would lead to "mixed-sized accesses".
+ */
+static auto getRecastedOperands(MemCpyInst *MI, IRBuilder<> &builder) -> std::pair<Value *, Value *>
+{
+	auto *dst = MI->getDest();
+	auto *src = MI->getSource();
+
+	auto dataLayout = MI->getParent()->getParent()->getParent()->getDataLayout();
+	auto indexSize = dataLayout.getIndexSizeInBits(dst->getType()->getPointerAddressSpace());
+	std::vector<Value *> gepArgs = {Constant::getIntegerValue(
+		IntegerType::get(builder.getContext(), indexSize),
+		APInt(indexSize, 0))}; // Ex: getelementptr %type, %ptr, i32 0
+
+	/* Case src->dst */
+	if (isPromotableMemIntrinsicOperand(dst)) {
+		src = CAST_PTR_TO_TYPE_THROUGH_INT(builder, src, dst->getType(), dataLayout);
+		return {builder.CreateGEP(getPromotionGEPType(dst), src, ArrayRef(gepArgs)), dst};
+	}
+
+	/* Case dst->src */
+	BUG_ON(!isPromotableMemIntrinsicOperand(src));
+	dst = CAST_PTR_TO_TYPE_THROUGH_INT(builder, dst, src->getType(), dataLayout);
+	return {src, builder.CreateGEP(getPromotionGEPType(src), dst, ArrayRef(gepArgs))};
+}
+
+/* Tries to promote a memcpy() instruction.
+ * We also allow the promotion of memcpy()s w/ constant arguments:
+ *
+ * call void @llvm.memcpy.p0.p0.i64(
+ *      ptr align 8 getelementptr inbounds (%struct.queue_t, ptr @queue, i64 0, i32 0, i32 1),
+ *      ptr align 8 %_3,
+ *      i64 8,
+ *      i1 false)
+ *
+ * by moving constant expressions into their own instruction and proceeding as normal. */
+static auto tryPromoteMemCpy(MemCpyInst *MI, SmallVector<llvm::MemIntrinsic *, 8> &promoted) -> bool
 {
 	if (!canPromoteMemIntrinsic(MI))
 		return false;
 
-	auto *dst = MI->getDest();
-	auto *src = MI->getSource();
+	/* We only copy "len" bytes (3rd arg in llvm.memcpy) */
+	auto len = dyn_cast<ConstantInt>(MI->getLength())->getZExtValue();
 
+	/* Remove memcpy's with len=0 completely as no-ops (generated by rustc) */
+	if (len == 0) {
+		WARN_ONCE("memintr-zero-length", "Cannot promote zero-length mem intrinsic!"
+						 "Removing instruction...\n");
+		promoted.push_back(MI);
+		return true;
+	}
+
+	IRBuilder<> builder(MI);
 	auto *i64Ty = IntegerType::getInt64Ty(MI->getContext());
 	auto *nullInt = Constant::getNullValue(i64Ty);
+
+	/* Check for constexpr arguments */
+	LOWER_CONSTEXPR(builder, MI, Source);
+	LOWER_CONSTEXPR(builder, MI, Dest);
+
+	/* Recast args to same types for GEP indexing later */
+	auto [src, dst] = getRecastedOperands(MI, builder);
 	auto *dstTyp = getPromotionGEPType(dst);
 	BUG_ON(!dstTyp);
 
-	IRBuilder<> builder(MI);
-	std::vector<Value *> args = {nullInt};
+	/* To ensure we only copy "len" bytes from total */
+	auto typeSizeDst = MI->getParent()->getModule()->getDataLayout().getTypeStoreSize(dstTyp);
+	BUG_ON(typeSizeDst < len);
 
+	std::vector<Value *> args = {nullInt};
 	promoteMemIntrinsic(dstTyp, args, [&](Type *typ, const std::vector<Value *> &args) {
-		promoteMemCpy(builder, dst, src, args, typ);
+		promoteMemCpy(builder, dst, src, args, typ, len);
 	});
 	promoted.push_back(MI);
 	return true;
 }
 
-auto tryPromoteMemSet(MemSetInst *MS, SmallVector<MemIntrinsic *, 8> &promoted) -> bool
+static auto tryPromoteMemSet(MemSetInst *MS, SmallVector<MemIntrinsic *, 8> &promoted) -> bool
 {
 	if (!canPromoteMemIntrinsic(MS))
 		return false;
@@ -210,13 +385,12 @@ auto tryPromoteMemSet(MemSetInst *MS, SmallVector<MemIntrinsic *, 8> &promoted) 
 	return true;
 }
 
-void removePromoted(std::ranges::input_range auto &&promoted)
+static void removePromoted(std::ranges::input_range auto &&promoted)
 {
 	for (auto *MI : promoted) {
-
 		/* Are MI's operands used anywhere else? */
-		BitCastInst *dst = dyn_cast<BitCastInst>(MI->getRawDest());
-		BitCastInst *src = nullptr;
+		auto *dst = dyn_cast<BitCastInst>(MI->getRawDest());
+		CastInst *src = nullptr;
 		if (auto *MC = dyn_cast<MemCpyInst>(MI))
 			src = dyn_cast<BitCastInst>(MC->getRawSource());
 
@@ -233,6 +407,8 @@ auto PromoteMemIntrinsicPass::run(Function &F, FunctionAnalysisManager &FAM) -> 
 	/* Locate mem intrinsics of interest */
 	SmallVector<llvm::MemIntrinsic *, 8> promoted;
 	auto modified = false;
+
+	modified |= lowerFortifiedCalls(F);
 	for (auto &I : instructions(F)) {
 		if (auto *MI = dyn_cast<MemCpyInst>(&I))
 			modified |= tryPromoteMemCpy(MI, promoted);
