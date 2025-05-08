@@ -19,7 +19,7 @@
  */
 
 #include "IntrinsicLoweringPass.hpp"
-
+#include "Support/Error.hpp"
 #include <llvm/ADT/Twine.h>
 #include <llvm/CodeGen/IntrinsicLowering.h>
 #include <llvm/IR/BasicBlock.h>
@@ -34,10 +34,74 @@
 
 using namespace llvm;
 
+#define WITH_OVERFLOW_INST(I, EXT_OP, OP_BIN)                                                      \
+	{                                                                                          \
+		auto *OI = dyn_cast<WithOverflowInst>(I);                                          \
+		IRBuilder<> builder(OI);                                                           \
+                                                                                                   \
+		auto *opA = OI->getArgOperand(0);                                                  \
+		auto *opB = OI->getArgOperand(1);                                                  \
+                                                                                                   \
+		/* Get the type with twice the bitlength from our operands (i32 -> i64 etc.) */    \
+		auto bitwidth = opA->getType()->getPrimitiveSizeInBits();                          \
+		auto *typeExt = IntegerType::get(M.getContext(), bitwidth * 2);                    \
+                                                                                                   \
+		/* Extend the operands type to fit a possible overflow */                          \
+		auto *aExt = builder.EXT_OP(opA, typeExt);                                         \
+		auto *bExt = builder.EXT_OP(opB, typeExt);                                         \
+                                                                                                   \
+		/* Perform the operation to get the result */                                      \
+		auto *result = builder.OP_BIN(opA, opB);                                           \
+                                                                                                   \
+		/* Perform same with extended bitwidth operands to check for overflows */          \
+		auto *resultFromExtOps = builder.OP_BIN(aExt, bExt);                               \
+		auto *resultExt = builder.EXT_OP(result, typeExt);                                 \
+		auto *overflow = builder.CreateICmpNE(resultFromExtOps, resultExt);                \
+                                                                                                   \
+		/* Skip building the result-struct if it's only used by extractvals */             \
+		if (replaceExtractValUsers(OI, result, overflow, toRemove)) {                      \
+			/* Result struct is used somehow besides just extracting values */         \
+			auto *resStruct = builder.CreateInsertValue(                               \
+				UndefValue::get(OI->getType()), result, 0);                        \
+			resStruct = builder.CreateInsertValue(resStruct, overflow, 1);             \
+			OI->replaceAllUsesWith(resStruct);                                         \
+		}                                                                                  \
+		OI->eraseFromParent();                                                             \
+                                                                                                   \
+		modified = true;                                                                   \
+		break;                                                                             \
+	}
+
+/* Given an overflowing instruction OI, replaces its extractval users with REPLACE or OVERFLOW.
+ * Returns whether OI has any non-extractval users */
+static auto replaceExtractValUsers(WithOverflowInst *oi, Value *replace, Value *overflow,
+				   SmallVector<Instruction *, 8> &toRemove) -> bool
+{
+	auto result = false;
+	for (auto *u : oi->users()) {
+		auto *evi = dyn_cast<ExtractValueInst>(u);
+		if (!evi) {
+			result = true;
+			continue;
+		}
+
+		auto indices = evi->getIndices();
+		BUG_ON(indices[0] != 0 && indices[0] != 1);
+		if (indices[0] == 0)
+			evi->replaceAllUsesWith(replace);
+		if (indices[0] == 1)
+			evi->replaceAllUsesWith(overflow);
+		toRemove.push_back(evi);
+	}
+	return result;
+}
+
 static auto runOnBasicBlock(BasicBlock &BB, IntrinsicLowering *IL) -> bool
 {
 	auto &M = *BB.getParent()->getParent();
 	auto modified = false;
+	SmallVector<Instruction *, 8> toRemove;
+
 	for (auto it = BB.begin(); it != BB.end();) {
 		auto *I = llvm::dyn_cast<IntrinsicInst>(&*it);
 		/* Iterator is incremented in order for it not to be invalidated */
@@ -82,12 +146,30 @@ static auto runOnBasicBlock(BasicBlock &BB, IntrinsicLowering *IL) -> bool
 			modified = true;
 			break;
 		}
+		// https://llvm.org/docs/LangRef.html#llvm-sadd-with-overflow-intrinsics
+		case llvm::Intrinsic::sadd_with_overflow:
+			WITH_OVERFLOW_INST(I, CreateSExt, CreateAdd)
+		case llvm::Intrinsic::ssub_with_overflow:
+			WITH_OVERFLOW_INST(I, CreateSExt, CreateSub)
+		case llvm::Intrinsic::smul_with_overflow:
+			WITH_OVERFLOW_INST(I, CreateSExt, CreateMul)
+		case llvm::Intrinsic::uadd_with_overflow:
+			WITH_OVERFLOW_INST(I, CreateZExt, CreateAdd)
+		case llvm::Intrinsic::usub_with_overflow:
+			WITH_OVERFLOW_INST(I, CreateZExt, CreateSub)
+		case llvm::Intrinsic::umul_with_overflow:
+			WITH_OVERFLOW_INST(I, CreateZExt, CreateMul)
 		default:
 			IL->LowerIntrinsicCall(I);
 			modified = true;
 			break;
 		}
 	}
+
+	/* As removing other instructions while lowering *.with.overflows is unsafe while
+	 * iterating over those same instructions, we do deletions separately */
+	for (auto *inst : toRemove)
+		inst->eraseFromParent();
 	return modified;
 }
 
