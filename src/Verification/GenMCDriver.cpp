@@ -942,12 +942,14 @@ std::optional<SVal> GenMCDriver::getReadRetValue(const ReadLabel *rLab)
 		return std::nullopt;
 	}
 
-	/* Reading a non-init barrier value means that the thread should block */
+	using Evaluator = SExprEvaluator<ModuleID::ID>;
 	auto res = rLab->getAccessValue(rLab->getAccess());
-	BUG_ON(llvm::isa<BWaitReadLabel>(rLab) &&
-	       res != findBarrierInitValue(getExec().getGraph(), rLab->getAccess()) &&
-	       !llvm::isa<TerminatorLabel>(
-		       getExec().getGraph().getLastThreadLabel(rLab->getThread())));
+	if (getConf()->ipr && rLab->getAnnot() &&
+	    !Evaluator().evaluate(&*rLab->getAnnot()->expr, res)) {
+		blockThread(BlockLabel::createAssumeBlock(rLab->getPos().next(),
+							  rLab->getAnnot()->type));
+		return std::nullopt;
+	}
 	return {res};
 }
 
@@ -1717,7 +1719,7 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 						<< getExec().getGraph(););
 
 	/* If this is the last part of barrier_wait() check whether we should block */
-	auto retVal = (*rf)->getAccessValue(lab->getAccess());
+	auto retVal = getReadRetValue(lab);
 	if (llvm::isa<BWaitReadLabel>(lab) && retVal != findBarrierInitValue(g, lab->getAccess())) {
 		blockThread(BarrierBlockLabel::create(lab->getPos().next()));
 	}
@@ -2284,10 +2286,6 @@ void GenMCDriver::revisitInPlace(const BackwardRevisit &br)
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug1) << "--- In-place revisiting " << rLab->getPos()
 						<< " <-- " << sLab->getPos() << "\n"
 						<< getExec().getGraph(););
-
-	EE->resetThread(rLab->getThread());
-	EE->getThrById(rLab->getThread()).ECStack = EE->getThrById(rLab->getThread()).initEC;
-	threadPrios = {rLab->getPos()};
 }
 
 void updatePredsWithPrefixView(const ExecutionGraph &g, VectorClock &preds,
