@@ -22,7 +22,6 @@
 #define GENMC_GRAPH_ITERATORS_HPP
 
 #include "ExecutionGraph.hpp"
-#include "config.h"
 #include <iterator>
 #include <llvm/ADT/iterator_range.h>
 #include <type_traits>

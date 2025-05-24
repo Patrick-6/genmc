@@ -22,7 +22,6 @@
 #define GENMC_THREAD_INFO_HPP
 
 #include "SVal.hpp"
-#include "config.h"
 
 /** Information about a thread (thread id, SR, etc.) */
 struct ThreadInfo {

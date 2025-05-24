@@ -22,7 +22,6 @@
 #define GENMC_MEM_ACCESS_HPP
 
 #include "SAddr.hpp"
-#include "config.h"
 
 #include <climits>
 

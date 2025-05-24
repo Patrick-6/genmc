@@ -18,7 +18,6 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "config.h"
 #include "Config/Config.hpp"
 #include "Support/Error.hpp"
 #include "Support/Logger.hpp"

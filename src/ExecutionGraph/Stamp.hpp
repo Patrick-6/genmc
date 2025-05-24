@@ -22,7 +22,6 @@
 #define GENMC_STAMP_HPP
 
 #include "Support/Error.hpp"
-#include "config.h"
 
 #include <cstdint>
 

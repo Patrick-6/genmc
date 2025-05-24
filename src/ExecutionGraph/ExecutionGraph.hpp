@@ -26,7 +26,6 @@
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/Stamp.hpp"
 #include "Support/Hash.hpp"
-#include "config.h"
 #include <llvm/ADT/StringMap.h>
 
 #include <functional>

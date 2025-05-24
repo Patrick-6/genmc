@@ -22,7 +22,6 @@
 #include "Runtime/InterpreterEnumAPI.hpp"
 #include "Static/LLVMUtils.hpp"
 #include "Support/Error.hpp"
-#include "config.h"
 
 #include <llvm/Analysis/PostDominators.h>
 #include <llvm/IR/Constants.h>

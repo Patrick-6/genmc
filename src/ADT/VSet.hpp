@@ -84,16 +84,16 @@ public:
 	/** Empties the set */
 	void clear() { vset_.clear(); };
 
-	/** Returns whether THIS is a subset of S */
+	/** Returns whether `THIS` is a subset of `S` */
 	auto subsetOf(const VSet<T> &s) const -> bool;
 
-	/** Returns whether the intersection of THIS with S is non-empty */
+	/** Returns whether the intersection of `THIS` with `S` is non-empty */
 	auto intersects(const VSet<T> &s) const -> bool;
 
-	/** Returns the intersection of THIS and S */
+	/** Returns the intersection of `THIS` and `S` */
 	auto intersectWith(const VSet<T> &s) const -> VSet<T>;
 
-	/** Returns the set THIS\S */
+	/** Returns the set `THIS\S` */
 	auto diff(const VSet<T> &s) const -> VSet<T>;
 
 	auto min() const -> const T & { return vset_[0]; };

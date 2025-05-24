@@ -22,7 +22,6 @@
 #define GENMC_ASIZE_HPP
 
 #include "Error.hpp"
-#include "config.h"
 
 #include <climits>
 #include <cstdint>

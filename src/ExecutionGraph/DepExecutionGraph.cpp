@@ -19,7 +19,6 @@
  */
 
 #include "DepExecutionGraph.hpp"
-#include "config.h"
 
 std::unique_ptr<VectorClock> DepExecutionGraph::getViewFromStamp(Stamp stamp) const
 {

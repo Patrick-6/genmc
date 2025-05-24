@@ -18,7 +18,6 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "config.h"
 
 #include "InstAnnotator.hpp"
 #include "Runtime/InterpreterEnumAPI.hpp"

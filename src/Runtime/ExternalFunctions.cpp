@@ -42,7 +42,6 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "config.h"
 
 #include "Runtime/Interpreter.h"
 #include "Support/Error.hpp"

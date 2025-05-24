@@ -1,3 +1,12 @@
+# Building GenMC
+
+## Build options
+
+ - `GENMC_DEBUG`: this CMake option will enable diagnostics for GenMC (enabled by default for `Debug` builds)
+ - `ENABLE_LINT`: enables linting at every build (default: OFF)
+ - `ENABLE_COVERAGE`: enables coverage reporting (default: OFF)
+ - `BUILD_DOCS`: builds documentation (default: OFF)
+
 # Modifying GenMC
 
 ## Code conventions

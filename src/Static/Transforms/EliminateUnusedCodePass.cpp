@@ -19,7 +19,6 @@
  */
 
 #include "EliminateUnusedCodePass.hpp"
-#include "config.h"
 
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SetVector.h>
