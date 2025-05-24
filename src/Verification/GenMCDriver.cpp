@@ -218,60 +218,51 @@ bool GenMCDriver::isSchedulable(int thread) const
 	return !llvm::isa_and_nonnull<TerminatorLabel>(lab);
 }
 
-bool GenMCDriver::schedulePrioritized()
+std::optional<int> GenMCDriver::schedulePrioritized()
 {
 	/* Return false if no thread is prioritized */
 	if (threadPrios.empty())
-		return false;
+		return std::nullopt;
 
 	BUG_ON(getConf()->bound.has_value());
 
 	const auto &g = getExec().getGraph();
-	auto *EE = getEE();
 	for (auto &e : threadPrios) {
 		/* Skip unschedulable threads */
 		if (!isSchedulable(e.thread))
 			continue;
 
 		/* Found a not-yet-complete thread; schedule it */
-		EE->scheduleThread(e.thread);
-		return true;
+		return {e.thread};
 	}
-	return false;
+	return std::nullopt;
 }
 
-bool GenMCDriver::scheduleNextLTR(std::span<Action> runnable)
+std::optional<int> GenMCDriver::scheduleNextLTR(std::span<Action> runnable)
 {
 	auto &g = getExec().getGraph();
-	auto *EE = getEE();
 
 	for (auto &action : runnable) {
 		if (!isSchedulable(action.event.thread))
 			continue;
 
 		/* Found a not-yet-complete thread; schedule it */
-		EE->scheduleThread(action.event.thread);
-		return true;
+		return {action.event.thread};
 	}
-
-	/* No schedulable thread found */
-	return false;
+	return std::nullopt;
 }
 
-bool GenMCDriver::scheduleNextWF(std::span<Action> runnable)
+std::optional<int> GenMCDriver::scheduleNextWF(std::span<Action> runnable)
 {
 	auto &g = getExec().getGraph();
-	auto *EE = getEE();
 
 	/* First, schedule based on the EG */
 	for (auto &action : runnable) {
 		if (!isSchedulable(action.event.thread))
 			continue;
 
-		if (g.containsPos(action.event.next())) {
-			EE->scheduleThread(action.event.thread);
-			return true;
-		}
+		if (g.containsPos(action.event.next()))
+			return {action.event.thread};
 	}
 
 	/* Try and find a thread that satisfies the policy.
@@ -284,18 +275,13 @@ bool GenMCDriver::scheduleNextWF(std::span<Action> runnable)
 		if (fallback == -1)
 			fallback = action.event.thread;
 
-		if (action.kind != ActionKind::Load) {
-			EE->scheduleThread(getFirstSchedulableSymmetric(action.event.thread));
-			return true;
-		}
+		if (action.kind != ActionKind::Load)
+			return {getFirstSchedulableSymmetric(action.event.thread)};
 	}
 
 	/* Otherwise, try to schedule the fallback thread */
-	if (fallback != -1) {
-		EE->scheduleThread(getFirstSchedulableSymmetric(fallback));
-		return true;
-	}
-	return false;
+	return fallback != -1 ? std::make_optional(getFirstSchedulableSymmetric(fallback))
+			      : std::nullopt;
 }
 
 int GenMCDriver::getFirstSchedulableSymmetric(int tid)
@@ -314,20 +300,17 @@ int GenMCDriver::getFirstSchedulableSymmetric(int tid)
 	return firstSched;
 }
 
-bool GenMCDriver::scheduleNextWFR(std::span<Action> runnable)
+std::optional<int> GenMCDriver::scheduleNextWFR(std::span<Action> runnable)
 {
 	auto &g = getExec().getGraph();
-	auto *EE = getEE();
 
 	/* First, schedule based on the EG */
 	for (auto &action : runnable) {
 		if (!isSchedulable(action.event.thread))
 			continue;
 
-		if (g.containsPos(action.event.next())) {
-			EE->scheduleThread(action.event.thread);
-			return true;
-		}
+		if (g.containsPos(action.event.next()))
+			return {action.event.thread};
 	}
 
 	std::vector<int> nonwrites;
@@ -345,18 +328,16 @@ bool GenMCDriver::scheduleNextWFR(std::span<Action> runnable)
 
 	std::vector<int> &selection = !writes.empty() ? writes : nonwrites;
 	if (selection.empty())
-		return false;
+		return std::nullopt;
 
 	MyDist dist(0, selection.size() - 1);
 	auto candidate = selection[dist(rng)];
-	EE->scheduleThread(getFirstSchedulableSymmetric(static_cast<int>(candidate)));
-	return true;
+	return {getFirstSchedulableSymmetric(static_cast<int>(candidate))};
 }
 
-bool GenMCDriver::scheduleNextRandom(std::span<Action> runnable)
+std::optional<int> GenMCDriver::scheduleNextRandom(std::span<Action> runnable)
 {
 	auto &g = getExec().getGraph();
-	auto *EE = getEE();
 
 	/* Check if randomize scheduling is enabled and schedule some thread */
 	MyDist dist(0, g.getNumThreads());
@@ -367,13 +348,9 @@ bool GenMCDriver::scheduleNextRandom(std::span<Action> runnable)
 		if (!isSchedulable(i))
 			continue;
 
-		/* Found a not-yet-complete thread; schedule it */
-		EE->scheduleThread(getFirstSchedulableSymmetric(static_cast<int>(i)));
-		return true;
+		return {getFirstSchedulableSymmetric(static_cast<int>(i))};
 	}
-
-	/* No schedulable thread found */
-	return false;
+	return std::nullopt;
 }
 
 void GenMCDriver::resetExplorationOptions()
@@ -689,23 +666,19 @@ void GenMCDriver::unblockThread(Event pos)
 	getExec().getGraph().removeLast(pos.thread);
 }
 
-bool GenMCDriver::scheduleAtomicity()
+std::optional<int> GenMCDriver::scheduleAtomicity()
 {
 	auto *lastLab = getExec().getGraph().getEventLabel(getExec().getLastAdded());
-	if (llvm::isa<FaiReadLabel>(lastLab)) {
-		getEE()->scheduleThread(lastLab->getThread());
-		return true;
-	}
+	if (llvm::isa<FaiReadLabel>(lastLab))
+		return {lastLab->getThread()};
 	if (auto *casLab = llvm::dyn_cast<CasReadLabel>(lastLab)) {
-		if (casLab->getAccessValue(casLab->getAccess()) == casLab->getExpected()) {
-			getEE()->scheduleThread(lastLab->getThread());
-			return true;
-		}
+		if (casLab->getAccessValue(casLab->getAccess()) == casLab->getExpected())
+			return {lastLab->getThread()};
 	}
-	return false;
+	return std::nullopt;
 }
 
-bool GenMCDriver::scheduleNormal(std::span<Action> runnable)
+std::optional<int> GenMCDriver::scheduleNormal(std::span<Action> runnable)
 {
 	if (inEstimationMode())
 		return scheduleNextWFR(runnable);
@@ -725,10 +698,9 @@ bool GenMCDriver::scheduleNormal(std::span<Action> runnable)
 	BUG();
 }
 
-bool GenMCDriver::rescheduleReads()
+std::optional<int> GenMCDriver::rescheduleReads()
 {
 	auto &g = getExec().getGraph();
-	auto *EE = getEE();
 
 	for (auto i = 0u; i < g.getNumThreads(); ++i) {
 		auto *bLab = llvm::dyn_cast_or_null<ReadOptBlockLabel>(g.getLastThreadLabel(i));
@@ -738,34 +710,33 @@ bool GenMCDriver::rescheduleReads()
 		BUG_ON(getConf()->bound.has_value());
 		setRescheduledRead(bLab->getPos());
 		unblockThread(bLab->getPos());
-		EE->scheduleThread(i);
-		return true;
+		return {i};
 	}
-	return false;
+	return std::nullopt;
 }
 
-bool GenMCDriver::scheduleNext(std::span<Action> runnable)
+std::optional<int> GenMCDriver::scheduleNext(std::span<Action> runnable)
 {
 	if (isMoot() || isHalting())
-		return false;
+		return std::nullopt;
 
 	auto &g = getExec().getGraph();
-	auto *EE = getEE();
+	std::optional<int> result;
 
 	/* 1. Ensure atomicity. This needs to here because of weird interactions with in-place
 	 * revisiting and thread priotitization. For example, consider the following scenario:
 	 *     - restore @ T2, in-place rev @ T1, prioritize rev @ T1,
 	 *       restore FAIR @ T2, schedule T1, atomicity violation */
-	if (scheduleAtomicity())
-		return true;
+	if ((result = scheduleAtomicity()))
+		return result;
 
 	/* Check if we should prioritize some thread */
-	if (schedulePrioritized())
-		return true;
+	if ((result = schedulePrioritized()))
+		return result;
 
 	/* Schedule the next thread according to the chosen policy */
-	if (scheduleNormal(runnable))
-		return true;
+	if ((result = scheduleNormal(runnable)))
+		return result;
 
 	/* Finally, check if any reads needs to be rescheduled */
 	return rescheduleReads();
@@ -1556,7 +1527,6 @@ void GenMCDriver::handleFence(std::unique_ptr<FenceLabel> fLab)
 void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 {
 	auto &g = getExec().getGraph();
-	auto *EE = getEE();
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		/* Is there any thread blocked on a potential spinloop? */
@@ -1696,7 +1666,6 @@ EventLabel *GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *>
 std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 {
 	auto &g = getExec().getGraph();
-	auto *EE = getEE();
 
 	if (isExecutionDrivenByGraph(&*rLab))
 		return getReadRetValue(llvm::dyn_cast<ReadLabel>(g.getEventLabel(rLab->getPos())));

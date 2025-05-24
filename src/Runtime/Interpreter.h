@@ -366,9 +366,6 @@ public:
 	Thread &createAddNewThread(llvm::Function *F, SVal arg, int tid, int pid,
 				   const llvm::ExecutionContext &SF);
 
-	/* Sets-up the specified thread for execution */
-	void scheduleThread(int tid) { dynState.currentThread = tid; }
-
 	/* Returns the currently executing thread */
 	Thread &getCurThr() { return dynState.threads[dynState.currentThread]; }
 	const Thread &getCurThr() const { return dynState.threads.at(dynState.currentThread); }
@@ -632,6 +629,9 @@ private: // Helper functions
 
 	/* Sets up how some errors will be reported to the user */
 	void setupErrorPolicy(Module *M, const Config *userConf);
+
+	/* Sets-up the specified thread for execution */
+	void scheduleThread(int tid) { dynState.currentThread = tid; }
 
 	/* Adds the specified thread to the list */
 	Thread &addNewThread(Thread &&thread);

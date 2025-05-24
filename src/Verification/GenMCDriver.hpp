@@ -183,7 +183,7 @@ public:
 	/**** Generic actions ***/
 
 	/** Sets up the next thread to run in the interpreter */
-	bool scheduleNext(std::span<Action> runnable);
+	std::optional<int> scheduleNext(std::span<Action> runnable);
 
 	/** Opt: Tries to optimize the scheduling of next instruction by checking the cache */
 	bool tryOptimizeScheduling(Event pos);
@@ -382,20 +382,20 @@ private:
 	int getFirstSchedulableSymmetric(int tid);
 
 	/** Ensures the scheduler respects atomicity */
-	bool scheduleAtomicity();
+	std::optional<int> scheduleAtomicity();
 
 	/** Tries to schedule according to the current prioritization scheme */
-	bool schedulePrioritized();
+	std::optional<int> schedulePrioritized();
 
 	/** Helpers for schedule according to a policy */
-	bool scheduleNextLTR(std::span<Action> runnable);
-	bool scheduleNextWF(std::span<Action> runnable);
-	bool scheduleNextWFR(std::span<Action> runnable);
-	bool scheduleNextRandom(std::span<Action> runnable);
+	std::optional<int> scheduleNextLTR(std::span<Action> runnable);
+	std::optional<int> scheduleNextWF(std::span<Action> runnable);
+	std::optional<int> scheduleNextWFR(std::span<Action> runnable);
+	std::optional<int> scheduleNextRandom(std::span<Action> runnable);
 
 	/** Tries to schedule the next instruction according to the
 	 * chosen policy */
-	bool scheduleNormal(std::span<Action> runnable);
+	std::optional<int> scheduleNormal(std::span<Action> runnable);
 
 	/** Blocks thread with BLAB. BLAB needs to either replace
 	 * the last label or be maximal */
@@ -411,7 +411,7 @@ private:
 	bool isExecutionBlocked() const;
 
 	/** Opt: Tries to reschedule any reads that were added blocked */
-	bool rescheduleReads();
+	std::optional<int> rescheduleReads();
 
 	/** Resets the prioritization scheme */
 	void resetThreadPrioritization();

@@ -3736,7 +3736,9 @@ void Interpreter::runAtExitHandlers()
 
 void Interpreter::run()
 {
-	while (driver->scheduleNext(dynState.globalInstructions)) {
+	std::optional<int> tid;
+	while ((tid = driver->scheduleNext(dynState.globalInstructions))) {
+		scheduleThread(*tid);
 		if (driver->tryOptimizeScheduling(currPos()))
 			continue;
 		llvm::ExecutionContext &SF = ECStack().back();
