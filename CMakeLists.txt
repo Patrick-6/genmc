@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.12...4.0)
 project(genmc VERSION 0.11.0 LANGUAGES CXX C)
 
 ### Package information
-set(PKG_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}/${PACKAGE_NAME}")
+include(GNUInstallDirs)
+set(PKG_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/runtime")
 add_compile_definitions(PACKAGE_NAME="GenMC")
 add_compile_definitions(PACKAGE_BUGREPORT="michalis.kokologiannakis@inf.ethz.ch")
 add_compile_definitions(PACKAGE_URL="https://plv.mpi-sws.org/genmc")
@@ -11,12 +12,7 @@ add_compile_definitions(INCLUDE_DIR="${CMAKE_INSTALL_PREFIX}/${PKG_INCLUDE_DIR}"
 add_compile_definitions(SRC_INCLUDE_DIR="${CMAKE_SOURCE_DIR}/include")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-include(GNUInstallDirs)
-install(
-  DIRECTORY include/
-  DESTINATION "${PKG_INCLUDE_DIR}"
-  FILES_MATCHING PATTERN "*"
-)
+install(DIRECTORY include/ DESTINATION "${PKG_INCLUDE_DIR}" FILES_MATCHING PATTERN "*.h")
 
 ### Toolchains required
 find_library(HAVE_LIBDL dl REQUIRED)
