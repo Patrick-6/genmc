@@ -2411,8 +2411,10 @@ void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab,
 	if (sLab->getAddr().isStatic() &&
 	    g.getInitLabel()->getAccessValue(sLab->getAccess()) == sLab->getVal())
 		++valid;
-	WARN_ON_ONCE(valid > 0, "helper-aba-found",
-		     "Possible ABA pattern! Consider running without -helper.\n");
+	WARN_ON_ONCE(
+		valid > 0 &&
+			std::ranges::count_if(loads, [](auto *lab) { return lab->isConfirming(); }),
+		"helper-aba-found", "Possible ABA pattern! Consider running without -helper.\n");
 
 	/* Do not bother with revisits that will be unconfirmed/lead to ABAs */
 	loads.erase(std::remove_if(loads.begin(), loads.end(),
