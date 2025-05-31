@@ -54,16 +54,16 @@ Using `brew`, the following packages are necessary:
 For a default build issue the command below. The usual `CMAKE_PREFIX_PATH` can be used
 to specify the paths of the libraries required.
 
-		cmake -DCMAKE_BUILD_TYPE=Release -B Release -S .
-		cmake --build Release
+		cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -B RelWithDebInfo -S .
+		cmake --build RelWithDebInfo
 
-This will leave the `genmc` executable in the `Release` directory.
+This will leave the `genmc` executable in the `RelWithDebInfo` directory.
 You can either run it from there (as in the examples below), or issue
 `cmake --install .`.
 
 To run a subset of all the tests that come with the system to see if the system was built correctly or not:
 
-		ctest -R fast-driver
+		cd RelWithDebInfo && ctest -R fast-driver
 
 <a name="usage">Usage</a>
 -------------------------
