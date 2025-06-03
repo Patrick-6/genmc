@@ -21,6 +21,7 @@
 #include "IntrinsicLoweringPass.hpp"
 #include "Support/Error.hpp"
 #include <llvm/ADT/Twine.h>
+#include <llvm/Analysis/MemoryBuiltins.h>
 #include <llvm/CodeGen/IntrinsicLowering.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
@@ -142,6 +143,15 @@ static auto runOnBasicBlock(BasicBlock &BB, IntrinsicLowering *IL) -> bool
 				llvm::CallInst::Create(F, llvm::Twine(), I);
 			}
 			new llvm::UnreachableInst(M.getContext(), I);
+			I->eraseFromParent();
+			modified = true;
+			break;
+		}
+		case llvm::Intrinsic::objectsize: {
+			auto *objSize = llvm::lowerObjectSizeCall(I,
+								  I->getModule()->getDataLayout(),
+								  nullptr, /* must succeed */ true);
+			I->replaceAllUsesWith(objSize);
 			I->eraseFromParent();
 			modified = true;
 			break;
