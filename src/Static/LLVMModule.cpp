@@ -180,7 +180,7 @@ auto transformLLVMModule(llvm::Module &mod, ModuleInfo &MI,
 	{
 		llvm::FunctionPassManager fpm;
 		fpm.addPass(LocalSimplifyCFGPass());
-		fpm.addPass(EliminateAnnotationsPass());
+		fpm.addPass(EliminateAnnotationsPass(conf->helper));
 		fpm.addPass(EliminateRedundantInstPass());
 		basicOptsMGR.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(fpm)));
 	}

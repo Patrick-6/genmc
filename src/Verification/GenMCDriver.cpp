@@ -2906,6 +2906,8 @@ bool GenMCDriver::restrictAndRevisit(const WorkList::ItemT &item)
 
 bool GenMCDriver::handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab)
 {
+	BUG_ON(!getConf()->helper);
+
 	if (isExecutionDrivenByGraph(&*hLab))
 		return true;
 

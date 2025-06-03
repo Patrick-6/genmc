@@ -75,7 +75,12 @@ auto getAnnotationValue(CallInst *ci) -> uint64_t
 	return funArg->getValue().getLimitedValue();
 }
 
-auto annotateInstructions(CallInst *begin, CallInst *end) -> bool
+auto isHelperAnnot(uint64_t annotType) -> bool
+{
+	return annotType == GENMC_KIND_HELPED || annotType == GENMC_KIND_HELPING;
+}
+
+auto annotateInstructions(CallInst *begin, CallInst *end, bool annotateHelper) -> bool
 {
 	if (!begin || !end)
 		return false;
@@ -96,7 +101,8 @@ auto annotateInstructions(CallInst *begin, CallInst *end) -> bool
 			if (!opcode)
 				opcode = i.getOpcode();
 			BUG_ON(opcode != i.getOpcode()); /* annotations across paths must match */
-			annotateInstruction(&i, "genmc.attr", annotType);
+			if (annotateHelper || !isHelperAnnot(annotType))
+				annotateInstruction(&i, "genmc.attr", annotType);
 		}
 		/* stop when the begin is found; reset vars for next path */
 		if (!beginFound) {
@@ -145,7 +151,7 @@ auto EliminateAnnotationsPass::run(Function &F, FunctionAnalysisManager &FAM) ->
 	for (auto *bi : begins) {
 		auto *ei = findMatchingEnd(bi, ends, DT, PDT);
 		BUG_ON(!ei);
-		changed |= annotateInstructions(bi, ei);
+		changed |= annotateInstructions(bi, ei, annotateHelper_);
 		toDelete.insert(bi);
 		toDelete.insert(ei);
 	}
