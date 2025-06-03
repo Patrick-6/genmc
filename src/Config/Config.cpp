@@ -318,9 +318,6 @@ static void checkConfigOptions()
 	if (clLAPOR) {
 		ERROR("LAPOR is temporarily disabled.\n");
 	}
-	if (clHelper && clSchedulePolicy == SchedulePolicy::arbitrary) {
-		ERROR("Helper cannot be used with -schedule-policy=arbitrary.\n");
-	}
 	if (clModelType == ModelType::IMM && (!clDisableIPR || !clDisableSymmetryReduction)) {
 		WARN("In-place revisiting and symmetry reduction have no effect under IMM\n");
 		clDisableSymmetryReduction = true;
