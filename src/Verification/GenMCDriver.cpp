@@ -3048,7 +3048,7 @@ void GenMCDriver::handleFaiZNESpinEnd(std::unique_ptr<FaiZNESpinEndLabel> lab)
 
 	auto *zLab = llvm::dyn_cast<FaiZNESpinEndLabel>(addLabelToGraph(std::move(lab)));
 	if (areFaiZNEConstraintsSat(zLab))
-		blockThreadTryMoot(FaiZNEBlockLabel::create(zLab->getPos()));
+		blockThread(FaiZNEBlockLabel::create(zLab->getPos()));
 }
 
 void GenMCDriver::handleLockZNESpinEnd(std::unique_ptr<LockZNESpinEndLabel> lab)
