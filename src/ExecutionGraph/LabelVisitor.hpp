@@ -40,7 +40,7 @@ public:
 	void visit(const EventLabel &lab)
 	{
 		switch (lab.getKind()) {
-#define HANDLE_LABEL(NUM, NAME)                                                                    \
+#define HANDLE_LABEL(NAME)                                                                    \
 	case EventLabel::NAME:                                                                     \
 		return static_cast<Subclass *>(this)->visit##NAME##Label(                          \
 			static_cast<const NAME##Label &>(lab));

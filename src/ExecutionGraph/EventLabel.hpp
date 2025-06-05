@@ -88,7 +88,10 @@ public:
 	/* Discriminator for LLVM-style RTTI (dyn_cast<> et al).
 	 * It is public to allow clients perform a switch() on it */
 	enum EventLabelKind {
-#define HANDLE_LABEL(NUM, NAME) NAME = NUM,
+#define HANDLE_LABEL(NAME) NAME,
+#include "ExecutionGraph/EventLabel.def"
+#define FIRST_LABEL(NAME, ARG) FIRST_##NAME = ARG,
+#define LAST_LABEL(NAME, ARG) LAST_##NAME = ARG,
 #include "ExecutionGraph/EventLabel.def"
 	};
 
@@ -313,6 +316,17 @@ private:
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }         \
 	static bool classofKind(EventLabelKind k) { return k == name; }
 
+#define DEFINE_CLASSOF_RANGE(name)                                                                 \
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }         \
+	static bool classofKind(EventLabelKind k)                                                  \
+	{                                                                                          \
+		return k >= FIRST_##name && k <= LAST_##name;                                      \
+	}
+
+#define DEFINE_STANDARD_MEMBERS_RANGE(name)                                                        \
+	DEFINE_CREATE_CLONE(name)                                                                  \
+	DEFINE_CLASSOF_RANGE(name)
+
 /*******************************************************************************
  **                     ThreadStartLabel Class
  ******************************************************************************/
@@ -363,16 +377,7 @@ public:
 		createLab_ = nullptr;
 	}
 
-	DEFINE_CREATE_CLONE(ThreadStart)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_BEGIN_LABEL(NUM) k >= NUM &&
-#define LAST_BEGIN_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(ThreadStart)
 
 private:
 	/** The position of the corresponding create opeartion */
@@ -450,14 +455,7 @@ protected:
 	{}
 
 public:
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_TERM_LABEL(NUM) k >= NUM &&
-#define LAST_TERM_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_CLASSOF_RANGE(Terminator)
 };
 
 /*******************************************************************************
@@ -471,14 +469,7 @@ protected:
 	BlockLabel(EventLabelKind k, Event pos) : TerminatorLabel(k, MemOrdering::NotAtomic, pos) {}
 
 public:
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_BLOCK_LABEL(NUM) k >= NUM &&
-#define LAST_BLOCK_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_CLASSOF_RANGE(Block)
 };
 
 #define BLOCK_PURE_SUBCLASS(name)                                                                  \
@@ -649,14 +640,7 @@ public:
 		allocLab = nullptr;
 	}
 
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_MEMORY_LABEL(NUM) k >= NUM &&
-#define LAST_MEMORY_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_CLASSOF_RANGE(MemAccess)
 
 private:
 	/** The access performed */
@@ -750,16 +734,7 @@ public:
 		setRfNoCascade(nullptr);
 	}
 
-	DEFINE_CREATE_CLONE(Read)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_READ_LABEL(NUM) k >= NUM &&
-#define LAST_READ_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(Read)
 
 private:
 	static inline bool isConfirming(EventLabelKind k);
@@ -855,16 +830,7 @@ public:
 
 	virtual void reset() override { ReadLabel::reset(); }
 
-	DEFINE_CREATE_CLONE(FaiRead)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_FAI_READ_LABEL(NUM) k >= NUM &&
-#define LAST_FAI_READ_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(FaiRead)
 
 private:
 	/** The binary operator for this RMW operation */
@@ -960,16 +926,7 @@ public:
 
 	virtual void reset() override { ReadLabel::reset(); }
 
-	DEFINE_CREATE_CLONE(CasRead)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_CAS_READ_LABEL(NUM) k >= NUM &&
-#define LAST_CAS_READ_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(CasRead)
 
 private:
 	/** The value that will make this CAS succeed */
@@ -1051,16 +1008,7 @@ public:
 		: LockCasReadLabel(pos, addr, size, WriteAttr::None, std::move(annot), deps)
 	{}
 
-	DEFINE_CREATE_CLONE(LockCasRead)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_LOCK_CAS_READ_LABEL(NUM) k >= NUM &&
-#define LAST_LOCK_CAS_READ_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(LockCasRead)
 };
 
 /*******************************************************************************
@@ -1191,16 +1139,7 @@ public:
 		readerList.clear();
 	}
 
-	DEFINE_CREATE_CLONE(Write)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_WRITE_LABEL(NUM) k >= NUM &&
-#define LAST_WRITE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(Write)
 
 private:
 	friend class ExecutionGraph;
@@ -1280,16 +1219,7 @@ public:
 		: UnlockWriteLabel(pos, ord, loc, size, type, val, WriteAttr::None, deps)
 	{}
 
-	DEFINE_CREATE_CLONE(UnlockWrite)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_UNLOCK_WRITE_LABEL(NUM) k >= NUM &&
-#define LAST_UNLOCK_WRITE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(UnlockWrite)
 };
 
 /*******************************************************************************
@@ -1334,16 +1264,7 @@ public:
 		: FaiWriteLabel(pos, ord, addr, size, type, val, WriteAttr::None, deps)
 	{}
 
-	DEFINE_CREATE_CLONE(FaiWrite)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_FAI_WRITE_LABEL(NUM) k >= NUM &&
-#define LAST_FAI_WRITE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(FaiWrite)
 };
 
 /*******************************************************************************
@@ -1403,16 +1324,7 @@ public:
 		: CasWriteLabel(CasWrite, pos, ord, addr, size, type, val, wattr, deps)
 	{}
 
-	DEFINE_CREATE_CLONE(CasWrite)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_CAS_WRITE_LABEL(NUM) k >= NUM &&
-#define LAST_CAS_WRITE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(CasWrite)
 };
 
 #define CASWRITE_PURE_SUBCLASS(_class_kind)                                                        \
@@ -1459,15 +1371,7 @@ public:
 				    deps)
 	{}
 
-	DEFINE_CREATE_CLONE(LockCasWrite)
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_LOCK_CAS_WRITE_LABEL(NUM) k >= NUM &&
-#define LAST_LOCK_CAS_WRITE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(LockCasWrite)
 };
 
 /*******************************************************************************
@@ -1535,16 +1439,7 @@ public:
 		: FenceLabel(Fence, pos, ord, deps)
 	{}
 
-	DEFINE_CREATE_CLONE(Fence)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_FENCE_LABEL(NUM) k >= NUM &&
-#define LAST_FENCE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(Fence)
 };
 
 /*******************************************************************************
@@ -1643,16 +1538,7 @@ public:
 		accessList.clear();
 	}
 
-	DEFINE_CREATE_CLONE(Malloc)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_ALLOC_LABEL(NUM) k >= NUM &&
-#define LAST_ALLOC_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(Malloc)
 
 private:
 	friend class ExecutionGraph;
@@ -1764,16 +1650,7 @@ public:
 		aLab = nullptr;
 	}
 
-	DEFINE_CREATE_CLONE(Free)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_FREE_LABEL(NUM) k >= NUM &&
-#define LAST_FREE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(Free)
 
 private:
 	/** The address of the memory freed */
