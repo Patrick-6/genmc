@@ -123,7 +123,6 @@ static void repairRead(ExecutionGraph &g, ReadLabel *lab)
 	auto *maxLab = g.co_max(lab->getAddr());
 	lab->setRf(maxLab);
 	lab->setAddedMax(true);
-	lab->setIPRStatus(maxLab->getStamp() > lab->getStamp());
 }
 
 static void repairDanglingReads(ExecutionGraph &g)
@@ -2466,7 +2465,6 @@ void GenMCDriver::revisitInPlace(const BackwardRevisit &br)
 		g.removeLast(rLab->getThread());
 	rLab->setRf(sLab);
 	rLab->setAddedMax(true); // always true for atomicity violations
-	rLab->setIPRStatus(true);
 
 	completeRevisitedRMW(rLab);
 
@@ -2568,16 +2566,9 @@ bool GenMCDriver::prefixContainsSameLoc(const BackwardRevisit &r, const EventLab
 	return false;
 }
 
-bool GenMCDriver::hasBeenRevisitedByDeleted(const BackwardRevisit &r, const EventLabel *eLab)
+bool GenMCDriver::inRevisitPrefix(const EventLabel *eLab)
 {
-	auto *lab = llvm::dyn_cast<ReadLabel>(eLab);
-	if (!lab || lab->isIPR())
-		return false;
-
-	auto *rfLab = lab->getRf();
-	auto &v = *r.getViewNoRel();
-	return !v.contains(rfLab->getPos()) && rfLab->getStamp() > lab->getStamp() &&
-	       !prefixContainsSameLoc(r, rfLab);
+	return !eLab->isRevisitable();
 }
 
 bool GenMCDriver::isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLabel *lab)
@@ -2643,7 +2634,7 @@ bool GenMCDriver::isMaximalExtension(const BackwardRevisit &r)
 			return false;
 		if (isCoBeforeSavedPrefix(r, &lab))
 			return false;
-		if (hasBeenRevisitedByDeleted(r, &lab))
+		if (inRevisitPrefix(&lab))
 			return false;
 	}
 	return true;
@@ -2678,7 +2669,9 @@ std::unique_ptr<ExecutionGraph> GenMCDriver::copyGraph(const BackwardRevisit *br
 	auto &prefix = getPrefixView(g.getEventLabel(br->getRev()));
 	auto og = g.getCopyUpTo(*v);
 
-	/* Ensure the prefix of the write will not be revisitable */
+	/** Ensure the prefix of the write will not be revisitable.
+	 * This is also used to check whether a write has revisited,
+	 * and appropriately prevent some revisits */
 	auto *revLab = og->getReadLabel(br->getPos());
 
 	for (auto &lab : og->labels()) {
@@ -2810,7 +2803,6 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 	rLab->setRf(revLab);
 	auto *fri = llvm::dyn_cast<ReadForwardRevisit>(&ri);
 	rLab->setAddedMax(fri ? fri->isMaximal() : revLab == g.co_max(rLab->getAddr()));
-	rLab->setIPRStatus(false);
 
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug1)
 			    << "--- " << (llvm::isa<BackwardRevisit>(ri) ? "Backward" : "Forward")

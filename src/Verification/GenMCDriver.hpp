@@ -514,9 +514,8 @@ private:
 		return !v->contains(lab->getPos()) && !prefixContainsSameLoc(r, lab);
 	}
 
-	/** Returns true if ELAB has been revisited by some event that
-	 * will be deleted by the revisit R */
-	bool hasBeenRevisitedByDeleted(const BackwardRevisit &r, const EventLabel *eLab);
+	/** Returns true if ELAB has revisited, or is in the prefix of a write that has */
+	bool inRevisitPrefix(const EventLabel *eLab);
 
 	bool isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLabel *lab);
 
@@ -700,7 +699,8 @@ private:
 	 * The reads are ordered in reverse-addition order */
 	virtual std::vector<ReadLabel *> getRevisitableApproximation(WriteLabel *sLab);
 
-	/** Returns a vector clock representing the prefix of e.
+	/** Returns a vector clock representing the prefix of e,
+	 * including e but not e's external dependencies (rf, threadCreate, threadEnd).
 	 * Depending on whether dependencies are tracked, the prefix can be
 	 * either (po U rf) or (AR U rf) */
 	const VectorClock &getPrefixView(const EventLabel *lab) const;
