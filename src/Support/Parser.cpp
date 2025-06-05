@@ -21,7 +21,7 @@
 #include "Parser.hpp"
 #include <cstdio>
 
-string Parser::readFile(const string &fileName)
+auto Parser::readFile(const string &fileName) -> string
 {
 	ifstream ifs(fileName.c_str(), ios::in | ios::binary | ios::ate);
 	/* TODO: Error check here? */
@@ -34,7 +34,7 @@ string Parser::readFile(const string &fileName)
 	return string(&bytes[0], fileSize);
 }
 
-std::string Parser::getFileLineByNumber(const std::string &absPath, int line)
+auto Parser::getFileLineByNumber(const std::string &absPath, int line) -> std::string
 {
 	std::ifstream ifs(absPath);
 	std::string s;
