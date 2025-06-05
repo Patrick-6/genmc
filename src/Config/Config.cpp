@@ -81,14 +81,14 @@ static llvm::cl::opt<bool>
 static llvm::cl::opt<bool> clDisableSymmetryReduction("disable-sr", llvm::cl::cat(clGeneral),
 						      llvm::cl::desc("Disable symmetry reduction"));
 
-static llvm::cl::opt<bool> clHelper("helper", llvm::cl::cat(clGeneral),
-				    llvm::cl::desc("Enable helping pattern optimization"));
+static llvm::cl::opt<bool> clDisableHelper("disable-helper", llvm::cl::cat(clGeneral),
+				    llvm::cl::desc("Disable helping pattern optimization"));
 
 static llvm::cl::opt<bool> clConfirmation("confirmation", llvm::cl::cat(clGeneral),
 				     llvm::cl::desc("Enable confirmation pattern optimization"));
 
-static llvm::cl::opt<bool> clFinalWrite("final-write", llvm::cl::cat(clGeneral),
-				   llvm::cl::desc("Enable final write optimization"));
+static llvm::cl::opt<bool> clDisableFinalWrite("disable-final-write", llvm::cl::cat(clGeneral),
+				   llvm::cl::desc("Disable final write optimization"));
 
 static llvm::cl::opt<bool> clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
 					     llvm::cl::desc("Print error trace"));
@@ -389,9 +389,9 @@ static void saveConfigOptions(Config &conf)
 	conf.boundType = clBoundType;
 	conf.LAPOR = clLAPOR;
 	conf.symmetryReduction = !clDisableSymmetryReduction;
-	conf.helper = clHelper;
+	conf.helper = !clDisableHelper;
 	conf.confirmation = clConfirmation;
-	conf.finalWrite = clFinalWrite;
+	conf.finalWrite = !clDisableFinalWrite;
 	conf.printErrorTrace = clPrintErrorTrace;
 	conf.checkLiveness = clCheckLiveness;
 	conf.instructionCaching = !clDisableInstructionCaching;
