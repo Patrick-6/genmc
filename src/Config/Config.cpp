@@ -82,7 +82,13 @@ static llvm::cl::opt<bool> clDisableSymmetryReduction("disable-sr", llvm::cl::ca
 						      llvm::cl::desc("Disable symmetry reduction"));
 
 static llvm::cl::opt<bool> clHelper("helper", llvm::cl::cat(clGeneral),
-				    llvm::cl::desc("Enable Helper for CDs verification"));
+				    llvm::cl::desc("Enable helping pattern optimization"));
+
+static llvm::cl::opt<bool> clConfirmation("confirmation", llvm::cl::cat(clGeneral),
+				     llvm::cl::desc("Enable confirmation pattern optimization"));
+
+static llvm::cl::opt<bool> clFinalWrite("final-write", llvm::cl::cat(clGeneral),
+				   llvm::cl::desc("Enable final write optimization"));
 
 static llvm::cl::opt<bool> clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
 					     llvm::cl::desc("Print error trace"));
@@ -194,10 +200,6 @@ static llvm::cl::opt<bool>
 static llvm::cl::opt<bool>
 	clDisableAssumePropagation("disable-assume-propagation", llvm::cl::cat(clTransformation),
 				   llvm::cl::desc("Disable assume-propagation transformation"));
-
-static llvm::cl::opt<bool>
-	clDisableConfirmAnnot("disable-confirmation-annotation", llvm::cl::cat(clTransformation),
-			      llvm::cl::desc("Disable confirmation-annotation transformation"));
 
 static llvm::cl::opt<bool> clDisableMMDetector("disable-mm-detector",
 					       llvm::cl::cat(clTransformation),
@@ -318,6 +320,9 @@ static void checkConfigOptions()
 	if (clLAPOR) {
 		ERROR("LAPOR is temporarily disabled.\n");
 	}
+	if (clConfirmation) {
+		ERROR("Confirmation is temporarily disabled.\n");
+	}
 	if (clModelType == ModelType::IMM && (!clDisableIPR || !clDisableSymmetryReduction)) {
 		WARN("In-place revisiting and symmetry reduction have no effect under IMM\n");
 		clDisableSymmetryReduction = true;
@@ -345,11 +350,11 @@ static void checkConfigOptions()
 	/* Sanitize bounding options */
 	bool bounding = (clBound != -1);
 	GENMC_DEBUG(bounding |= clBoundsHistogram;);
-	if (bounding && (clLAPOR || clHelper || !clDisableBAM || !clDisableSymmetryReduction ||
-			 !clDisableIPR || clSchedulePolicy != SchedulePolicy::ltr)) {
-		WARN("LAPOR/Helper/BAM/SR/IPR have no effect when --bound is used. Scheduling "
+	if (bounding && (clLAPOR || !clDisableBAM || !clDisableSymmetryReduction || !clDisableIPR ||
+			 clSchedulePolicy != SchedulePolicy::ltr)) {
+		WARN("LAPOR/BAM/SR/IPR have no effect when --bound is used. Scheduling "
 		     "defaults to LTR.\n");
-		clLAPOR = clHelper = false;
+		clLAPOR = false;
 		clDisableBAM = clDisableSymmetryReduction = clDisableIPR = true;
 		clSchedulePolicy = SchedulePolicy::ltr;
 	}
@@ -385,6 +390,8 @@ static void saveConfigOptions(Config &conf)
 	conf.LAPOR = clLAPOR;
 	conf.symmetryReduction = !clDisableSymmetryReduction;
 	conf.helper = clHelper;
+	conf.confirmation = clConfirmation;
+	conf.finalWrite = clFinalWrite;
 	conf.printErrorTrace = clPrintErrorTrace;
 	conf.checkLiveness = clCheckLiveness;
 	conf.instructionCaching = !clDisableInstructionCaching;
@@ -417,7 +424,6 @@ static void saveConfigOptions(Config &conf)
 	conf.codeCondenser = !clDisableCodeCondenser;
 	conf.loadAnnot = !clDisableLoadAnnot;
 	conf.assumePropagation = !clDisableAssumePropagation;
-	conf.confirmAnnot = !clDisableConfirmAnnot;
 	conf.mmDetector = !clDisableMMDetector;
 
 	/* Save debugging options */

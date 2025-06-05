@@ -48,6 +48,8 @@ struct Config {
 	bool LAPOR{};
 	bool symmetryReduction{};
 	bool helper{};
+	bool confirmation{};
+	bool finalWrite{};
 	bool checkLiveness{};
 	bool printErrorTrace{};
 	std::string dotFile;
@@ -79,7 +81,6 @@ struct Config {
 	bool codeCondenser{};
 	bool loadAnnot{};
 	bool assumePropagation{};
-	bool confirmAnnot{};
 	bool mmDetector{};
 
 	/*** Debugging options ***/

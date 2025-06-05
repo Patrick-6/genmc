@@ -27,12 +27,11 @@ using namespace llvm;
 
 class EliminateAnnotationsPass : public PassInfoMixin<EliminateAnnotationsPass> {
 public:
-	EliminateAnnotationsPass(bool annotateHelper = false) : annotateHelper_(annotateHelper) {}
+	EliminateAnnotationsPass(const std::shared_ptr<const Config> &conf) : conf(conf) {}
 	auto run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses;
 
 private:
-	/** Whether we should annotate helper-related instructions */
-	bool annotateHelper_ {};
+	const std::shared_ptr<const Config> &conf;
 };
 
 #endif /* GENMC_ELIMINATE_ANNOTATIONS_PASS_HPP */
