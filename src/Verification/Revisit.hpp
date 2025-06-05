@@ -38,7 +38,6 @@ public:
 		RV_FRevRerun,
 		RV_FRevLast,
 		RV_BRev,
-		RV_BRevHelper,
 		RV_BRevLast,
 
 	};
@@ -210,36 +209,6 @@ private:
 	std::unique_ptr<VectorClock> view;
 };
 
-/** An optimized BackwardRevisit performed by Helper */
-class BackwardRevisitHELPER : public BackwardRevisit {
-
-public:
-	BackwardRevisitHELPER(Event p, Event r, std::unique_ptr<VectorClock> view, Event m)
-		: BackwardRevisit(RV_BRevHelper, p, r, std::move(view)), mid(m)
-	{}
-	BackwardRevisitHELPER(const ReadLabel *rLab, const WriteLabel *wLab,
-			      std::unique_ptr<VectorClock> view, const WriteLabel *mLab)
-		: BackwardRevisitHELPER(rLab->getPos(), wLab->getPos(), std::move(view),
-					mLab->getPos())
-	{}
-
-	/** Returns the intermediate write participating in the revisit */
-	Event getMid() const { return mid; }
-
-	static bool classof(const Revisit *item) { return item->getKind() == RV_BRevHelper; }
-	static ReadRevisit *castToReadRevisit(const BackwardRevisitHELPER *r)
-	{
-		return static_cast<ReadRevisit *>(const_cast<BackwardRevisitHELPER *>(r));
-	}
-	static BackwardRevisitHELPER *castFromReadRevisit(const ReadRevisit *r)
-	{
-		return static_cast<BackwardRevisitHELPER *>(const_cast<ReadRevisit *>(r));
-	}
-
-private:
-	Event mid;
-};
-
 /*******************************************************************************
  **                             Static methods
  *******************************************************************************/
@@ -252,8 +221,6 @@ inline Revisit *Revisit::castFromReadRevisit(const ReadRevisit *r)
 		return static_cast<ReadForwardRevisit *>(const_cast<ReadRevisit *>(r));
 	case Revisit::Kind::RV_BRev:
 		return static_cast<BackwardRevisit *>(const_cast<ReadRevisit *>(r));
-	case Revisit::Kind::RV_BRevHelper:
-		return static_cast<BackwardRevisitHELPER *>(const_cast<ReadRevisit *>(r));
 	default:
 		BUG();
 	}
@@ -267,8 +234,6 @@ inline ReadRevisit *Revisit::castToReadRevisit(const Revisit *r)
 		return static_cast<ReadForwardRevisit *>(const_cast<Revisit *>(r));
 	case Revisit::Kind::RV_BRev:
 		return static_cast<BackwardRevisit *>(const_cast<Revisit *>(r));
-	case Revisit::Kind::RV_BRevHelper:
-		return static_cast<BackwardRevisitHELPER *>(const_cast<Revisit *>(r));
 	default:
 		BUG();
 	}

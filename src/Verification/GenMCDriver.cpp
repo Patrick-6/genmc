@@ -2506,16 +2506,13 @@ void updatePredsWithPrefixView(const ExecutionGraph &g, VectorClock &preds,
 	return;
 }
 
-std::unique_ptr<VectorClock>
-GenMCDriver::getRevisitView(const ReadLabel *rLab, const WriteLabel *sLab,
-			    const WriteLabel *midLab /* = nullptr */) const
+std::unique_ptr<VectorClock> GenMCDriver::getRevisitView(const ReadLabel *rLab,
+							 const WriteLabel *sLab) const
 {
 	auto &g = getExec().getGraph();
 	auto preds = g.getPredsView(rLab->getPos());
 
 	updatePredsWithPrefixView(g, *preds, getPrefixView(sLab));
-	if (midLab)
-		updatePredsWithPrefixView(g, *preds, getPrefixView(midLab));
 	return preds;
 }
 
@@ -2568,11 +2565,6 @@ bool GenMCDriver::prefixContainsSameLoc(const BackwardRevisit &r, const EventLab
 	auto &v = *llvm::dyn_cast<DepView>(&getPrefixView(g.getEventLabel(r.getRev())));
 	if (lab->getIndex() <= v.getMax(lab->getThread()) && isFixedHoleInView(g, lab, v))
 		return true;
-	if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r)) {
-		auto &hv = *llvm::dyn_cast<DepView>(&getPrefixView(g.getEventLabel(br->getMid())));
-		return lab->getIndex() <= hv.getMax(lab->getThread()) &&
-		       isFixedHoleInView(g, lab, hv);
-	}
 	return false;
 }
 
@@ -2684,16 +2676,6 @@ std::unique_ptr<ExecutionGraph> GenMCDriver::copyGraph(const BackwardRevisit *br
 
 	/* Adjust the view that will be used for copying */
 	auto &prefix = getPrefixView(g.getEventLabel(br->getRev()));
-	if (auto *brh = llvm::dyn_cast<BackwardRevisitHELPER>(br)) {
-		if (auto *dv = llvm::dyn_cast<DepView>(v)) {
-			dv->addHole(brh->getMid());
-			dv->addHole(brh->getMid().prev());
-		} else {
-			auto prev = v->getMax(brh->getMid().thread);
-			v->setMax(Event(brh->getMid().thread, prev - 2));
-		}
-	}
-
 	auto og = g.getCopyUpTo(*v);
 
 	/* Ensure the prefix of the write will not be revisitable */
@@ -2884,9 +2866,7 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 
 	/* Recalculate the view because some B labels might have been
 	 * removed */
-	auto *brh = llvm::dyn_cast<BackwardRevisitHELPER>(&br);
-	auto v = getRevisitView(g.getReadLabel(br.getPos()), g.getWriteLabel(br.getRev()),
-				brh ? g.getWriteLabel(brh->getMid()) : nullptr);
+	auto v = getRevisitView(g.getReadLabel(br.getPos()), g.getWriteLabel(br.getRev()));
 
 	auto og = copyGraph(&br, &*v);
 	auto cmap = ChoiceMap(getExec().getChoiceMap());
