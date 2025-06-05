@@ -135,13 +135,12 @@ public:
 		auto query(typename Seq::const_iterator sBeg,
 			   typename Seq::const_iterator sEnd) const -> QueryResult
 		{
-			unsigned i, l;
 			unsigned l1 = std::distance(sBeg, sEnd);
 			unsigned l2 = label().size();
 
 			/** Find the length of common part */
-			l = std::min(l1, l2);
-			i = 0;
+			unsigned l = std::min(l1, l2);
+			unsigned i = 0;
 			while ((i < l) && (*(sBeg + i) == label()[i]))
 				++i;
 
