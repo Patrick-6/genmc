@@ -46,7 +46,7 @@ public:
 	auto operator=(const Stamp &other) -> Stamp & = default;
 	auto operator=(Stamp &&other) -> Stamp & = default;
 
-	inline auto operator<=>(const Stamp &other) const = default;
+	auto operator<=>(const Stamp &other) const = default;
 
 #define IMPL_STAMP_BINOP(_op)                                                                      \
 	Stamp &operator _op##=(uint32_t v)                                                         \
@@ -57,7 +57,7 @@ public:
 	Stamp operator _op(uint32_t v) const                                                       \
 	{                                                                                          \
 		Stamp n(*this);                                                                    \
-		n _op##= v;                                                                            \
+		n _op## = v;                                                                       \
 		return n;                                                                          \
 	}
 
@@ -85,6 +85,7 @@ public:
 	auto operator()() const -> uint32_t { return get(); }
 
 	friend auto operator<<(llvm::raw_ostream &rhs, const Stamp &s) -> llvm::raw_ostream &;
+
 private:
 	Value value;
 };
