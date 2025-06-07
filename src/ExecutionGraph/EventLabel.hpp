@@ -728,18 +728,12 @@ public:
 	/** Whether the read is part of an RMW operation (needs to be part of a graph) */
 	bool isRMW() const;
 
-	/** Returns true if the read was revisited in-place */
-	bool isIPR() const { return ipr; }
-
 	/** Convenience function that returns whether reading a value will create an RMW */
 	bool valueMakesRMWSucceed(const SVal &val) const;
 
 	/** Convenience function that returns whether reading a value makes the assume
 	 * succeed */
 	bool valueMakesAssumeSucceed(const SVal &val) const;
-
-	/** Sets the IPR status for this read */
-	void setIPRStatus(bool status) { ipr = status; }
 
 	/** Helper: Whether this is a confirmation read */
 	bool isConfirming() const { return isConfirming(getKind()); }
@@ -754,7 +748,6 @@ public:
 	{
 		MemAccessLabel::reset();
 		setRfNoCascade(nullptr);
-		ipr = false;
 	}
 
 	DEFINE_CREATE_CLONE(Read)
@@ -778,9 +771,6 @@ private:
 
 	/** Position of the write it is reading from in the graph */
 	EventLabel *readsFrom = nullptr;
-
-	/** Whether the read has been revisited in place */
-	bool ipr = false;
 
 	/** SAVer: Expression for annotatable loads. This needs to have
 	 * heap-value semantics so that it does not create concurrency issues */
