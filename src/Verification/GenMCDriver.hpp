@@ -504,8 +504,8 @@ private:
 	/** Given a revisit RLAB <- WLAB, returns the view of the resulting graph.
 	 * (This function can be abused and also be utilized for returning the view
 	 * of "fictional" revisits, e.g., the view of an event in a maximal path.) */
-	std::unique_ptr<VectorClock> getRevisitView(const ReadLabel *rLab, const WriteLabel *sLab,
-						    const WriteLabel *midLab = nullptr) const;
+	std::unique_ptr<VectorClock> getRevisitView(const ReadLabel *rLab,
+						    const WriteLabel *sLab) const;
 
 	/** Returnes true if the revisit R will delete LAB from the graph */
 	bool revisitDeletesEvent(const BackwardRevisit &r, const EventLabel *lab) const

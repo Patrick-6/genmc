@@ -35,9 +35,6 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const Revisit::Kind k)
 	case Revisit::RV_BRev:
 		s << "BR";
 		break;
-	case Revisit::RV_BRevHelper:
-		s << "BRH";
-		break;
 	default:
 		PRINT_BUGREPORT_INFO_ONCE("print-revisit-type", "Cannot print revisit type");
 		s << "UNKNOWN";
