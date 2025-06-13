@@ -36,9 +36,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-
-#include "Config/Config.hpp"
 #include "Interpreter.h"
+#include "Config/Config.hpp"
 #include "Static/LLVMUtils.hpp"
 #include "Support/Error.hpp"
 #include <cstring>
@@ -79,7 +78,15 @@ llvm::raw_ostream &llvm::operator<<(llvm::raw_ostream &s, const Thread &thr)
 
 std::unique_ptr<InterpreterState> Interpreter::saveState()
 {
-	return std::make_unique<InterpreterState>(dynState);
+	/* This function may be called during `GenMCDriver::scheduleNext` during the optimized
+	 * scheduling part, when we hold a reference to the memory of `globalInstructions`. If a
+	 * warning is triggered during this, we will save the state with this function, then later
+	 * restore it. We need to ensure that the reference to `globalInstructions` stays valid, so
+	 * we swap the copy and the original here.
+	 */
+	auto tmp = std::make_unique<InterpreterState>(dynState);
+	std::swap(tmp->globalInstructions, dynState.globalInstructions);
+	return std::move(tmp);
 }
 
 void Interpreter::restoreState(std::unique_ptr<InterpreterState> s) { dynState = std::move(*s); }

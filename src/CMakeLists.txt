@@ -70,6 +70,7 @@ set(SOURCES
   Verification/Relinche/Linearization.cpp
   Verification/Relinche/Observation.cpp
   Verification/Relinche/Specification.cpp
+  Verification/Scheduler.cpp
   main.cpp
 )
 

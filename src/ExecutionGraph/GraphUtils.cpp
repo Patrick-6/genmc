@@ -200,3 +200,76 @@ auto violatesAtomicity(const WriteLabel *sLab) -> bool
 {
 	return sLab->isRMW() && findPendingRMW(sLab);
 }
+
+void blockThread(ExecutionGraph& g, std::unique_ptr<BlockLabel> bLab)
+{
+	/* There are a couple of reasons we don't call Driver::addLabelToGraph() here:
+	 *   1) It's redundant to update the views of the block label
+	 *   2) If addLabelToGraph() does extra stuff (e.g., event caching) we absolutely
+	 *      don't want to do that here. blockThread() should be safe to call from
+	 *      anywhere in the code, with no unexpected side-effects */
+	if (bLab->getPos() == g.getLastThreadLabel(bLab->getThread())->getPos())
+		g.removeLast(bLab->getThread());
+	g.addLabelToGraph(std::move(bLab));
+}
+
+void unblockThread(ExecutionGraph& g, Event pos)
+{
+	auto *bLab = g.getLastThreadLabel(pos.thread);
+	BUG_ON(!llvm::isa<BlockLabel>(bLab));
+	g.removeLast(pos.thread);
+}
+
+auto createRMWWriteLabel(const ExecutionGraph& g, const ReadLabel *rLab) -> std::unique_ptr<WriteLabel>
+{
+	/* Handle non-RMW cases first */
+	if (!llvm::isa<CasReadLabel>(rLab) && !llvm::isa<FaiReadLabel>(rLab))
+		return nullptr;
+	if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab))
+		if (rLab->getAccessValue(rLab->getAccess()) != casLab->getExpected())
+			return nullptr;
+
+	SVal result;
+	WriteAttr wattr = WriteAttr::None;
+	if (auto *faiLab = llvm::dyn_cast<FaiReadLabel>(rLab)) {
+		/* Need to get the rf value within the if, as rLab might be a disk op,
+		 * and we cannot get the value in that case (but it will also not be an RMW)
+		 */
+		auto rfVal = rLab->getAccessValue(rLab->getAccess());
+		result = executeRMWBinOp(rfVal, faiLab->getOpVal(), faiLab->getSize(),
+					 faiLab->getOp());
+		if (llvm::isa<BIncFaiReadLabel>(faiLab) && result == SVal(0))
+			result = findBarrierInitValue(g, rLab->getAccess());
+		wattr = faiLab->getAttr();
+	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
+		result = casLab->getSwapVal();
+		wattr = casLab->getAttr();
+	} else
+		BUG();
+
+	std::unique_ptr<WriteLabel> wLab = nullptr;
+
+#define CREATE_COUNTERPART(name)                                                                   \
+	case EventLabel::name##Read:                                                               \
+		wLab = name##WriteLabel::create(rLab->getPos().next(), rLab->getOrdering(),        \
+						rLab->getAddr(), rLab->getSize(), rLab->getType(), \
+						result, wattr);                                    \
+		break;
+
+	switch (rLab->getKind()) {
+		CREATE_COUNTERPART(BIncFai);
+		CREATE_COUNTERPART(NoRetFai);
+		CREATE_COUNTERPART(Fai);
+		CREATE_COUNTERPART(LockCas);
+		CREATE_COUNTERPART(TrylockCas);
+		CREATE_COUNTERPART(AbstractLockCas);
+		CREATE_COUNTERPART(Cas);
+		CREATE_COUNTERPART(HelpedCas);
+		CREATE_COUNTERPART(ConfirmingCas);
+	default:
+		BUG();
+	}
+	BUG_ON(!wLab);
+	return std::move(wLab);
+}
+

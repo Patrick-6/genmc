@@ -3719,8 +3719,6 @@ void Interpreter::runAtExitHandlers()
 		// Don't call run; just run for one frame...
 		auto size = ECStack().size();
 		while (ECStack().size() == size) {
-			if (driver->tryOptimizeScheduling(currPos()))
-				continue;
 			llvm::ExecutionContext &SF = ECStack().back();
 			llvm::Instruction &I = *SF.CurInst++;
 			visit(I);
@@ -3739,8 +3737,6 @@ void Interpreter::run()
 	std::optional<int> tid;
 	while ((tid = driver->scheduleNext(dynState.globalInstructions))) {
 		scheduleThread(*tid);
-		if (driver->tryOptimizeScheduling(currPos()))
-			continue;
 		llvm::ExecutionContext &SF = ECStack().back();
 		llvm::Instruction &I = *SF.CurInst++;
 		visit(I);

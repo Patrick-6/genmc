@@ -30,6 +30,7 @@
 #include "Verification/ChoiceMap.hpp"
 #include "Verification/Relinche/LinearizabilityChecker.hpp"
 #include "Verification/Relinche/Specification.hpp"
+#include "Verification/Scheduler.hpp"
 #include "Verification/VerificationError.hpp"
 #include "Verification/WorkList.hpp"
 #include <llvm/ADT/BitVector.h>
@@ -183,10 +184,7 @@ public:
 	/**** Generic actions ***/
 
 	/** Sets up the next thread to run in the interpreter */
-	std::optional<int> scheduleNext(std::span<Action> runnable);
-
-	/** Opt: Tries to optimize the scheduling of next instruction by checking the cache */
-	bool tryOptimizeScheduling(Event pos);
+	auto scheduleNext(std::span<Action> runnable) -> std::optional<int>;
 
 	/** Things to do when an execution starts/ends */
 	void handleExecutionStart();
@@ -324,7 +322,7 @@ protected:
 	std::unique_ptr<Execution> extractState();
 
 	/** Returns all values read leading up to POS */
-	std::pair<std::vector<SVal>, std::vector<Event>> extractValPrefix(Event pos);
+	auto extractValPrefix(Event pos) const -> std::pair<std::vector<SVal>, std::vector<Event>>;
 
 	/** Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
@@ -366,55 +364,14 @@ private:
 	void moot() { isMootExecution = true; }
 	void unmoot() { isMootExecution = false; }
 
-	/** Opt: Whether the exploration should try to repair R */
-	bool isRescheduledRead(Event r) const { return readToReschedule == r; }
-
-	/** Opt: Sets R as a read to be repaired */
-	void setRescheduledRead(Event r) { readToReschedule = r; }
-
 	/** Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
-
-	/** Returns true if THREAD is schedulable (i.e., there are more
-	 * instructions to run and it is not blocked) */
-	bool isSchedulable(int thread) const;
-
-	int getFirstSchedulableSymmetric(int tid);
-
-	/** Ensures the scheduler respects atomicity */
-	std::optional<int> scheduleAtomicity();
-
-	/** Tries to schedule according to the current prioritization scheme */
-	std::optional<int> schedulePrioritized();
-
-	/** Helpers for schedule according to a policy */
-	std::optional<int> scheduleNextLTR(std::span<Action> runnable);
-	std::optional<int> scheduleNextWF(std::span<Action> runnable);
-	std::optional<int> scheduleNextWFR(std::span<Action> runnable);
-	std::optional<int> scheduleNextRandom(std::span<Action> runnable);
-
-	/** Tries to schedule the next instruction according to the
-	 * chosen policy */
-	std::optional<int> scheduleNormal(std::span<Action> runnable);
-
-	/** Blocks thread with BLAB. BLAB needs to either replace
-	 * the last label or be maximal */
-	void blockThread(std::unique_ptr<BlockLabel> bLab);
 
 	/** Blocks thread at POS with type T. Tries to moot afterward */
 	void blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab);
 
-	/** Unblocks thread at POS */
-	void unblockThread(Event pos);
-
 	/** Returns whether the current execution is blocked */
 	bool isExecutionBlocked() const;
-
-	/** Opt: Tries to reschedule any reads that were added blocked */
-	std::optional<int> rescheduleReads();
-
-	/** Resets the prioritization scheme */
-	void resetThreadPrioritization();
 
 	/** If LAB accesses a valid location, reports an error  */
 	VerificationError checkAccessValidity(const MemAccessLabel *lab);
@@ -466,6 +423,13 @@ private:
 
 	/** Est: Picks (and sets) a random CO among some possible options */
 	void pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos);
+
+	/** Opt: Try to extend a thread in the ExecutionGraph with events from the cache.
+	 *  Returns `false` if the de-caching failed. */
+	auto tryOptimizeScheduling() -> bool;
+	/** Opt: Try to extend a specific thread in the ExecutionGraph with events from the cache.
+	 *  Returns `false` if the de-caching failed. */
+	auto fillThreadFromCache(int thread) -> bool;
 
 	/** BAM: Tries to optimize barrier-related revisits */
 	bool tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab, std::vector<ReadLabel *> &loads);
@@ -550,7 +514,7 @@ private:
 	 * successful, this function adds the corresponding write part.
 	 * Returns a pointer to the newly added event, or nullptr
 	 * if the event was not an RMW, or was an unsuccessful one */
-	WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
+	auto completeRevisitedRMW(const ReadLabel *rLab) -> WriteLabel *;
 
 	/** Copies the current EG according to BR's view V.
 	 * May modify V but will not execute BR in the copy. */
@@ -730,15 +694,8 @@ private:
 	/** Linearizability checker */
 	std::unique_ptr<LinearizabilityChecker> relinche;
 
-	/** Opt: Which thread(s) the scheduler should prioritize
-	 * (empty if none) */
-	std::vector<Event> threadPrios;
-
 	/** Opt: Whether this execution is moot (locking) */
 	bool isMootExecution = false;
-
-	/** Opt: Whether a particular read needs to be repaired during rescheduling */
-	Event readToReschedule = Event::getInit();
 
 	/** Verification result to be returned to caller */
 	Result result{};
@@ -746,9 +703,36 @@ private:
 	/** Whether we are stopping the exploration (e.g., due to an error found) */
 	bool shouldHalt = false;
 
-	/** Dbg: Random-number generators for scheduling/estimation randomization */
-	MyRNG rng;
+	/** Dbg: Random-number generators for estimation randomization */
 	MyRNG estRng;
+
+	std::unique_ptr<Scheduler> scheduler;
 };
+
+template <typename... Ts>
+[[nodiscard]] auto createScheduler(const Config *conf, bool inEstimationMode, Ts &&...params)
+	-> std::unique_ptr<Scheduler>
+{
+	if (inEstimationMode) {
+		return std::unique_ptr<Scheduler>(
+			new WFRScheduler(conf, std::forward<Ts>(params)...));
+	}
+	switch (conf->schedulePolicy) {
+	case SchedulePolicy::ltr:
+		return std::unique_ptr<Scheduler>(
+			new LTRScheduler(conf, std::forward<Ts>(params)...));
+	case SchedulePolicy::wf:
+		return std::unique_ptr<Scheduler>(
+			new WFScheduler(conf, std::forward<Ts>(params)...));
+	case SchedulePolicy::wfr:
+		return std::unique_ptr<Scheduler>(
+			new WFRScheduler(conf, std::forward<Ts>(params)...));
+	case SchedulePolicy::arbitrary:
+		return std::unique_ptr<Scheduler>(
+			new RandomScheduler(conf, std::forward<Ts>(params)...));
+	default:
+		BUG(); /* Unknown scheduling policy */
+	}
+}
 
 #endif /* GENMC_GENMC_DRIVER_HPP */
