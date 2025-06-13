@@ -1225,7 +1225,7 @@ VerificationError GenMCDriver::checkInitializedMem(const WriteLabel *wLab)
 
 VerificationError GenMCDriver::checkFinalAnnotations(const WriteLabel *wLab)
 {
-	if (!getConf()->helper)
+	if (!getConf()->finalWrite)
 		return VerificationError::VE_OK;
 
 	auto &g = getExec().getGraph();
@@ -2102,7 +2102,7 @@ const MemAccessLabel *GenMCDriver::getPreviousVisibleAccessLabel(const EventLabe
 
 	for (const auto &lab : g.po_preds(start)) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab)) {
-			if (getConf()->helper && rLab->isConfirming())
+			if (rLab->isConfirming())
 				continue;
 			if (rLab->getRf()) {
 				auto *wLab = llvm::dyn_cast<WriteLabel>(rLab->getRf());
@@ -2398,7 +2398,7 @@ void GenMCDriver::checkReconsiderReadOpts(const WriteLabel *sLab)
 void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab,
 					      std::vector<ReadLabel *> &loads)
 {
-	if (!getConf()->helper)
+	if (!getConf()->confirmation)
 		return;
 
 	auto &g = getExec().getGraph();
@@ -2411,8 +2411,10 @@ void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab,
 	if (sLab->getAddr().isStatic() &&
 	    g.getInitLabel()->getAccessValue(sLab->getAccess()) == sLab->getVal())
 		++valid;
-	WARN_ON_ONCE(valid > 0, "helper-aba-found",
-		     "Possible ABA pattern! Consider running without -helper.\n");
+	WARN_ON_ONCE(
+		valid > 0 &&
+			std::ranges::count_if(loads, [](auto *lab) { return lab->isConfirming(); }),
+		"confirmation-aba-found", "Possible ABA pattern! Consider running without -confirmation.\n");
 
 	/* Do not bother with revisits that will be unconfirmed/lead to ABAs */
 	loads.erase(std::remove_if(loads.begin(), loads.end(),
@@ -2446,8 +2448,8 @@ bool GenMCDriver::tryOptimizeRevisits(WriteLabel *sLab, std::vector<ReadLabel *>
 	/* IPR + locks */
 	tryOptimizeIPRs(sLab, loads);
 
-	/* Helper: Do not bother with revisits that will lead to unconfirmed reads */
-	if (getConf()->helper)
+	/* Confirmation: Do not bother with revisits that will lead to unconfirmed reads */
+	if (getConf()->confirmation)
 		optimizeUnconfirmedRevisits(sLab, loads);
 	return false;
 }
@@ -2832,7 +2834,7 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 	auto rpreds = po_preds(g, rLab);
 	auto oLabIt = std::ranges::find_if(
 		rpreds, [&](auto &oLab) { return llvm::isa<SpeculativeReadLabel>(&oLab); });
-	if (getConf()->helper && (llvm::isa<SpeculativeReadLabel>(rLab) || oLabIt != rpreds.end()))
+	if (llvm::isa<SpeculativeReadLabel>(rLab) || oLabIt != rpreds.end())
 		threadPrios = {rLab->getPos()};
 	return true;
 }
@@ -2904,6 +2906,8 @@ bool GenMCDriver::restrictAndRevisit(const WorkList::ItemT &item)
 
 bool GenMCDriver::handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab)
 {
+	BUG_ON(!getConf()->helper);
+
 	if (isExecutionDrivenByGraph(&*hLab))
 		return true;
 

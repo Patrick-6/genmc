@@ -19,6 +19,7 @@
  */
 
 #include "EliminateAnnotationsPass.hpp"
+#include "Config/Config.hpp"
 #include "Runtime/InterpreterEnumAPI.hpp"
 #include "Static/LLVMUtils.hpp"
 #include "Support/Error.hpp"
@@ -36,7 +37,7 @@ using namespace llvm;
 #define POSTDOM_PASS PostDominatorTreeWrapperPass
 #define GET_POSTDOM_PASS() getAnalysis<POSTDOM_PASS>().getPostDomTree();
 
-auto isAnnotationBegin(Instruction *i) -> bool
+static auto isAnnotationBegin(Instruction *i) -> bool
 {
 	auto *ci = llvm::dyn_cast<CallInst>(i);
 	if (!ci)
@@ -47,7 +48,7 @@ auto isAnnotationBegin(Instruction *i) -> bool
 	       internalFunNames.at(name) == InternalFunctions::AnnotateBegin;
 }
 
-auto isAnnotationEnd(Instruction *i) -> bool
+static auto isAnnotationEnd(Instruction *i) -> bool
 {
 	auto *ci = llvm::dyn_cast<CallInst>(i);
 	if (!ci)
@@ -58,7 +59,7 @@ auto isAnnotationEnd(Instruction *i) -> bool
 	       internalFunNames.at(name) == InternalFunctions::AnnotateEnd;
 }
 
-auto isMutexCall(Instruction *i) -> bool
+static auto isMutexCall(Instruction *i) -> bool
 {
 	auto *ci = llvm::dyn_cast<CallInst>(i);
 	if (!ci)
@@ -68,14 +69,28 @@ auto isMutexCall(Instruction *i) -> bool
 	return isInternalFunction(name) && isMutexCode(internalFunNames.at(name));
 }
 
-auto getAnnotationValue(CallInst *ci) -> uint64_t
+static auto getAnnotationValue(CallInst *ci) -> uint64_t
 {
 	auto *funArg = llvm::dyn_cast<ConstantInt>(ci->getOperand(0));
 	BUG_ON(!funArg);
 	return funArg->getValue().getLimitedValue();
 }
 
-auto annotateInstructions(CallInst *begin, CallInst *end) -> bool
+static auto shouldAnnotate(const Config *conf, uint64_t annotType) -> bool
+{
+	auto isHelperAnnot = [conf](uint64_t annotType) {
+		return annotType == GENMC_KIND_HELPED || annotType == GENMC_KIND_HELPING;
+	};
+	auto isConfAnnot = [conf](uint64_t annotType) {
+		return annotType == GENMC_KIND_CONFIRM || annotType == GENMC_KIND_SPECUL;
+	};
+
+	return (conf->helper && isHelperAnnot(annotType)) ||
+	       (conf->confirmation && isConfAnnot(annotType)) ||
+	       (conf->finalWrite && annotType == GENMC_ATTR_FINAL);
+}
+
+static auto annotateInstructions(CallInst *begin, CallInst *end, const Config *conf) -> bool
 {
 	if (!begin || !end)
 		return false;
@@ -96,7 +111,8 @@ auto annotateInstructions(CallInst *begin, CallInst *end) -> bool
 			if (!opcode)
 				opcode = i.getOpcode();
 			BUG_ON(opcode != i.getOpcode()); /* annotations across paths must match */
-			annotateInstruction(&i, "genmc.attr", annotType);
+			if (shouldAnnotate(conf, annotType))
+				annotateInstruction(&i, "genmc.attr", annotType);
 		}
 		/* stop when the begin is found; reset vars for next path */
 		if (!beginFound) {
@@ -108,8 +124,8 @@ auto annotateInstructions(CallInst *begin, CallInst *end) -> bool
 	return true;
 }
 
-auto findMatchingEnd(CallInst *begin, const std::vector<CallInst *> &ends, DominatorTree &DT,
-		     PostDominatorTree &PDT) -> CallInst *
+static auto findMatchingEnd(CallInst *begin, const std::vector<CallInst *> &ends, DominatorTree &DT,
+			    PostDominatorTree &PDT) -> CallInst *
 {
 	auto it = std::find_if(ends.begin(), ends.end(), [&](auto *ei) {
 		return getAnnotationValue(begin) == getAnnotationValue(ei) &&
@@ -145,7 +161,7 @@ auto EliminateAnnotationsPass::run(Function &F, FunctionAnalysisManager &FAM) ->
 	for (auto *bi : begins) {
 		auto *ei = findMatchingEnd(bi, ends, DT, PDT);
 		BUG_ON(!ei);
-		changed |= annotateInstructions(bi, ei);
+		changed |= annotateInstructions(bi, ei, getConf());
 		toDelete.insert(bi);
 		toDelete.insert(ei);
 	}
