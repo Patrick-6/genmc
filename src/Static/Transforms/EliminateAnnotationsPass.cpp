@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "Config/Config.hpp"
 #include "EliminateAnnotationsPass.hpp"
+#include "Config/Config.hpp"
 #include "Runtime/InterpreterEnumAPI.hpp"
 #include "Static/LLVMUtils.hpp"
 #include "Support/Error.hpp"
@@ -76,28 +76,21 @@ auto getAnnotationValue(CallInst *ci) -> uint64_t
 	return funArg->getValue().getLimitedValue();
 }
 
-auto isHelperAnnot(uint64_t annotType) -> bool
+auto shouldAnnotate(const Config *conf, uint64_t annotType) -> bool
 {
-	return annotType == GENMC_KIND_HELPED || annotType == GENMC_KIND_HELPING;
+	auto isHelperAnnot = [conf](uint64_t annotType) {
+		return annotType == GENMC_KIND_HELPED || annotType == GENMC_KIND_HELPING;
+	};
+	auto isConfAnnot = [conf](uint64_t annotType) {
+		return annotType == GENMC_KIND_CONFIRM || annotType == GENMC_KIND_SPECUL;
+	};
+
+	return (conf->helper && isHelperAnnot(annotType)) ||
+	       (conf->confirmation && isConfAnnot(annotType)) ||
+	       (conf->finalWrite && annotType == GENMC_ATTR_FINAL);
 }
 
-auto isConfAnnot(uint64_t annotType) -> bool
-{
-	return annotType == GENMC_KIND_CONFIRM || annotType == GENMC_KIND_SPECUL;
-}
-
-auto shouldAnnotate(const std::shared_ptr<const Config> &conf, uint64_t annotType) -> bool
-{
-	if (isHelperAnnot(annotType) && !conf->helper)
-		return false;
-	if (isConfAnnot(annotType) && !conf->confirmation)
-		return false;
-	if (annotType == GENMC_ATTR_FINAL && !conf->finalWrite)
-		return false;
-	return true;
-}
-
-auto annotateInstructions(CallInst *begin, CallInst *end, const std::shared_ptr<const Config> &conf) -> bool
+auto annotateInstructions(CallInst *begin, CallInst *end, const Config *conf) -> bool
 {
 	if (!begin || !end)
 		return false;
@@ -168,7 +161,7 @@ auto EliminateAnnotationsPass::run(Function &F, FunctionAnalysisManager &FAM) ->
 	for (auto *bi : begins) {
 		auto *ei = findMatchingEnd(bi, ends, DT, PDT);
 		BUG_ON(!ei);
-		changed |= annotateInstructions(bi, ei, conf);
+		changed |= annotateInstructions(bi, ei, getConf());
 		toDelete.insert(bi);
 		toDelete.insert(ei);
 	}
