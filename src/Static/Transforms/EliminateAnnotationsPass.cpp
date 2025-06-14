@@ -78,10 +78,10 @@ static auto getAnnotationValue(CallInst *ci) -> uint64_t
 
 static auto shouldAnnotate(const Config *conf, uint64_t annotType) -> bool
 {
-	auto isHelperAnnot = [conf](uint64_t annotType) {
+	auto isHelperAnnot = [](uint64_t annotType) {
 		return annotType == GENMC_KIND_HELPED || annotType == GENMC_KIND_HELPING;
 	};
-	auto isConfAnnot = [conf](uint64_t annotType) {
+	auto isConfAnnot = [](uint64_t annotType) {
 		return annotType == GENMC_KIND_CONFIRM || annotType == GENMC_KIND_SPECUL;
 	};
 
