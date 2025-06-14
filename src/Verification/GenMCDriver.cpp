@@ -1240,8 +1240,8 @@ void GenMCDriver::filterValuesFromAnnotSAVER(const ReadLabel *rLab,
 						 auto val = wLab->getAccessValue(rLab->getAccess());
 						 return wLab != maximal &&
 							wLab != g.co_max(rLab->getAddr()) &&
-							!Evaluator().evaluate(rLab->getAnnot(),
-									      val);
+							!Evaluator().evaluate(
+								&*rLab->getAnnot()->expr, val);
 					 }),
 			  validStores.end());
 	BUG_ON(validStores.empty());

@@ -34,13 +34,13 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-
 #ifndef LLI_INTERPRETER_H
 #define LLI_INTERPRETER_H
 
 #include "ADT/View.hpp"
 #include "ADT/value_ptr.hpp"
 #include "Config/Config.hpp"
+#include "ExecutionGraph/LoadAnnotation.hpp"
 #include "Runtime/DepTracker.hpp"
 #include "Runtime/InterpreterEnumAPI.hpp"
 #include "Static/LLVMUtils.hpp"
@@ -242,11 +242,10 @@ using InterpreterState = DynamicComponents;
 //
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 
-public:
+protected:
 	using AnnotID = ModuleID::ID;
 	using AnnotT = SExpr<AnnotID>;
 
-protected:
 	/*** Static components (once set, do not change) ***/
 
 	/* Information about the module under test */
@@ -408,17 +407,9 @@ public:
 
 	/* Annotation information */
 
-	/* Returns annotation information for the instruction I */
-	const AnnotT *getAnnotation(Instruction *I) const
-	{
-		auto id = MI->idInfo.VID[I];
-		return MI->annotInfo.annotMap.count(id) ? MI->annotInfo.annotMap.at(id).get()
-							: nullptr;
-	}
-
 	/* Returns (concretized) annotation information for the
 	 * current instruction (assuming we're executing it) */
-	std::unique_ptr<AnnotT> getCurrentAnnotConcretized();
+	std::optional<Annotation> getCurrentAnnotConcretized();
 
 	/* Memory pools checks */
 

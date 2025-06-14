@@ -26,6 +26,7 @@
 #include <unordered_map>
 
 #include "ExecutionGraph/Event.hpp"
+#include "ExecutionGraph/LoadAnnotation.hpp"
 
 enum class ActionKind { Load, NonLoad };
 

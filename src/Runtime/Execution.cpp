@@ -174,12 +174,15 @@ void *Interpreter::getStaticAddr(SAddr addr) const
 	return (char *)staticValueMap.at(sBeg) + (addr.get() - sBeg.get());
 }
 
-std::unique_ptr<SExpr<unsigned int>> Interpreter::getCurrentAnnotConcretized()
+std::optional<Annotation> Interpreter::getCurrentAnnotConcretized()
 {
 	auto *l = ECStack().back().CurInst->getPrevNode();
-	auto *annot = getAnnotation(l);
-	if (!annot)
-		return nullptr;
+	auto id = MI->idInfo.VID[l];
+	if (!MI->annotInfo.annotMap.count(id))
+		return {};
+
+	Annotation result;
+	auto info = MI->annotInfo.annotMap.at(id);
 
 	using Concretizer = SExprConcretizer<AnnotID>;
 	auto &stackVals = ECStack().back().Values;
@@ -194,7 +197,10 @@ std::unique_ptr<SExpr<unsigned int>> Interpreter::getCurrentAnnotConcretized()
 						    ASize(getTypeSize(kv.first->getType()) * 8))});
 		}
 	}
-	return Concretizer().concretize(annot, vMap);
+
+	result.type = info.first;
+	result.expr = Concretizer().concretize(info.second.get(), vMap);
+	return result;
 }
 
 EventLabel::EventLabelKind getReadKind(LoadInst &I)
@@ -1535,10 +1541,8 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	case EventLabel::EventLabelKind::__kind: {                                                 \
 		val = CALL_DRIVER_RESET_IF_NONE(                                                   \
 			handleLoad,                                                                \
-			__kind##Label::create(                                                     \
-				currPos(), ord, ptr, size, atyp, nullptr,                          \
-				ReadLabel::AnnotVP(getCurrentAnnotConcretized().release()),        \
-				GET_DEPS(deps)));                                                  \
+			__kind##Label::create(currPos(), ord, ptr, size, atyp, nullptr,            \
+					      getCurrentAnnotConcretized(), GET_DEPS(deps)));      \
 		break;                                                                             \
 	}
 
@@ -1632,12 +1636,10 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	case switchPair(EventLabel::EventLabelKind::nameR, EventLabel::EventLabelKind::nameW): {   \
 		ret = CALL_DRIVER_RESET_IF_NONE(                                                   \
 			handleLoad,                                                                \
-			nameR##Label::create(                                                      \
-				currPos(), fromLLVMOrdering(I.getSuccessOrdering()), ptr, size,    \
-				atyp, GV_TO_SVAL(cmpVal, typ), GV_TO_SVAL(newVal, typ),            \
-				getWriteAttr(I), nullptr,                                          \
-				ReadLabel::AnnotVP(getCurrentAnnotConcretized().release()),        \
-				GET_DEPS(lDeps)));                                                 \
+			nameR##Label::create(currPos(), fromLLVMOrdering(I.getSuccessOrdering()),  \
+					     ptr, size, atyp, GV_TO_SVAL(cmpVal, typ),             \
+					     GV_TO_SVAL(newVal, typ), getWriteAttr(I), nullptr,    \
+					     getCurrentAnnotConcretized(), GET_DEPS(lDeps)));      \
 		if (!ret.has_value())                                                              \
 			return;                                                                    \
 		cmpRes = *ret == GV_TO_SVAL(cmpVal, typ);                                          \
@@ -2900,11 +2902,13 @@ void Interpreter::handleLock(SAddr addr, ASize size, const EventDeps *deps)
 	// }
 
 	auto *I = ECStack().back().CurInst->getPrevNode();
-	auto annot = ReadLabel::AnnotVP(
-		NeExpr<AnnotID>::create(
-			RegisterExpr<AnnotID>::create(size.getBits(), MI->idInfo.VID.at(I)),
-			ConcreteExpr<AnnotID>::create(size.getBits(), SVal(1)))
-			.release());
+	auto annot = std::move(Annotation(
+		AssumeType::Spinloop,
+		Annotation::ExprVP(
+			NeExpr<AnnotID>::create(
+				RegisterExpr<AnnotID>::create(size.getBits(), MI->idInfo.VID.at(I)),
+				ConcreteExpr<AnnotID>::create(size.getBits(), SVal(1)))
+				.release())));
 
 #define IMPLEMENT_LOCK_VISIT(nameR, nameW)                                                         \
 	case switchPair(EventLabel::EventLabelKind::nameR, EventLabel::EventLabelKind::nameW): {   \
@@ -3262,16 +3266,9 @@ void Interpreter::callMutexTrylock(Function *F, const std::vector<GenericValue> 
 	auto atyp = TYPE_TO_ATYPE(typ);
 	GenericValue result;
 
-	/* Dependencies already set by the EE */
-	auto *I = ECStack().back().CurInst->getPrevNode();
-	auto annot = ReadLabel::AnnotVP(
-		NeExpr<AnnotID>::create(
-			RegisterExpr<AnnotID>::create(ASize(size).getBits(), MI->idInfo.VID.at(I)),
-			ConcreteExpr<AnnotID>::create(ASize(size).getBits(), SVal(1)))
-			.release());
-	auto ret = CALL_DRIVER(handleLoad,
-			       TrylockCasReadLabel::create(currPos(), ptr, size, std::move(annot),
-							   GET_DEPS(specialDeps)))
+	auto ret = CALL_DRIVER(handleLoad, TrylockCasReadLabel::create(currPos(), ptr, size,
+								       getCurrentAnnotConcretized(),
+								       GET_DEPS(specialDeps)))
 			   .value();
 
 	auto cmpRes = ret == SVal(0);
@@ -3406,11 +3403,14 @@ void Interpreter::callCondVarWait(Function *F, const std::vector<GenericValue> &
 	auto atyp = TYPE_TO_ATYPE(typ);
 
 	auto *I = ECStack().back().CurInst->getPrevNode();
-	auto annot = ReadLabel::AnnotVP(
-		SgtExpr<AnnotID>::create(
-			RegisterExpr<AnnotID>::create(ASize(size).getBits(), MI->idInfo.VID.at(I)),
-			ConcreteExpr<AnnotID>::create(ASize(size).getBits(), SVal(0)))
-			.release());
+	auto annot = std::move(Annotation(
+		AssumeType::Spinloop,
+		Annotation::ExprVP(
+			SgtExpr<AnnotID>::create(
+				RegisterExpr<AnnotID>::create(ASize(size).getBits(),
+							      MI->idInfo.VID.at(I)),
+				ConcreteExpr<AnnotID>::create(ASize(size).getBits(), SVal(0)))
+				.release())));
 	auto val = CALL_DRIVER(handleLoad,
 			       CondVarWaitReadLabel::create(currPos(), MemOrdering::Relaxed, cvar,
 							    size, atyp, GET_DEPS(specialDeps)))

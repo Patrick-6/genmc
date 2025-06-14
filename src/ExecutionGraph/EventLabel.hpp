@@ -27,15 +27,14 @@
 #include "ExecutionGraph/DepInfo.hpp"
 #include "ExecutionGraph/Event.hpp"
 #include "ExecutionGraph/EventAttr.hpp"
+#include "ExecutionGraph/LoadAnnotation.hpp"
 #include "ExecutionGraph/Stamp.hpp"
 #include "Runtime/InterpreterEnumAPI.hpp"
-#include "Static/ModuleID.hpp"
 #include "Support/MemAccess.hpp"
 #include "Support/MemOrdering.hpp"
 #include "Support/NameInfo.hpp"
 #include "Support/RMWOps.hpp"
 #include "Support/SAddr.hpp"
-#include "Support/SExpr.hpp"
 #include "Support/SVal.hpp"
 #include "Support/ThreadInfo.hpp"
 
@@ -319,10 +318,7 @@ private:
 
 #define DEFINE_CLASSOF_RANGE(name)                                                                 \
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }         \
-	static bool classofKind(EventLabelKind k)                                                  \
-	{                                                                                          \
-		return k >= FIRST_##name && k <= LAST_##name;                                      \
-	}
+	static bool classofKind(EventLabelKind k) { return k >= FIRST_##name && k <= LAST_##name; }
 
 #define DEFINE_STANDARD_MEMBERS_RANGE(name)                                                        \
 	DEFINE_CREATE_CLONE(name)                                                                  \
@@ -470,6 +466,8 @@ protected:
 	BlockLabel(EventLabelKind k, Event pos) : TerminatorLabel(k, MemOrdering::NotAtomic, pos) {}
 
 public:
+	static auto createAssumeBlock(Event pos, AssumeType type) -> std::unique_ptr<BlockLabel>;
+
 	DEFINE_CLASSOF_RANGE(Block)
 };
 
@@ -662,30 +660,26 @@ private:
  * from this class */
 class ReadLabel : public MemAccessLabel, public llvm::ilist_node<ReadLabel> {
 
-public:
-	using AnnotT = SExpr<ModuleID::ID>;
-	using AnnotVP = value_ptr<AnnotT, SExprCloner<ModuleID::ID>>;
-
 protected:
 	ReadLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,
-		  EventLabel *rfLab = nullptr, AnnotVP annot = nullptr,
+		  EventLabel *rfLab = nullptr, std::optional<Annotation> annot = {},
 		  const EventDeps &deps = EventDeps())
 		: MemAccessLabel(k, pos, ord, loc, size, type, deps), readsFrom(rfLab),
-		  annotExpr(std::move(annot))
+		  annot_(std::move(annot))
 	{}
 
 public:
 	ReadLabel(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type, EventLabel *rfLab,
-		  AnnotVP annot, const EventDeps &deps = EventDeps())
+		  std::optional<Annotation> annot, const EventDeps &deps = EventDeps())
 		: ReadLabel(Read, pos, ord, loc, size, type, rfLab, std::move(annot), deps)
 	{}
 	ReadLabel(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type, EventLabel *rfLab,
 		  const EventDeps &deps = EventDeps())
-		: ReadLabel(pos, ord, loc, size, type, rfLab, nullptr, deps)
+		: ReadLabel(pos, ord, loc, size, type, rfLab, std::nullopt, deps)
 	{}
 	ReadLabel(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,
 		  const EventDeps &deps = EventDeps())
-		: ReadLabel(pos, ord, loc, size, type, nullptr, nullptr, deps)
+		: ReadLabel(pos, ord, loc, size, type, nullptr, std::nullopt, deps)
 	{}
 
 	/** Returns the position of the write this read is reading-from */
@@ -724,10 +718,7 @@ public:
 	bool isConfirming() const { return isConfirming(getKind()); }
 
 	/** SAVer: Getter for the annotation expression */
-	const AnnotT *getAnnot() const { return annotExpr.get(); }
-
-	/** SAVer: Setter for the annotation expression */
-	void setAnnot(std::unique_ptr<AnnotT> annot) { annotExpr = std::move(annot); }
+	const std::optional<Annotation> &getAnnot() const { return annot_; }
 
 	virtual void reset() override
 	{
@@ -750,7 +741,7 @@ private:
 
 	/** SAVer: Expression for annotatable loads. This needs to have
 	 * heap-value semantics so that it does not create concurrency issues */
-	AnnotVP annotExpr = nullptr;
+	std::optional<Annotation> annot_;
 };
 
 #define READ_PURE_SUBCLASS(name)                                                                   \
@@ -758,17 +749,18 @@ private:
                                                                                                    \
 	public:                                                                                    \
 		name##Label(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,         \
-			    EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps()) \
+			    EventLabel *rfLab, std::optional<Annotation> annot,                    \
+			    const EventDeps &deps = EventDeps())                                   \
 			: ReadLabel(name, pos, ord, loc, size, type, rfLab, std::move(annot),      \
 				    deps)                                                          \
 		{}                                                                                 \
 		name##Label(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,         \
 			    EventLabel *rfLab, const EventDeps &deps = EventDeps())                \
-			: name##Label(pos, ord, loc, size, type, rfLab, nullptr, deps)             \
+			: name##Label(pos, ord, loc, size, type, rfLab, std::nullopt, deps)        \
 		{}                                                                                 \
 		name##Label(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,         \
 			    const EventDeps &deps = EventDeps())                                   \
-			: name##Label(pos, ord, loc, size, type, nullptr, nullptr, deps)           \
+			: name##Label(pos, ord, loc, size, type, nullptr, std::nullopt, deps)      \
 		{}                                                                                 \
                                                                                                    \
 		DEFINE_STANDARD_MEMBERS(name)                                                      \
@@ -790,14 +782,14 @@ class FaiReadLabel : public ReadLabel {
 protected:
 	FaiReadLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
 		     AType type, RMWBinOp op, SVal val, WriteAttr wattr, EventLabel *rfLab,
-		     AnnotVP annot, const EventDeps &deps = EventDeps())
+		     std::optional<Annotation> annot, const EventDeps &deps = EventDeps())
 		: ReadLabel(k, pos, ord, addr, size, type, rfLab, std::move(annot), deps),
 		  binOp(op), opValue(val), wattr(wattr)
 	{}
 
 public:
 	FaiReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, RMWBinOp op,
-		     SVal val, WriteAttr wattr, EventLabel *rfLab, AnnotVP annot,
+		     SVal val, WriteAttr wattr, EventLabel *rfLab, std::optional<Annotation> annot,
 		     const EventDeps &deps = EventDeps())
 		: FaiReadLabel(FaiRead, pos, ord, addr, size, type, op, val, wattr, rfLab,
 			       std::move(annot), deps)
@@ -805,7 +797,8 @@ public:
 	FaiReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, RMWBinOp op,
 		     SVal val, WriteAttr wattr, EventLabel *rfLab,
 		     const EventDeps &deps = EventDeps())
-		: FaiReadLabel(pos, ord, addr, size, type, op, val, wattr, rfLab, nullptr, deps)
+		: FaiReadLabel(pos, ord, addr, size, type, op, val, wattr, rfLab, std::nullopt,
+			       deps)
 	{}
 	FaiReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, RMWBinOp op,
 		     SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
@@ -850,15 +843,15 @@ private:
 	public:                                                                                    \
 		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
 			    RMWBinOp op, SVal val, WriteAttr wattr, EventLabel *rfLab,             \
-			    AnnotVP annot, const EventDeps &deps = EventDeps())                    \
+			    std::optional<Annotation> annot, const EventDeps &deps = EventDeps())  \
 			: FaiReadLabel(name, pos, ord, addr, size, type, op, val, wattr, rfLab,    \
 				       std::move(annot), deps)                                     \
 		{}                                                                                 \
 		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
 			    RMWBinOp op, SVal val, WriteAttr wattr, EventLabel *rfLab,             \
 			    const EventDeps &deps = EventDeps())                                   \
-			: name##Label(pos, ord, addr, size, type, op, val, wattr, rfLab, nullptr,  \
-				      deps)                                                        \
+			: name##Label(pos, ord, addr, size, type, op, val, wattr, rfLab,           \
+				      std::nullopt, deps)                                          \
 		{}                                                                                 \
 		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
 			    RMWBinOp op, SVal val, WriteAttr wattr,                                \
@@ -886,14 +879,14 @@ class CasReadLabel : public ReadLabel {
 protected:
 	CasReadLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
 		     AType type, SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
-		     AnnotVP annot, const EventDeps &deps = EventDeps())
+		     std::optional<Annotation> annot, const EventDeps &deps = EventDeps())
 		: ReadLabel(k, pos, ord, addr, size, type, rfLab, std::move(annot), deps),
 		  expected(exp), swapValue(swap), wattr(wattr)
 	{}
 
 public:
 	CasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
-		     SVal swap, WriteAttr wattr, EventLabel *rfLab, AnnotVP annot,
+		     SVal swap, WriteAttr wattr, EventLabel *rfLab, std::optional<Annotation> annot,
 		     const EventDeps &deps = EventDeps())
 		: CasReadLabel(CasRead, pos, ord, addr, size, type, exp, swap, wattr, rfLab,
 			       std::move(annot), deps)
@@ -901,7 +894,8 @@ public:
 	CasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
 		     SVal swap, WriteAttr wattr, EventLabel *rfLab,
 		     const EventDeps &deps = EventDeps())
-		: CasReadLabel(pos, ord, addr, size, type, exp, swap, wattr, rfLab, nullptr, deps)
+		: CasReadLabel(pos, ord, addr, size, type, exp, swap, wattr, rfLab, std::nullopt,
+			       deps)
 	{}
 	CasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
 		     SVal swap, WriteAttr wattr, const EventDeps &deps = EventDeps())
@@ -946,7 +940,7 @@ private:
 	public:                                                                                    \
 		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
 			    SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,               \
-			    AnnotVP annot, const EventDeps &deps = EventDeps())                    \
+			    std::optional<Annotation> annot, const EventDeps &deps = EventDeps())  \
 			: CasReadLabel(name, pos, ord, addr, size, type, exp, swap, wattr, rfLab,  \
 				       std::move(annot), deps)                                     \
 		{}                                                                                 \
@@ -954,7 +948,7 @@ private:
 			    SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,               \
 			    const EventDeps &deps = EventDeps())                                   \
 			: name##Label(pos, ord, addr, size, type, exp, swap, wattr, rfLab,         \
-				      nullptr, deps)                                               \
+				      std::nullopt, deps)                                          \
 		{}                                                                                 \
 		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
 			    SVal exp, SVal swap, WriteAttr wattr,                                  \
@@ -983,28 +977,28 @@ class LockCasReadLabel : public CasReadLabel {
 protected:
 	LockCasReadLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
 			 AType type, SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
-			 AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+			 std::optional<Annotation> annot = {}, const EventDeps &deps = EventDeps())
 		: CasReadLabel(k, pos, ord, addr, size, type, exp, swap, wattr, rfLab,
 			       std::move(annot), deps)
 	{}
 
 public:
 	LockCasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
-			 SVal swap, WriteAttr wattr, EventLabel *rfLab, AnnotVP annot = nullptr,
-			 const EventDeps &deps = EventDeps())
+			 SVal swap, WriteAttr wattr, EventLabel *rfLab,
+			 std::optional<Annotation> annot = {}, const EventDeps &deps = EventDeps())
 		: CasReadLabel(LockCasRead, pos, ord, addr, size, type, exp, swap, wattr, rfLab,
 			       std::move(annot), deps)
 	{}
 	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, EventLabel *rfLab,
-			 AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+			 std::optional<Annotation> annot = {}, const EventDeps &deps = EventDeps())
 		: LockCasReadLabel(pos, MemOrdering::Acquire, addr, size, AType::Signed, SVal(0),
 				   SVal(1), wattr, rfLab, std::move(annot), deps)
 	{}
 	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr,
-			 AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+			 std::optional<Annotation> annot = {}, const EventDeps &deps = EventDeps())
 		: LockCasReadLabel(pos, addr, size, wattr, nullptr, std::move(annot), deps)
 	{}
-	LockCasReadLabel(Event pos, SAddr addr, ASize size, AnnotVP annot = nullptr,
+	LockCasReadLabel(Event pos, SAddr addr, ASize size, std::optional<Annotation> annot = {},
 			 const EventDeps &deps = EventDeps())
 		: LockCasReadLabel(pos, addr, size, WriteAttr::None, std::move(annot), deps)
 	{}
@@ -1022,20 +1016,23 @@ class TrylockCasReadLabel : public CasReadLabel {
 public:
 	TrylockCasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,
 			    SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
-			    AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+			    std::optional<Annotation> annot = {},
+			    const EventDeps &deps = EventDeps())
 		: CasReadLabel(TrylockCasRead, pos, ord, addr, size, type, exp, swap, wattr, rfLab,
 			       std::move(annot), deps)
 	{}
 	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, EventLabel *rfLab,
-			    AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+			    std::optional<Annotation> annot = {},
+			    const EventDeps &deps = EventDeps())
 		: TrylockCasReadLabel(pos, MemOrdering::Acquire, addr, size, AType::Signed, SVal(0),
 				      SVal(1), wattr, rfLab, std::move(annot), deps)
 	{}
 	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr,
-			    AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+			    std::optional<Annotation> annot = {},
+			    const EventDeps &deps = EventDeps())
 		: TrylockCasReadLabel(pos, addr, size, wattr, nullptr, std::move(annot), deps)
 	{}
-	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, AnnotVP annot = nullptr,
+	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, std::optional<Annotation> annot = {},
 			    const EventDeps &deps = EventDeps())
 		: TrylockCasReadLabel(pos, addr, size, WriteAttr::None, std::move(annot), deps)
 	{}
@@ -1050,7 +1047,8 @@ public:
 /** Special lock to enforce atomicity in the abstract specification */
 class AbstractLockCasReadLabel : public LockCasReadLabel {
 public:
-	AbstractLockCasReadLabel(Event pos, SAddr addr, ASize size, AnnotVP annot = nullptr,
+	AbstractLockCasReadLabel(Event pos, SAddr addr, ASize size,
+				 std::optional<Annotation> annot = {},
 				 const EventDeps &deps = EventDeps(), EventLabel *rfLab = nullptr)
 		: LockCasReadLabel(AbstractLockCasRead, pos, MemOrdering::Acquire, addr, size,
 				   AType::Signed, SVal(0), SVal(1), WriteAttr::None, rfLab, annot,

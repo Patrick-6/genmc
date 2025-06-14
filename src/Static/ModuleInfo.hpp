@@ -23,6 +23,7 @@
 
 #include "ADT/VSet.hpp"
 #include "Config/Config.hpp"
+#include "ExecutionGraph/LoadAnnotation.hpp"
 #include "Static/ModuleID.hpp"
 #include "Support/NameInfo.hpp"
 #include "Support/SExpr.hpp"
@@ -68,8 +69,8 @@ template <typename Key> struct VariableInfo {
 
 /** Annotations for loads used by assume()s for SAVer */
 template <typename K, typename V> struct AnnotationInfo {
-
-	using AnnotUM = std::unordered_map<K, value_ptr<SExpr<V>, SExprCloner<V>>>;
+	using Annot = std::pair<AssumeType, value_ptr<SExpr<V>, SExprCloner<V>>>;
+	using AnnotUM = std::unordered_map<K, Annot>;
 
 	void clear() { annotMap.clear(); }
 
