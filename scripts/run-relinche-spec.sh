@@ -64,16 +64,25 @@ do
 
 	for sr in "-disable-sr" ""
 	do
+		failure=0
 	    [[ $sr = "" ]] && print_sr="yes" || print_sr="no"
 	    printf "| %-15s | %-5s | %-3s | " "${ds}" "${SPEC_TYPE}" "${print_sr}"
 	    test_time=0
 	    for i in `seq 1 4`
 	    do
+			if [ "${failure}" -eq "1" ]; then
+				continue
+			fi
 		for j in `seq 1 4`
 	        do
 		    file="${path}/${ds}_spec_${SPEC_TYPE}_${i}${j}.in"
 		    output=$("${GenMC}" ${GENMCFLAGS} -collect-lin-spec="${file}" -- -DWTN="${i}" -DRTN="${j}" "${sarg}" -include "${path}/spec.c" "${path}/mpc.c" 2>&1)
-
+			ret_code="$?"
+			if [ "${ret_code}" -ne 0 ]; then
+				failure=1
+				printf "\nfile: %s\n%s" "${file}" "${output}"
+				continue
+			fi
 		    # increase time
 		    time=$(echo "${output}" | sed -n 's/.*Total wall-clock time: \([0-9\.][0-9\.]*\).*/\1/p')
 		    test_time=$(echo "scale=2; ${test_time}+${time}" | bc -l)
@@ -109,3 +118,5 @@ done
 printline
 echo '--- Total time: ' "${total_time}"
 printline
+
+exit "${failure}"
