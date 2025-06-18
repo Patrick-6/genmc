@@ -85,9 +85,13 @@ static auto shouldAnnotate(const Config *conf, uint64_t annotType) -> bool
 		return annotType == GENMC_KIND_CONFIRM || annotType == GENMC_KIND_SPECUL;
 	};
 
-	return (conf->helper && isHelperAnnot(annotType)) ||
-	       (conf->confirmation && isConfAnnot(annotType)) ||
-	       (conf->finalWrite && annotType == GENMC_ATTR_FINAL);
+	if (isHelperAnnot(annotType) && !conf->helper)
+		return false;
+	if (isConfAnnot(annotType) && !conf->confirmation)
+		return false;
+	if (annotType == GENMC_ATTR_FINAL && !conf->finalWrite)
+		return false;
+	return true;
 }
 
 static auto annotateInstructions(CallInst *begin, CallInst *end, const Config *conf) -> bool
