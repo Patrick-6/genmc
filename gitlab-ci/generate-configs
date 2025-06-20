@@ -102,8 +102,9 @@ build_stage() {
     echo ".build:llvm_job: &build"
     echo "  stage: build"
     echo "  script:"
+    echo "    - CORES=\$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null)"
     echo "    - ${!cmd}"
-    echo "    - cmake --build RelWithDebInfo -j `sysctl -n hw.ncpu`"
+    echo "    - cmake --build RelWithDebInfo -j\"\$CORES\""
     echo ""
 }
 
