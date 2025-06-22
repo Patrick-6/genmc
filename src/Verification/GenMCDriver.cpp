@@ -272,6 +272,12 @@ auto GenMCDriver::tryOptimizeScheduling() -> bool
 {
 	auto &g = getExec().getGraph();
 	for (auto tid = 0; tid < g.getNumThreads(); tid++) {
+		/* Symmetric threads should not be advanced if their symmetric predecessor can be
+		 * scheduled. */
+		const auto symm = g.getFirstThreadLabel(tid)->getSymmPredTid();
+		if (symm != -1 && isSchedulable(g, symm))
+			break;
+
 		while (fillThreadFromCache(tid)) {
 		}
 		if (isMoot() || isHalting())
