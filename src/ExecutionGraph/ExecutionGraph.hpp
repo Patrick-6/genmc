@@ -56,6 +56,7 @@ public:
 	using InitValGetter = std::function<SVal(const AAccess &)>;
 	using PoList = llvm::simple_ilist<EventLabel, llvm::ilist_tag<po_tag>>;
 	using PoLists = std::vector<PoList>;
+	using IoList = llvm::simple_ilist<EventLabel, llvm::ilist_tag<io_tag>>;
 
 	ExecutionGraph(InitValGetter f) : initValGetter_(std::move(f))
 	{
@@ -85,10 +86,10 @@ public:
 	using loc_iterator = LocMap::iterator;
 	using const_loc_iterator = LocMap::const_iterator;
 
-	using label_iterator = llvm::simple_ilist<EventLabel>::iterator;
-	using const_label_iterator = llvm::simple_ilist<EventLabel>::const_iterator;
-	using reverse_label_iterator = llvm::simple_ilist<EventLabel>::reverse_iterator;
-	using const_reverse_label_iterator = llvm::simple_ilist<EventLabel>::const_reverse_iterator;
+	using label_iterator = IoList::iterator;
+	using const_label_iterator = IoList::const_iterator;
+	using reverse_label_iterator = IoList::reverse_iterator;
+	using const_reverse_label_iterator = IoList::const_reverse_iterator;
 
 	using co_iterator = StoreList::iterator;
 	using const_co_iterator = StoreList::const_iterator;
@@ -128,26 +129,26 @@ public:
 
 	auto po_succs(const EventLabel *lab) const
 	{
-		auto begIt = std::next(const_po_iterator(lab));
+		auto begIt = ++const_po_iterator(lab);
 		auto endIt = poLists[lab->getThread()].end();
 		return std::ranges::subrange(begIt, endIt);
 	}
 	auto po_succs(EventLabel *lab)
 	{
-		auto begIt = std::next(po_iterator(lab));
+		auto begIt = ++po_iterator(lab);
 		auto endIt = poLists[lab->getThread()].end();
 		return std::ranges::subrange(begIt, endIt);
 	}
 
 	auto po_preds(const EventLabel *lab) const
 	{
-		auto begIt = std::next(const_reverse_po_iterator(lab));
+		auto begIt = ++const_reverse_po_iterator(lab);
 		auto endIt = poLists[lab->getThread()].rend();
 		return std::ranges::subrange(begIt, endIt);
 	}
 	auto po_preds(EventLabel *lab)
 	{
-		auto begIt = std::next(reverse_po_iterator(lab));
+		auto begIt = ++reverse_po_iterator(lab);
 		auto endIt = poLists[lab->getThread()].rend();
 		return std::ranges::subrange(begIt, endIt);
 	}
@@ -158,7 +159,7 @@ public:
 	{
 		auto labIt = const_po_iterator(lab);
 		auto begIt = poLists[lab->getThread()].begin();
-		return labIt == begIt ? nullptr : &*std::prev(labIt);
+		return labIt == begIt ? nullptr : &*--labIt;
 	}
 	auto po_imm_pred(EventLabel *lab) -> EventLabel *
 	{
@@ -172,7 +173,7 @@ public:
 	{
 		auto rLabIt = const_reverse_po_iterator(lab);
 		auto rBegIt = poLists[lab->getThread()].rbegin();
-		return rLabIt == rBegIt ? nullptr : &*std::prev(rLabIt);
+		return rLabIt == rBegIt ? nullptr : &*--rLabIt;
 	}
 	auto po_imm_succ(EventLabel *lab) -> EventLabel *
 	{
@@ -562,7 +563,7 @@ protected:
 
 	LocMap coherence;
 
-	llvm::simple_ilist<EventLabel> insertionOrder;
+	IoList insertionOrder;
 
 	PoLists poLists{};
 

@@ -73,6 +73,7 @@ public:
  ******************************************************************************/
 
 struct po_tag {};
+struct io_tag {};
 
 /**
  * An abstract class for modeling event labels. Contains the bare minimum
@@ -81,7 +82,7 @@ struct po_tag {};
  * getter methods are private. One can obtain information about such relations
  * by querying the execution graph.
  */
-class EventLabel : public llvm::ilist_node<EventLabel>,
+class EventLabel : public llvm::ilist_node<EventLabel, llvm::ilist_tag<io_tag>>,
 		   public llvm::ilist_node<EventLabel, llvm::ilist_tag<po_tag>> {
 
 public:

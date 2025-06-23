@@ -20,26 +20,28 @@
 
 #include "NameInfo.hpp"
 
-/* Mark name at offset O as N */
-void NameInfo::addOffsetInfo(unsigned int o, std::string n)
+#include <algorithm>
+
+/* Mark name at offset OFFSET as NAME */
+void NameInfo::addOffsetInfo(unsigned int offset, std::string name)
 {
-	info.push_back(std::make_pair(o, n));
+	info.emplace_back(offset, name);
 
 	/* Check if info needs sorting */
 	if (info.size() <= 1)
 		return;
 	if (info[info.size() - 2].first < info[info.size() - 1].first)
-		std::sort(info.begin(), info.end());
+		std::ranges::sort(info);
 }
 
 /* Returns name at offset O */
-std::string NameInfo::getNameAtOffset(unsigned int o) const
+auto NameInfo::getNameAtOffset(unsigned int offset) const -> std::string
 {
 	if (info.empty())
 		return "";
 
-	for (auto i = 0u; i < info.size(); i++) {
-		if (info[i].first > o) {
+	for (auto i = 0U; i < info.size(); i++) {
+		if (info[i].first > offset) {
 			BUG_ON(i == 0);
 			return info[i - 1].second;
 		}
@@ -47,7 +49,7 @@ std::string NameInfo::getNameAtOffset(unsigned int o) const
 	return info.back().second;
 }
 
-llvm::raw_ostream &operator<<(llvm::raw_ostream &rhs, const NameInfo &info)
+auto operator<<(llvm::raw_ostream &rhs, const NameInfo &info) -> llvm::raw_ostream &
 {
 	for (const auto &kv : info.info)
 		rhs << "" << kv.first << ": " << kv.second << "\n";

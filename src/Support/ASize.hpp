@@ -50,7 +50,7 @@ public:
 	/** Returns the number of bits this Size occupies */
 	[[nodiscard]] auto getBits() const -> Size { return size * CHAR_BIT; }
 
-	inline auto operator<=>(const ASize &other) const = default;
+	auto operator<=>(const ASize &other) const = default;
 	auto operator()() const -> Size { return size; }
 
 	friend auto operator<<(llvm::raw_ostream &rhs, const ASize &s) -> llvm::raw_ostream &;

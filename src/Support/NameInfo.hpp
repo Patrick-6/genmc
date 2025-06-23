@@ -37,15 +37,15 @@ public:
 	void addOffsetInfo(unsigned int o, std::string n);
 
 	/** Returns name at offset O */
-	std::string getNameAtOffset(unsigned int o) const;
+	[[nodiscard]] auto getNameAtOffset(unsigned int o) const -> std::string;
 
 	/** Returns the number of different offset information registered */
-	size_t size() const { return info.size(); }
+	[[nodiscard]] auto size() const -> size_t { return info.size(); }
 
 	/** Whether we have any information stored */
-	bool empty() const { return info.empty(); }
+	[[nodiscard]] auto empty() const -> bool { return info.empty(); }
 
-	friend llvm::raw_ostream &operator<<(llvm::raw_ostream &rhs, const NameInfo &info);
+	friend auto operator<<(llvm::raw_ostream &rhs, const NameInfo &info) -> llvm::raw_ostream &;
 
 private:
 	/*

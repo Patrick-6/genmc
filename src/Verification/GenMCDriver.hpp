@@ -357,10 +357,6 @@ protected:
 private:
 	/*** Exploration-related ***/
 
-	/** The workhorse for run().
-	 * Exhaustively explores all  consistent executions of a program */
-	void explore();
-
 	/** Returns whether a revisit results to a valid execution
 	 * (e.g., consistent, accessing allocated memory, etc) */
 	bool isRevisitValid(const Revisit &revisit);
@@ -535,9 +531,8 @@ private:
 	 * pushes them to the worklist. */
 	void calcCoOrderings(WriteLabel *sLab, const std::vector<EventLabel *> &cos);
 
-	/** Calculates revisit options and pushes them to the worklist.
-	 * Returns true if the current exploration should continue */
-	bool calcRevisits(WriteLabel *lab);
+	/** Calculates revisit options and pushes them to the worklist */
+	void calcRevisits(WriteLabel *lab);
 
 	/** Modifies the graph accordingly when revisiting a write (MO).
 	 * May trigger backward-revisit explorations.

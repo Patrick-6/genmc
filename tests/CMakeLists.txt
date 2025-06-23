@@ -1,5 +1,3 @@
-enable_testing()
-
 set(SCRIPT_DIR ${CMAKE_SOURCE_DIR}/scripts)
 add_test(
     NAME fast-driver
@@ -23,5 +21,3 @@ add_test(NAME run-relinche-spec
     COMMAND bash -c "${SCRIPT_DIR}/run-relinche-spec.sh > ${SCRIPT_DIR}/run-relinche-spec.log"
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
-
-include(CTest)

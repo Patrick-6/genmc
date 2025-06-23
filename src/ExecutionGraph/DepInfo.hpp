@@ -42,7 +42,7 @@ protected:
 
 public:
 	/** Constructors */
-	DepInfo() : set_() {}
+	DepInfo() = default;
 	DepInfo(Event e) : set_({e}) {}
 
 	/** Updates this object based on the dependencies of dep (union) */
@@ -52,19 +52,19 @@ public:
 	void clear() { set_.clear(); }
 
 	/** Returns true if e is contained in the dependencies */
-	bool contains(Event e) const { return set_.count(e); }
+	[[nodiscard]] auto contains(Event e) const -> bool { return set_.count(e); }
 
 	/** Returns true if there are no dependencies */
-	bool empty() const { return set_.empty(); }
+	[[nodiscard]] auto empty() const -> bool { return set_.empty(); }
 
 	/** Iterators */
 	using const_iterator = typename Set::const_iterator;
 
-	const_iterator begin() const { return set_.begin(); };
-	const_iterator end() const { return set_.end(); };
+	[[nodiscard]] auto begin() const -> const_iterator { return set_.begin(); };
+	[[nodiscard]] auto end() const -> const_iterator { return set_.end(); };
 
 	/* Printing */
-	friend llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const DepInfo &dep);
+	friend auto operator<<(llvm::raw_ostream &s, const DepInfo &dep) -> llvm::raw_ostream &;
 
 private:
 	/** The actual container for the dependencies */

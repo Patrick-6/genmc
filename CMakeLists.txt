@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.12...4.0)
 project(genmc VERSION 0.11.0 LANGUAGES CXX C)
 
+enable_testing()
+include(CTest)
+
 ### Package information
 include(GNUInstallDirs)
 set(PKG_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/runtime")
