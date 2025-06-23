@@ -418,6 +418,10 @@ private:
 	/** Est: Picks (and sets) a random CO among some possible options */
 	void pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos);
 
+	/** BAM: Reports an error if the executions is not barrier-well-formed.
+	 * Returns whether the execution is well-formed */
+	bool checkBarrierWellFormedness(BIncFaiWriteLabel *sLab);
+
 	/** BAM: Tries to optimize barrier-related revisits */
 	bool tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab, std::vector<ReadLabel *> &loads);
 

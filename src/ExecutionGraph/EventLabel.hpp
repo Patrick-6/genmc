@@ -1192,8 +1192,6 @@ private:
 		DEFINE_STANDARD_MEMBERS(_class_kind)                                               \
 	};
 
-WRITE_PURE_SUBCLASS(BInitWrite);
-WRITE_PURE_SUBCLASS(BDestroyWrite);
 WRITE_PURE_SUBCLASS(CondVarInitWrite);
 WRITE_PURE_SUBCLASS(CondVarSignalWrite);
 WRITE_PURE_SUBCLASS(CondVarBcastWrite);

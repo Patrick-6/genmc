@@ -298,8 +298,6 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabel
 		s << "UR";
 		break;
 	case EventLabel::Write:
-	case EventLabel::BInitWrite:
-	case EventLabel::BDestroyWrite:
 	case EventLabel::CondVarInitWrite:
 	case EventLabel::CondVarSignalWrite:
 	case EventLabel::CondVarBcastWrite:

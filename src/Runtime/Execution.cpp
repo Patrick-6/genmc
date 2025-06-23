@@ -219,6 +219,8 @@ EventLabel::EventLabelKind getReadKind(LoadInst &I)
 		return Kind::SpeculativeRead;
 	else if (GENMC_KIND(flags) == GENMC_KIND_CONFIRM)
 		return Kind::ConfirmingRead;
+	else if (GENMC_KIND(flags) == GENMC_KIND_BARRIER)
+		return Kind::BWaitRead;
 	BUG();
 }
 
@@ -304,6 +306,8 @@ std::pair<EventLabel::EventLabelKind, EventLabel::EventLabelKind> getFaiKinds(At
 	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
 	if (GENMC_KIND(flags) == GENMC_KIND_NONVR)
 		return std::make_pair(Kind::NoRetFaiRead, Kind::NoRetFaiWrite);
+	else if (GENMC_KIND(flags) == GENMC_KIND_BARRIER)
+		return std::make_pair(Kind::BIncFaiRead, Kind::BIncFaiWrite);
 	BUG();
 }
 
@@ -1554,6 +1558,7 @@ void Interpreter::visitLoadInst(LoadInst &I)
 		IMPLEMENT_READ_VISIT(Read);
 		IMPLEMENT_READ_VISIT(SpeculativeRead);
 		IMPLEMENT_READ_VISIT(ConfirmingRead);
+		IMPLEMENT_READ_VISIT(BWaitRead);
 	default:
 		BUG();
 	}
@@ -1595,6 +1600,7 @@ void Interpreter::visitStoreInst(StoreInst &I)
 	CALL_DRIVER(handleStore,
 		    WriteLabel::create(currPos(), ord, ptr, asize, atyp, GV_TO_SVAL(val, typ),
 				       getWriteAttr(I), GET_DEPS(deps)));
+
 	updateAddrPoDeps(getCurThr().id, I.getPointerOperand());
 	return;
 }
@@ -1744,6 +1750,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	switch (switchPair(getFaiKinds(I))) {
 		IMPLEMENT_FAI_VISIT(FaiRead, FaiWrite);
 		IMPLEMENT_FAI_VISIT(NoRetFaiRead, NoRetFaiWrite);
+		IMPLEMENT_FAI_VISIT(BIncFaiRead, BIncFaiWrite);
 	default:
 		BUG();
 	}
@@ -3294,80 +3301,6 @@ void Interpreter::callMutexDestroy(Function *F, const std::vector<GenericValue> 
 	CALL_DRIVER(handleStore, WriteLabel::create(currPos(), MemOrdering::NotAtomic, lock, size,
 						    atyp, SVal(-1), GET_DEPS(specialDeps)));
 
-	GenericValue result;
-	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
-	returnValueToCaller(typ, result);
-	return;
-}
-
-void Interpreter::callBarrierInit(Function *F, const std::vector<GenericValue> &ArgVals,
-				  const std::unique_ptr<EventDeps> &specialDeps)
-{
-	auto *barrier = (GenericValue *)GVTOP(ArgVals[0]);
-	auto *attr = (GenericValue *)GVTOP(ArgVals[1]);
-	auto *typ = F->getReturnType();
-	auto value = GV_TO_SVAL(ArgVals[2], typ);
-	auto size = getTypeSize(typ);
-	auto atyp = TYPE_TO_ATYPE(typ);
-
-	if (attr)
-		WARN_ONCE("pthread-barrier-init-arg",
-			  "Ignoring non-null argument given to pthread_barrier_init.\n");
-	CALL_DRIVER(handleStore, BInitWriteLabel::create(currPos(), MemOrdering::NotAtomic, barrier,
-							 size, atyp, value, GET_DEPS(specialDeps)));
-
-	/* Just return 0 */
-	GenericValue result;
-	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
-	returnValueToCaller(typ, result);
-	return;
-}
-
-void Interpreter::callBarrierWait(Function *F, const std::vector<GenericValue> &ArgVals,
-				  const std::unique_ptr<EventDeps> &specialDeps)
-{
-	auto *barrier = (GenericValue *)GVTOP(ArgVals[0]);
-	auto *typ = F->getReturnType();
-	auto asize = getTypeSize(typ);
-	auto atyp = TYPE_TO_ATYPE(typ);
-
-	auto oldVal = CALL_DRIVER_RESET_IF_NONE(
-		handleLoad,
-		BIncFaiReadLabel::create(currPos(), MemOrdering::AcquireRelease, barrier, asize,
-					 atyp, RMWBinOp::Sub, SVal(1), GET_DEPS(specialDeps)));
-
-	/* If the barrier was uninitialized and we blocked, abort */
-	if (!oldVal.has_value() || oldVal->getSigned() <= 0 || getCurThr().isBlocked())
-		return;
-
-	auto newVal = executeRMWBinOp(*oldVal, SVal(1), asize, RMWBinOp::Sub);
-
-	CALL_DRIVER(handleStore,
-		    BIncFaiWriteLabel::create(currPos(), MemOrdering::AcquireRelease, barrier,
-					      asize, atyp, newVal, GET_DEPS(specialDeps)));
-
-	CALL_DRIVER(handleLoad, BWaitReadLabel::create(currPos(), MemOrdering::Acquire, barrier,
-						       asize, atyp, GET_DEPS(specialDeps)));
-
-	auto result = (newVal != SVal(0)) ? INT_TO_GV(typ, 0)
-					  : INT_TO_GV(typ, GENMC_PTHREAD_BARRIER_SERIAL_THREAD);
-	returnValueToCaller(typ, result);
-	return;
-}
-
-void Interpreter::callBarrierDes(Function *F, const std::vector<GenericValue> &ArgVals,
-				 const std::unique_ptr<EventDeps> &specialDeps)
-{
-	auto *barrier = (GenericValue *)GVTOP(ArgVals[0]);
-	auto *typ = F->getReturnType();
-	auto size = getTypeSize(typ);
-	auto atyp = TYPE_TO_ATYPE(typ);
-
-	CALL_DRIVER(handleStore,
-		    BDestroyWriteLabel::create(currPos(), MemOrdering::NotAtomic, barrier, size,
-					       atyp, SVal(0), GET_DEPS(specialDeps)));
-
-	/* Just return 0 */
 	GenericValue result;
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	returnValueToCaller(typ, result);

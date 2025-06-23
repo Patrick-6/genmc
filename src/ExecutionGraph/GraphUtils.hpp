@@ -69,7 +69,13 @@ auto findMatchingSpeculativeRead(const ReadLabel *cLab, const EventLabel *&scLab
 
 /** Returns the initializing value for a barrier event.
  * Assumes there is exactly one such event */
-auto findBarrierInitValue(const ExecutionGraph &g, const AAccess &access) -> SVal;
+auto findBarrierInitValue(const BIncFaiWriteLabel *wLab) -> SVal;
+
+/** Retuns whether WLAB is the final write in a barrier round */
+auto isLastInBarrierRound(const BIncFaiWriteLabel *wLab) -> bool;
+
+/** Retuns whether RLAB reads a barrier-unblocking value */
+auto readsBarrierUnblockingValue(const BWaitReadLabel *rLab) -> bool;
 
 /** Blocks thread with BLAB. BLAB needs to either replace the last label or be maximal */
 void blockThread(ExecutionGraph &g, std::unique_ptr<BlockLabel> bLab);

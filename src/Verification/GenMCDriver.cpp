@@ -612,11 +612,19 @@ std::optional<SVal> GenMCDriver::getReadRetValue(const ReadLabel *rLab)
 
 	using Evaluator = SExprEvaluator<ModuleID::ID>;
 	auto res = rLab->getAccessValue(rLab->getAccess());
+	auto &g = getExec().getGraph();
+
+	/* Return nullopt for reads that require an interpreter reset */
 	if (getConf()->ipr && rLab->getAnnot() &&
 	    !Evaluator().evaluate(&*rLab->getAnnot()->expr, res)) {
-		blockThread(getExec().getGraph(),
-			    BlockLabel::createAssumeBlock(rLab->getPos().next(),
-							  rLab->getAnnot()->type));
+		blockThread(g, BlockLabel::createAssumeBlock(rLab->getPos().next(),
+							     rLab->getAnnot()->type));
+		return std::nullopt;
+	}
+	if (llvm::isa<BWaitReadLabel>(rLab) &&
+	    !readsBarrierUnblockingValue(llvm::cast<BWaitReadLabel>(rLab))) {
+		blockThread(g, BlockLabel::createAssumeBlock(rLab->getPos().next(),
+							     AssumeType::Barrier));
 		return std::nullopt;
 	}
 	return {res};
@@ -661,19 +669,6 @@ VerificationError GenMCDriver::checkInitializedMem(const ReadLabel *rLab)
 		return VerificationError::VE_UninitializedMem;
 	}
 
-	/* Barriers should read initialized, not-destroyed memory */
-	const auto *bLab = llvm::dyn_cast<BIncFaiReadLabel>(rLab);
-	if (bLab && bLab->getRf()->getPos().isInitializer()) {
-		reportError({rLab->getPos(), VerificationError::VE_UninitializedMem,
-			     "Called barrier_wait() on uninitialized barrier!"});
-		return VerificationError::VE_UninitializedMem;
-	}
-	if (bLab && bLab->getAccessValue(bLab->getAccess()) == SVal(0)) {
-		reportError({rLab->getPos(), VerificationError::VE_AccessFreed,
-			     "Called barrier_wait() on destroyed barrier!", bLab->getRf()});
-		return VerificationError::VE_UninitializedMem;
-	}
-
 	/* Plain events should read initialized memory if they are dynamic accesses */
 	if (isUninitializedAccess(rLab->getAddr(), rLab->getRf()->getPos())) {
 		reportError({rLab->getPos(), VerificationError::VE_UninitializedMem});
@@ -700,23 +695,6 @@ VerificationError GenMCDriver::checkInitializedMem(const WriteLabel *wLab)
 		reportError({uLab->getPos(), VerificationError::VE_InvalidUnlock,
 			     "Called unlock() on mutex not locked by the same thread!"});
 		return VerificationError::VE_InvalidUnlock;
-	}
-
-	/* Barriers should be initialized once, with a proper value */
-	const auto *bLab = llvm::dyn_cast<BInitWriteLabel>(wLab);
-	if (bLab && wLab->getVal() == SVal(0)) {
-		reportError({wLab->getPos(), VerificationError::VE_InvalidBInit,
-			     "Called barrier_init() with 0!"});
-		return VerificationError::VE_InvalidBInit;
-	}
-	if (bLab &&
-	    std::any_of(g.co_begin(bLab->getAddr()), g.co_end(bLab->getAddr()), [&](auto &sLab) {
-		    return &sLab != wLab && sLab.getAddr() == wLab->getAddr() &&
-			   llvm::isa<BInitWriteLabel>(sLab);
-	    })) {
-		reportError({wLab->getPos(), VerificationError::VE_InvalidBInit,
-			     "Called barrier_init() multiple times!"});
-		return VerificationError::VE_InvalidBInit;
 	}
 	return VerificationError::VE_OK;
 }
@@ -855,8 +833,7 @@ void GenMCDriver::filterConflictingBarriers(const ReadLabel *lab, std::vector<Ev
 	};
 	auto findSameRoundMaximal = [&](BIncFaiWriteLabel *wLab) {
 		auto &g = *wLab->getParent();
-		auto iVal = findBarrierInitValue(g, wLab->getAccess());
-		while (wLab->getVal() != iVal && findFaiReader(wLab) != wLab->readers_end()) {
+		while (!isLastInBarrierRound(wLab) && findFaiReader(wLab) != wLab->readers_end()) {
 			wLab = llvm::dyn_cast<BIncFaiWriteLabel>(
 				g.po_imm_succ(&*findFaiReader(wLab)));
 		}
@@ -1399,11 +1376,7 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug2) << "--- Added load " << lab->getPos() << "\n"
 						<< getExec().getGraph(););
 
-	/* If this is the last part of barrier_wait() check whether we should block */
 	auto retVal = getReadRetValue(lab);
-	if (llvm::isa<BWaitReadLabel>(lab) && retVal != findBarrierInitValue(g, lab->getAccess())) {
-		blockThread(g, BarrierBlockLabel::create(lab->getPos().next()));
-	}
 	return {retVal};
 }
 
@@ -1500,9 +1473,6 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 		return;
 
 	auto &g = getExec().getGraph();
-
-	if (llvm::isa<BIncFaiWriteLabel>(&*wLab) && wLab->getVal() == SVal(0))
-		wLab->setVal(findBarrierInitValue(g, wLab->getAccess()));
 
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 
@@ -1779,46 +1749,60 @@ bool GenMCDriver::reportWarningOnce(Event pos, VerificationError wcode,
 	return upgradeWarning;
 }
 
+bool GenMCDriver::checkBarrierWellFormedness(BIncFaiWriteLabel *sLab)
+{
+	if (getConf()->disableBAM)
+		return true;
+
+	/* Find the latest round completion (or init, if none exists) */
+	auto &g = getExec().getGraph();
+	auto lastIt = std::ranges::find_if(g.rco(sLab->getAddr()), [sLab](const auto &lab) {
+		return &lab != sLab &&
+		       ((llvm::isa<BIncFaiWriteLabel>(lab) &&
+			 isLastInBarrierRound(llvm::dyn_cast<BIncFaiWriteLabel>(&lab))) ||
+			lab.isNotAtomic());
+	});
+
+	/* Check whether the last barrier completion is hb;po;po-before SLAB */
+	auto ok = getConsChecker().getHbView(g.po_imm_pred(sLab)).contains(lastIt->getPos());
+	if (!ok) {
+		reportError({sLab->getPos(), VerificationError::VE_BarrierWellFormedness,
+			     "Execution not barrier-well-formed!\n"});
+	}
+	return ok;
+}
+
 bool GenMCDriver::tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab,
 					     std::vector<ReadLabel *> &loads)
 {
 	if (getConf()->disableBAM)
 		return false;
 
-	/* If the barrier_wait() does not write the initial value, nothing to do */
-	auto iVal = findBarrierInitValue(getExec().getGraph(), sLab->getAccess());
-	if (sLab->getVal() != iVal)
+	if (!checkBarrierWellFormedness(sLab) || !isLastInBarrierRound(sLab))
 		return true;
 
-	/* Otherwise, revisit in place */
-	auto &g = getExec().getGraph();
-	auto bsView = g.labels() | std::views::filter([&g, sLab](auto &lab) {
-			      if (!llvm::isa<BarrierBlockLabel>(&lab))
-				      return false;
-			      auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(
-				      g.po_imm_pred(g.po_imm_pred(&lab)));
-			      return pLab->getAddr() == sLab->getAddr();
-		      }) |
-		      std::views::transform([](auto &lab) { return lab.getPos(); });
-	std::vector<Event> bs(std::ranges::begin(bsView), std::ranges::end(bsView));
-	auto unblockedLoads = std::count_if(loads.begin(), loads.end(), [&](auto *rLab) {
-		auto *nLab = llvm::dyn_cast_or_null<BlockLabel>(g.po_imm_succ(rLab));
-		return !nLab;
-	});
-	if (bs.size() > iVal.get() || unblockedLoads > 0)
-		WARN_ONCE("bam-well-formed", "Execution not barrier-well-formed!\n");
+	/* Find reads to revisit. `loads` is disregarded because it
+	 * might not contain some valid revisits (e.g., discarded due to
+	 * maximality-related optimizations) */
+	auto &g = *sLab->getParent();
+	auto *wLab = llvm::dyn_cast<ReadLabel>(g.po_imm_pred(sLab))->getRf();
+	BUG_ON(!wLab);
+	std::vector<ReadLabel *> toRevisit;
 
-	for (auto &b : bs) {
-		auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(
-			g.po_imm_pred(g.po_imm_pred(g.getEventLabel(b))));
-		BUG_ON(!pLab);
-		unblockThread(g, b);
-		g.removeLast(b.thread);
-		auto *rLab = llvm::dyn_cast<ReadLabel>(addLabelToGraph(
-			BWaitReadLabel::create(b.prev(), pLab->getOrdering(), pLab->getAddr(),
-					       pLab->getSize(), pLab->getType(), pLab->getDeps())));
-		rLab->setRf(sLab);
-		rLab->setAddedMax(rLab->getRf() == g.co_max(rLab->getAddr()));
+	while (llvm::isa<BIncFaiWriteLabel>(wLab) &&
+	       !isLastInBarrierRound(llvm::dyn_cast<BIncFaiWriteLabel>(wLab))) {
+		auto *nLab = g.po_imm_succ(wLab);
+		if (nLab) {
+			BUG_ON(!llvm::isa<BWaitReadLabel>(nLab));
+			toRevisit.push_back(llvm::cast<ReadLabel>(nLab));
+		}
+		wLab = llvm::dyn_cast<ReadLabel>(g.po_imm_pred(wLab))->getRf();
+	}
+
+	/* Finally, revisit in place */
+	for (auto *lab : toRevisit) {
+		BUG_ON(!llvm::isa<BWaitReadLabel>(lab));
+		revisitInPlace(*constructBackwardRevisit(lab, sLab));
 	}
 	return true;
 }
@@ -2269,8 +2253,9 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 
 	/* Blocked barrier or blocked lock: block thread */
 	if (llvm::isa<BWaitReadLabel>(rLab) &&
-	    rLab->getAccessValue(rLab->getAccess()) != findBarrierInitValue(g, rLab->getAccess()))
+	    !readsBarrierUnblockingValue(llvm::cast<BWaitReadLabel>(rLab)))
 		blockThread(g, BarrierBlockLabel::create(rLab->getPos().next()));
+	/* Blocked lock: block thread */
 	if (llvm::isa<LockCasReadLabel>(rLab))
 		blockThread(g, LockNotAcqBlockLabel::create(rLab->getPos().next()));
 	return true;

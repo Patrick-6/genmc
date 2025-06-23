@@ -17,7 +17,11 @@ extern "C"
 typedef long __VERIFIER_thread_t;
 typedef struct { int __private; } __VERIFIER_attr_t;
 
-typedef struct { int __private; } __VERIFIER_barrier_t;
+
+typedef struct {
+	unsigned __private;
+	unsigned __count;
+} __VERIFIER_barrier_t;
 typedef int __VERIFIER_barrierattr_t;
 
 typedef struct { int __private; } __VERIFIER_cond_t;
@@ -120,6 +124,7 @@ extern int __VERIFIER_barrier_destroy (__VERIFIER_barrier_t *__barrier) __attrib
 #define GENMC_KIND_SPECUL  0x00080000
 #define GENMC_KIND_CONFIRM 0x00100000
 #define GENMC_ATTR_PLOCK   0x00200000
+#define GENMC_KIND_BARRIER 0x00400000
 
 /* Need to match Execution.cpp and GenMC's AssumeType */
 typedef enum {

@@ -52,6 +52,7 @@ set(SOURCES
   Static/Transforms/PromoteMemIntrinsicPass.cpp
   Static/Transforms/PropagateAssumesPass.cpp
   Static/Transforms/SpinAssumePass.cpp
+  Static/Transforms/BarrierResultCheckerPass.cpp
   Support/ASize.cpp
   Support/MemOrdering.cpp
   Support/NameInfo.cpp

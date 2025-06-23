@@ -19,6 +19,7 @@
  */
 
 #include "LLVMModule.hpp"
+#include "Static/Transforms/BarrierResultCheckerPass.hpp"
 #include "Static/Transforms/BisimilarityCheckerPass.hpp"
 #include "Static/Transforms/CallInfoCollectionPass.hpp"
 #include "Static/Transforms/CodeCondenserPass.hpp"
@@ -129,6 +130,7 @@ void initializeModuleInfo(ModuleInfo &MI, PassModuleInfo &PI)
 	initializeAnnotationInfo(MI, PI);
 	initializeFsInfo(MI, PI);
 	MI.determinedMM = PI.determinedMM;
+	MI.barrierResultsUsed = PI.barrierResultsUsed;
 }
 
 auto transformLLVMModule(llvm::Module &mod, ModuleInfo &MI,
@@ -146,6 +148,7 @@ auto transformLLVMModule(llvm::Module &mod, ModuleInfo &MI,
 	llvm::ModuleAnalysisManager mam;
 
 	mam.registerPass([&] { return MDataInfo(); });
+	mam.registerPass([&] { return BarrierResultAnalysis(); });
 	mam.registerPass([&] { return MMAnalysis(); });
 	mam.registerPass([&] { return CallAnalysis(); });
 	mam.registerPass([&] { return EscapeAnalysis(); });
@@ -186,6 +189,9 @@ auto transformLLVMModule(llvm::Module &mod, ModuleInfo &MI,
 		fpm.addPass(EliminateRedundantInstPass());
 		basicOptsMGR.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(fpm)));
 	}
+
+	if (!conf->disableBAM)
+		basicOptsMGR.addPass(BarrierResultCheckerPass(PI));
 	if (conf->mmDetector)
 		basicOptsMGR.addPass(MMDetectorPass(PI));
 

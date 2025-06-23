@@ -103,8 +103,6 @@ LAST_LABEL(Read, BIncFaiRead)
 FIRST_LABEL(Write, Write)
 HANDLE_LABEL(Write)
 
-HANDLE_LABEL(BInitWrite)
-HANDLE_LABEL(BDestroyWrite)
 HANDLE_LABEL(CondVarInitWrite)
 HANDLE_LABEL(CondVarSignalWrite)
 HANDLE_LABEL(CondVarBcastWrite)

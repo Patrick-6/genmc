@@ -48,20 +48,6 @@
 #define LAST_MUTEX_FUNCTION(num)
 #endif
 
-#ifndef FIRST_BARRIER_FUNCTION
-#define FIRST_BARRIER_FUNCTION(num)
-#endif
-#ifndef HANDLE_BARRIER_FUNCTION
-#ifndef HANDLE_FUNCTION
-#define HANDLE_BARRIER_FUNCTION(num, fun, name)
-#else
-#define HANDLE_BARRIER_FUNCTION(num, fun, name) HANDLE_FUNCTION(num, fun, name)
-#endif
-#endif
-#ifndef LAST_BARRIER_FUNCTION
-#define LAST_BARRIER_FUNCTION(num)
-#endif
-
 #ifndef FIRST_CONDVAR_FUNCTION
 #define FIRST_CONDVAR_FUNCTION(num)
 #endif
@@ -153,15 +139,6 @@ HANDLE_MUTEX_FUNCTION(22, "__VERIFIER_mutex_destroy", MutexDestroy)
 LAST_MUTEX_FUNCTION(22)
 
 /*
- * Barrier functions - for barrier operations
- */
-FIRST_BARRIER_FUNCTION(23)
-HANDLE_BARRIER_FUNCTION(23, "__VERIFIER_barrier_init", BarrierInit)
-HANDLE_BARRIER_FUNCTION(24, "__VERIFIER_barrier_wait", BarrierWait)
-HANDLE_BARRIER_FUNCTION(25, "__VERIFIER_barrier_destroy", BarrierDes)
-LAST_BARRIER_FUNCTION(25)
-
-/*
  * Condvar functions - for condition variables.
  */
 FIRST_CONDVAR_FUNCTION(26)
@@ -210,10 +187,6 @@ LAST_OTHER_FUNCTION(42)
 #undef FIRST_MUTEX_FUNCTION
 #undef HANDLE_MUTEX_FUNCTION
 #undef LAST_MUTEX_FUNCTION
-
-#undef FIRST_BARRIER_FUNCTION
-#undef HANDLE_BARRIER_FUNCTION
-#undef LAST_BARRIER_FUNCTION
 
 #undef FIRST_CONDVAR_FUNCTION
 #undef HANDLE_CONDVAR_FUNCTION

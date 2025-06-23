@@ -120,6 +120,8 @@ struct FsInfo {
 	}
 };
 
+enum class BarrierRetResult : std::uint8_t { Unused, Used };
+
 /** A struct to be used from LLVM passes where different kinds of data can be stored.
  * Different from ModuleInfo as it does not require the module to have assigned IDs.
  */
@@ -131,6 +133,7 @@ struct PassModuleInfo {
 	AnnotationInfo<llvm::Instruction *, llvm::Value *> annotInfo;
 	VSet<std::string> filenames;
 	std::optional<ModelType> determinedMM;
+	std::optional<BarrierRetResult> barrierResultsUsed;
 };
 
 /** Pack together all useful information like VariableInfo and FsInfo for a
@@ -155,6 +158,7 @@ struct ModuleInfo {
 	AnnotationInfo<ModuleID::ID, ModuleID::ID> annotInfo;
 	FsInfo fsInfo;
 	std::optional<ModelType> determinedMM;
+	std::optional<BarrierRetResult> barrierResultsUsed;
 
 private:
 	const llvm::Module &mod;

@@ -40,7 +40,7 @@ public:
 	void visit(const EventLabel &lab)
 	{
 		switch (lab.getKind()) {
-#define HANDLE_LABEL(NAME)                                                                    \
+#define HANDLE_LABEL(NAME)                                                                         \
 	case EventLabel::NAME:                                                                     \
 		return static_cast<Subclass *>(this)->visit##NAME##Label(                          \
 			static_cast<const NAME##Label &>(lab));
@@ -157,11 +157,6 @@ public:
 	void visitAbstractUnlockWriteLabel(const AbstractUnlockWriteLabel &lab)
 	{
 		return DELEGATE_LABEL(UnlockWriteLabel);
-	}
-	void visitBInitWriteLabel(const BInitWriteLabel &lab) { return DELEGATE_LABEL(WriteLabel); }
-	void visitBDestroyWriteLabel(const BDestroyWriteLabel &lab)
-	{
-		return DELEGATE_LABEL(WriteLabel);
 	}
 	void visitCondVarInitWriteLabel(const CondVarInitWriteLabel &lab)
 	{
@@ -423,7 +418,7 @@ public:
 	}
 };
 
-/** Visitor for printing an EventLabel to a .dot file */ 
+/** Visitor for printing an EventLabel to a .dot file */
 class DotPrinter : public LabelPrinterBase<DotPrinter> {
 
 public:
