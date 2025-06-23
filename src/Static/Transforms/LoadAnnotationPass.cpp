@@ -139,6 +139,14 @@ auto getAnnotatableLoads(CallInst *assm) -> std::vector<Instruction *>
 	return filterAnnotatableFromSource(assm, sourceLoads);
 }
 
+static auto extractAssumeArgument(CallInst *assume) -> uint64_t
+{
+	auto *arg = dyn_cast<Constant>(assume->getArgOperand(1));
+	BUG_ON(!arg || !arg->getType()->isIntegerTy());
+
+	return arg->getUniqueInteger().getLimitedValue();
+}
+
 auto LoadAnnotationAnalysis::run(Function &F, FunctionAnalysisManager &FAM) -> Result
 {
 	InstAnnotator annotator;
@@ -148,9 +156,7 @@ auto LoadAnnotationAnalysis::run(Function &F, FunctionAnalysisManager &FAM) -> R
 		if (call && isAssumeFunction(getCalledFunOrStripValName(*call))) {
 			auto loads = getAnnotatableLoads(call);
 			for (auto *l : loads) {
-				auto type = isSpinEndFunction(getCalledFunOrStripValName(*call))
-						    ? AssumeType::Spinloop
-						    : AssumeType::User;
+				auto type = AssumeType(extractAssumeArgument(call));
 				result_.annotMap[l] = std::make_pair(type, annotator.annotate(l));
 			}
 		}

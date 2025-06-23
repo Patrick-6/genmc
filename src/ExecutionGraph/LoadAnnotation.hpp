@@ -27,9 +27,11 @@
 
 #include <cstdint>
 
+/* Currently values matched manually to assume_internal() (fixed size; see include) */
 enum class AssumeType : std::uint8_t {
-	User,
-	Spinloop,
+	User = 0,
+	Barrier = 1,
+	Spinloop = 2,
 };
 
 struct Annotation {

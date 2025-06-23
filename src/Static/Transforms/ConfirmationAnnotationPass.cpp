@@ -19,6 +19,7 @@
  */
 
 #include "ConfirmationAnnotationPass.hpp"
+#include "ExecutionGraph/LoadAnnotation.hpp"
 #include "Runtime/InterpreterEnumAPI.hpp"
 #include "Static/LLVMUtils.hpp"
 #include "Support/Error.hpp"
@@ -38,7 +39,14 @@ auto isSpinEndCall(Instruction *i) -> bool
 		return false;
 
 	auto name = getCalledFunOrStripValName(*ci);
-	return isSpinEndFunction(name);
+	if (!isAssumeFunction(name))
+		return false;
+
+	auto *arg = dyn_cast<Constant>(ci->getArgOperand(1));
+	BUG_ON(!arg || !arg->getType()->isIntegerTy());
+
+	return arg->getUniqueInteger().getLimitedValue() ==
+	       static_cast<std::underlying_type_t<AssumeType>>(AssumeType::Spinloop);
 }
 
 /*

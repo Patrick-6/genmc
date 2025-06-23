@@ -91,7 +91,7 @@ auto propagateAssumeToPred(CallInst *assume, BasicBlock *pred) -> bool
 	}
 
 	/* Ensure the condition */
-	auto *ci = CallInst::Create(endFun, {cond}, "", bi);
+	auto *ci = CallInst::Create(endFun, {cond, assume->getArgOperand(1)}, "", bi);
 	ci->setMetadata("dbg", bi->getMetadata("dbg"));
 	return true;
 }
