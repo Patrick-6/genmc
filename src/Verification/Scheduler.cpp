@@ -56,29 +56,24 @@ static void printReplaySchedule(std::span<Event> schedule)
 }
 #endif
 
-void Scheduler::calcPoRfReplayRec(const ExecutionGraph &g, View &view, Event e)
+void Scheduler::calcPoRfReplayRec(const EventLabel *lab, View &view)
 {
-	if (view.contains(e))
-		return; /* Event already considered, skip... */
+	if (!lab || view.contains(lab->getPos()))
+		return;
 
-	auto i = view.getMax(e.thread);
-	view.setMax(e);
+	auto i = view.getMax(lab->getThread());
+	view.updateIdx(lab->getPos());
 
-	for (; i <= e.index; ++i) {
-		const auto *lab = g.getEventLabel(Event(e.thread, i));
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			const auto *rfLab = rLab->getRf();
-			if (rfLab && rfLab->getThread() != e.thread)
-				calcPoRfReplayRec(g, view, rfLab->getPos());
-		} else if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab)) {
-			const auto childId = jLab->getChildId();
-			calcPoRfReplayRec(g, view, g.getLastThreadLabel(childId)->getPos());
-		} else if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab)) {
-			const auto createEvent = bLab->getCreateId();
-			if (!createEvent.isInitializer())
-				calcPoRfReplayRec(g, view, createEvent);
-		}
-		replaySchedule_.push_back(lab->getPos());
+	const auto &g = *lab->getParent();
+	for (; i <= lab->getIndex(); ++i) {
+		const auto *pLab = g.getEventLabel(Event(lab->getThread(), i));
+		if (const auto *rLab = llvm::dyn_cast<ReadLabel>(pLab))
+			calcPoRfReplayRec(rLab->getRf(), view);
+		else if (const auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(pLab))
+			calcPoRfReplayRec(g.getLastThreadLabel(jLab->getChildId()), view);
+		else if (const auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(pLab))
+			calcPoRfReplayRec(tsLab->getCreate(), view);
+		replaySchedule_.push_back(pLab->getPos());
 	}
 }
 
@@ -137,14 +132,9 @@ void Scheduler::finalizeReplaySchedule(const ExecutionGraph &g)
 
 void Scheduler::calcPoRfReplay(const ExecutionGraph &g)
 {
-	/* Linearize (po U rf) and use that as the replay schedule. */
 	View view;
-	const auto maxTid = static_cast<int>(g.getNumThreads());
-	for (auto tid = 0; tid < maxTid; tid++) {
-		const auto *lastLab = g.getLastThreadLabel(tid);
-		calcPoRfReplayRec(g, view, lastLab->getPos());
-	}
-
+	for (auto i = 0U; i < g.getNumThreads(); i++)
+		calcPoRfReplayRec(g.getLastThreadLabel(i), view);
 	finalizeReplaySchedule(g);
 
 	/* Print the calculated replay schedule. */

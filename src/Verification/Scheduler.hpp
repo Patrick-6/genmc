@@ -111,7 +111,7 @@ private:
 	 * Fully completed threads will be replayed iff `Config::replayCompletedThreads` is true.
 	 */
 	void calcPoRfReplay(const ExecutionGraph &g);
-	void calcPoRfReplayRec(const ExecutionGraph &g, View &view, Event event);
+	void calcPoRfReplayRec(const EventLabel *lab, View &view);
 	void finalizeReplaySchedule(const ExecutionGraph &g);
 
 	auto nextReplayThread(const ExecutionGraph &g, std::span<Action> runnable)
