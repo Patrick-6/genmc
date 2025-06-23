@@ -114,9 +114,6 @@ private:
 	void calcPoRfReplayRec(const ExecutionGraph &g, View &view, Event event);
 	void finalizeReplaySchedule(const ExecutionGraph &g);
 
-	/** Add an event to the replay schedule. */
-	void addReplayEvent(Event event);
-
 	auto nextReplayThread(const ExecutionGraph &g, std::span<Action> runnable)
 		-> std::optional<int>;
 

@@ -56,20 +56,19 @@ static void printReplaySchedule(std::span<Event> schedule)
 }
 #endif
 
-void Scheduler::calcPoRfReplayRec(const ExecutionGraph &g, View &view, Event event)
+void Scheduler::calcPoRfReplayRec(const ExecutionGraph &g, View &view, Event e)
 {
-	if (view.contains(event))
+	if (view.contains(e))
 		return; /* Event already considered, skip... */
 
-	auto i = view.getMax(event.thread);
-	view.setMax(event);
+	auto i = view.getMax(e.thread);
+	view.setMax(e);
 
-	for (; i <= event.index; ++i) {
-		const auto nextEvent = Event(event.thread, i);
-		const auto *lab = g.getEventLabel(nextEvent);
+	for (; i <= e.index; ++i) {
+		const auto *lab = g.getEventLabel(Event(e.thread, i));
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 			const auto *rfLab = rLab->getRf();
-			if (rfLab && rfLab->getThread() != event.thread)
+			if (rfLab && rfLab->getThread() != e.thread)
 				calcPoRfReplayRec(g, view, rfLab->getPos());
 		} else if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab)) {
 			const auto childId = jLab->getChildId();
@@ -79,10 +78,7 @@ void Scheduler::calcPoRfReplayRec(const ExecutionGraph &g, View &view, Event eve
 			if (!createEvent.isInitializer())
 				calcPoRfReplayRec(g, view, createEvent);
 		}
-
-		/* All po-rf-dependencies have been added to the replay schedule, so we can schedule
-		 * this event now. */
-		addReplayEvent(nextEvent);
+		replaySchedule_.push_back(lab->getPos());
 	}
 }
 
@@ -162,8 +158,6 @@ void Scheduler::resetExplorationOptions(const ExecutionGraph &g)
 	setRescheduledRead(Event::getInit());
 	resetThreadPrioritization();
 }
-
-void Scheduler::addReplayEvent(Event event) { replaySchedule_.push_back(event); }
 
 auto Scheduler::nextReplayThread(const ExecutionGraph &g, std::span<Action> runnable)
 	-> std::optional<int>
