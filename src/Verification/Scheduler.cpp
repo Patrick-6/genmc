@@ -218,9 +218,7 @@ auto Scheduler::schedulePrioritized(const ExecutionGraph &g) -> std::optional<in
 
 	auto result = std::ranges::find_if(
 		threadPrios_, [&g](const auto &pos) { return isSchedulable(g, pos.thread); });
-	if (result != threadPrios_.end())
-		return {result->thread};
-	return {}; /* No schedulable thread found */
+	return (result != threadPrios_.end()) ? std::make_optional(result->thread) : std::nullopt;
 }
 
 auto Scheduler::rescheduleReads(ExecutionGraph &g, std::span<Action> runnable) -> std::optional<int>
@@ -236,9 +234,7 @@ auto Scheduler::rescheduleReads(ExecutionGraph &g, std::span<Action> runnable) -
 		unblockThread(g, bLab->getPos());
 		return true;
 	});
-	if (result != runnable.end())
-		return {result->event.thread};
-	return {}; /* No schedulable thread found */
+	return (result != runnable.end()) ? std::make_optional(result->event.thread) : std::nullopt;
 }
 
 /**** Specific Scheduling Policy Subclasses ****/
@@ -249,9 +245,7 @@ auto LTRScheduler::scheduleWithPolicy(const ExecutionGraph &g, std::span<Action>
 	auto result = std::ranges::find_if(runnable, [&g](const auto &action) {
 		return isSchedulable(g, action.event.thread);
 	});
-	if (result != runnable.end())
-		return {result->event.thread};
-	return {}; /* No schedulable thread found */
+	return (result != runnable.end()) ? std::make_optional(result->event.thread) : std::nullopt;
 }
 
 auto WFScheduler::scheduleWithPolicy(const ExecutionGraph &g, std::span<Action> runnable)
@@ -271,11 +265,8 @@ auto WFScheduler::scheduleWithPolicy(const ExecutionGraph &g, std::span<Action> 
 	if (result != runnable.end())
 		return {getFirstSchedulableSymmetric(g, result->event.thread)};
 
-	/* Otherwise, try to schedule the fallback thread */
-	if (fallback != -1)
-		return {getFirstSchedulableSymmetric(g, fallback)};
-
-	return {}; /* No schedulable thread found */
+	return (fallback != -1) ? std::make_optional(getFirstSchedulableSymmetric(g, fallback))
+				: std::nullopt;
 }
 
 auto ArbitraryScheduler::scheduleWithPolicy(const ExecutionGraph &g, std::span<Action> runnable)
@@ -294,8 +285,6 @@ auto ArbitraryScheduler::scheduleWithPolicy(const ExecutionGraph &g, std::span<A
 		/* Found a not-yet-complete thread; schedule it */
 		return {getFirstSchedulableSymmetric(g, action.event.thread)};
 	}
-
-	/* No schedulable thread found */
 	return {};
 }
 
@@ -320,6 +309,5 @@ auto WFRScheduler::scheduleWithPolicy(const ExecutionGraph &g, std::span<Action>
 
 	MyDist dist(0, selection.size() - 1);
 	const auto candidate = selection[dist(getRng())];
-
 	return {getFirstSchedulableSymmetric(g, candidate)};
 }
