@@ -5,9 +5,7 @@
 #include "Config/Config.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "Runtime/InterpreterEnumAPI.hpp"
-#include "Support/ThreadInfo.hpp"
 
-#include <algorithm>
 #include <optional>
 #include <random>
 #include <vector>
@@ -27,11 +25,10 @@ public:
 		Exploration,
 	};
 
-	template <typename... Ts>
-	[[nodiscard]] static auto create(const Config *conf, bool inEstimationMode, Ts &&...params)
-		-> std::unique_ptr<Scheduler>;
-
+	Scheduler() = delete;
 	virtual ~Scheduler() = default;
+
+	static auto create(const Config *conf, bool estimationMode) -> std::unique_ptr<Scheduler>;
 
 	auto getSchedulingPhase() const -> Phase { return phase_; }
 
@@ -84,7 +81,6 @@ public:
 	}
 
 protected:
-	Scheduler() = delete;
 	Scheduler(const Config *conf) : conf_(conf) {}
 
 private:
@@ -142,32 +138,14 @@ private:
 	 * it can be popped from the replay schedule. Depending on the interpreter, this may
 	 * correspond to multiple calls to `scheduleNext`.
 	 */
-	std::vector<Event> replaySchedule_{};
+	std::vector<Event> replaySchedule_;
 
 	Scheduler::Phase phase_{};
 };
 
-class LTRScheduler : public Scheduler {
+class ArbitraryScheduler : public Scheduler {
 public:
-	LTRScheduler(const Config *conf) : Scheduler(conf) {}
-
-private:
-	virtual auto scheduleWithPolicy(const ExecutionGraph &g, std::span<Action> runnable)
-		-> std::optional<int> override;
-};
-
-class WFScheduler : public Scheduler {
-public:
-	WFScheduler(const Config *conf) : Scheduler(conf) {}
-
-private:
-	virtual auto scheduleWithPolicy(const ExecutionGraph &g, std::span<Action> runnable)
-		-> std::optional<int> override;
-};
-
-class RandomScheduler : public Scheduler {
-public:
-	RandomScheduler(const Config *conf) : Scheduler(conf)
+	ArbitraryScheduler(const Config *conf) : Scheduler(conf)
 	{
 		/* Set up a random-number generator for the scheduler */
 		std::random_device rd;
@@ -179,27 +157,32 @@ public:
 	}
 
 protected:
-	/** Random generator facilities used */
 	using MyRNG = std::mt19937;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
 
-	MyRNG &getRng() { return rng_; }
+	auto getRng() -> MyRNG & { return rng_; }
 
 private:
-	virtual auto scheduleWithPolicy(const ExecutionGraph &g, std::span<Action> runnable)
+	auto scheduleWithPolicy(const ExecutionGraph &g, std::span<Action> runnable)
 		-> std::optional<int> override;
 
-	/** Dbg: Random-number generators for scheduling randomization */
+	/** Dbg: Random-number generator for scheduling randomization */
 	MyRNG rng_;
 };
 
-class WFRScheduler : public RandomScheduler {
-public:
-	WFRScheduler(const Config *conf) : RandomScheduler(conf) {}
+#define DEFINE_PURE_SCHEDULER_SUBCLASS(_policy, _base)                                             \
+	class _policy##Scheduler : public _base {                                                  \
+	public:                                                                                    \
+		_policy##Scheduler(const Config *conf) : _base(conf) {}                            \
+                                                                                                   \
+	private:                                                                                   \
+		virtual auto scheduleWithPolicy(const ExecutionGraph &g,                           \
+						std::span<Action> runnable)                        \
+			-> std::optional<int> override;                                            \
+	};
 
-private:
-	virtual auto scheduleWithPolicy(const ExecutionGraph &g, std::span<Action> runnable)
-		-> std::optional<int> override;
-};
+DEFINE_PURE_SCHEDULER_SUBCLASS(LTR, Scheduler);
+DEFINE_PURE_SCHEDULER_SUBCLASS(WF, Scheduler);
+DEFINE_PURE_SCHEDULER_SUBCLASS(WFR, ArbitraryScheduler)
 
 #endif /* GENMC_SCHEDULER_HPP */

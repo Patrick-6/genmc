@@ -709,30 +709,4 @@ private:
 	std::unique_ptr<Scheduler> scheduler;
 };
 
-template <typename... Ts>
-[[nodiscard]] auto createScheduler(const Config *conf, bool inEstimationMode, Ts &&...params)
-	-> std::unique_ptr<Scheduler>
-{
-	if (inEstimationMode) {
-		return std::unique_ptr<Scheduler>(
-			new WFRScheduler(conf, std::forward<Ts>(params)...));
-	}
-	switch (conf->schedulePolicy) {
-	case SchedulePolicy::ltr:
-		return std::unique_ptr<Scheduler>(
-			new LTRScheduler(conf, std::forward<Ts>(params)...));
-	case SchedulePolicy::wf:
-		return std::unique_ptr<Scheduler>(
-			new WFScheduler(conf, std::forward<Ts>(params)...));
-	case SchedulePolicy::wfr:
-		return std::unique_ptr<Scheduler>(
-			new WFRScheduler(conf, std::forward<Ts>(params)...));
-	case SchedulePolicy::arbitrary:
-		return std::unique_ptr<Scheduler>(
-			new RandomScheduler(conf, std::forward<Ts>(params)...));
-	default:
-		BUG(); /* Unknown scheduling policy */
-	}
-}
-
 #endif /* GENMC_GENMC_DRIVER_HPP */

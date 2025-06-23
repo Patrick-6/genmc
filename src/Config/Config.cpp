@@ -215,12 +215,12 @@ static llvm::cl::opt<unsigned int>
 			  llvm::cl::cat(clDebugging),
 			  llvm::cl::desc("Warn about graphs larger than N"));
 llvm::cl::opt<SchedulePolicy> clSchedulePolicy(
-	"schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(SchedulePolicy::wf),
+	"schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(SchedulePolicy::WF),
 	llvm::cl::desc("Choose the scheduling policy:"),
-	llvm::cl::values(clEnumValN(SchedulePolicy::ltr, "ltr", "Left-to-right"),
-			 clEnumValN(SchedulePolicy::wf, "wf", "Writes-first (default)"),
-			 clEnumValN(SchedulePolicy::wfr, "wfr", "Writes-first-random"),
-			 clEnumValN(SchedulePolicy::arbitrary, "arbitrary", "Arbitrary")));
+	llvm::cl::values(clEnumValN(SchedulePolicy::LTR, "ltr", "Left-to-right"),
+			 clEnumValN(SchedulePolicy::WF, "wf", "Writes-first (default)"),
+			 clEnumValN(SchedulePolicy::WFR, "wfr", "Writes-first-random"),
+			 clEnumValN(SchedulePolicy::Arbitrary, "arbitrary", "Arbitrary")));
 
 static llvm::cl::opt<bool> clPrintArbitraryScheduleSeed(
 	"print-schedule-seed", llvm::cl::cat(clDebugging),
@@ -306,10 +306,10 @@ static void checkConfigOptions()
 	}
 
 	/* Check debugging options */
-	if (clSchedulePolicy != SchedulePolicy::arbitrary && clPrintArbitraryScheduleSeed) {
+	if (clSchedulePolicy != SchedulePolicy::Arbitrary && clPrintArbitraryScheduleSeed) {
 		WARN("--print-schedule-seed used without -schedule-policy=arbitrary.\n");
 	}
-	if (clSchedulePolicy != SchedulePolicy::arbitrary && !clArbitraryScheduleSeed.empty()) {
+	if (clSchedulePolicy != SchedulePolicy::Arbitrary && !clArbitraryScheduleSeed.empty()) {
 		WARN("--schedule-seed used without -schedule-policy=arbitrary.\n");
 	}
 
@@ -327,12 +327,12 @@ static void checkConfigOptions()
 	bool bounding = (clBound != -1);
 	GENMC_DEBUG(bounding |= clBoundsHistogram;);
 	if (bounding && (clLAPOR || !clDisableBAM || !clDisableSymmetryReduction || !clDisableIPR ||
-			 clSchedulePolicy != SchedulePolicy::ltr)) {
+			 clSchedulePolicy != SchedulePolicy::LTR)) {
 		WARN("LAPOR/BAM/SR/IPR have no effect when --bound is used. Scheduling "
 		     "defaults to LTR.\n");
 		clLAPOR = false;
 		clDisableBAM = clDisableSymmetryReduction = clDisableIPR = true;
-		clSchedulePolicy = SchedulePolicy::ltr;
+		clSchedulePolicy = SchedulePolicy::LTR;
 	}
 
 	/* Check Relinche options */

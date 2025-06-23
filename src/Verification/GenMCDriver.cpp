@@ -54,7 +54,7 @@
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool /* = nullptr */,
 			 Mode mode /* = VerificationMode{} */)
 	: mode(mode), pool(pool), userConf(std::move(conf)),
-	  scheduler(createScheduler(getConf(), inEstimationMode()))
+	  scheduler(Scheduler::create(getConf(), inEstimationMode()))
 {
 	/* Set up the execution context */
 	auto initValGetter = [this](const auto &access) { return getEE()->getLocInitVal(access); };

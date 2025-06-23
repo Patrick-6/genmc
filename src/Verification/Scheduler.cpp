@@ -12,6 +12,25 @@
 #include <string>
 #include <vector>
 
+auto Scheduler::create(const Config *conf, bool estimationMode) -> std::unique_ptr<Scheduler>
+{
+	if (estimationMode)
+		return std::make_unique<WFRScheduler>(conf);
+
+#define CREATE_SCHEDULER(_policy)                                                                  \
+	case SchedulePolicy::_policy:                                                              \
+		return std::make_unique<_policy##Scheduler>(conf)
+
+	switch (conf->schedulePolicy) {
+		CREATE_SCHEDULER(LTR);
+		CREATE_SCHEDULER(WF);
+		CREATE_SCHEDULER(WFR);
+		CREATE_SCHEDULER(Arbitrary);
+	default:
+		BUG();
+	}
+}
+
 static auto getFirstSchedulableSymmetric(const ExecutionGraph &g, int tid) -> int
 {
 	auto firstSched = tid;
@@ -265,7 +284,7 @@ auto WFScheduler::scheduleWithPolicy(const ExecutionGraph &g, std::span<Action> 
 	return {}; /* No schedulable thread found */
 }
 
-auto RandomScheduler::scheduleWithPolicy(const ExecutionGraph &g, std::span<Action> runnable)
+auto ArbitraryScheduler::scheduleWithPolicy(const ExecutionGraph &g, std::span<Action> runnable)
 	-> std::optional<int>
 {
 	const auto numThreads = static_cast<int>(runnable.size());
