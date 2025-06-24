@@ -271,36 +271,27 @@ static auto findNextLabelToAdd(const ExecutionGraph &g, int thread) -> Event
 auto GenMCDriver::tryOptimizeScheduling() -> bool
 {
 	auto &g = getExec().getGraph();
-	for (auto tid = 0; tid < g.getNumThreads(); tid++) {
-		/* Symmetric threads should not be advanced if their symmetric predecessor can be
-		 * scheduled. */
-		const auto symm = g.getFirstThreadLabel(tid)->getSymmPredTid();
-		if (symm != -1 && isSchedulable(g, symm))
-			break;
+	auto success = true;
+	do {
+		auto tids = g.thr_ids();
+		auto nextIt =
+			std::ranges::find_if(tids, [&](auto tid) { return isSchedulable(g, tid); });
+		if (nextIt == std::ranges::end(tids))
+			return true;
 
-		while (fillThreadFromCache(tid)) {
-		}
-		if (isMoot() || isHalting())
-			return {};
+		success = fillThreadFromCache(*nextIt);
 
-		/* We might have added a RMW/CAS read label from the cache
-		 * without its `WriteLabel`, if that happens we create it
-		 * here. Note that `g.getLastThreadLabel` would NOT return
-		 * the correct label at this point, in the case where the
-		 * last label we filled from the cache was an `EmptyLabel`
-		 * in the middle of a thread. */
-		if (const auto *rLab =
+		/* Graph well-formedness: ensure RMWs events are scheduled as one.
+		 * (Cannot rely on the next round scheduling the same thread.) */
+		if (auto *rLab =
 			    llvm::dyn_cast<ReadLabel>(g.getEventLabel(getExec().getLastAdded()))) {
 			if (auto wLab = createRMWWriteLabel(g, rLab)) {
 				DriverHandlerDispatcher dispatcher(this);
-				dispatcher.visit(&*wLab);
+				dispatcher.visit(*wLab);
 			}
 		}
-
-		if (isSchedulable(g, tid))
-			break; /* We could not complete this thread from the cache. */
-	}
-	return true;
+	} while (success);
+	return false;
 }
 
 auto GenMCDriver::fillThreadFromCache(int thread) -> bool
@@ -545,11 +536,12 @@ auto GenMCDriver::scheduleNext(std::span<Action> runnable) -> std::optional<int>
 	auto &g = getExec().getGraph();
 
 	if (scheduler->getSchedulingPhase() == Scheduler::Phase::TryOptimizeScheduling) {
-		/* Scheduling phase 1: Fill the graph from cache with LTR scheduling,
-		 * without involving the interpreter. Stop if any thread cannot be completed
-		 * from the cache or we encounter any errors. */
-		if (getConf()->instructionCaching && !inEstimationMode() &&
-		    !tryOptimizeScheduling())
+		/* Scheduling phase 1: Fill the graph from cache with LTR
+		 * scheduling, without involving the interpreter. Stop if any thread
+		 * cannot be completed from the cache or we encounter any errors. */
+		if (getConf()->instructionCaching && !inEstimationMode() && tryOptimizeScheduling())
+			return {};
+		if (isMoot() || isHalting())
 			return {};
 		scheduler->enterReplayPhase(g);
 	}
