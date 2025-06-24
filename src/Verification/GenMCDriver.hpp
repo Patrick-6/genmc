@@ -435,13 +435,6 @@ private:
 	std::unique_ptr<VectorClock> getRevisitView(const ReadLabel *rLab,
 						    const WriteLabel *sLab) const;
 
-	/** Returnes true if the revisit R will delete LAB from the graph */
-	bool revisitDeletesEvent(const BackwardRevisit &r, const EventLabel *lab) const
-	{
-		auto &v = r.getViewNoRel();
-		return !v->contains(lab->getPos()) && !prefixContainsSameLoc(r, lab);
-	}
-
 	/** Returns true if ELAB has revisited, or is in the prefix of a write that has */
 	bool inRevisitPrefix(const EventLabel *eLab);
 
