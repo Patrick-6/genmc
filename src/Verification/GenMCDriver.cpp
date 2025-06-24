@@ -2003,8 +2003,6 @@ bool GenMCDriver::prefixContainsSameLoc(const BackwardRevisit &r, const EventLab
 	return false;
 }
 
-bool GenMCDriver::inRevisitPrefix(const EventLabel *eLab) { return !eLab->isRevisitable(); }
-
 bool GenMCDriver::isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLabel *lab)
 {
 	auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab);
@@ -2068,7 +2066,7 @@ bool GenMCDriver::isMaximalExtension(const BackwardRevisit &r)
 			return false;
 		if (isCoBeforeSavedPrefix(r, &lab))
 			return false;
-		if (inRevisitPrefix(&lab))
+		if (!lab.isRevisitable())
 			return false;
 	}
 	return true;

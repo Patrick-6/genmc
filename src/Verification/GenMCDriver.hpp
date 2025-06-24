@@ -435,9 +435,6 @@ private:
 	std::unique_ptr<VectorClock> getRevisitView(const ReadLabel *rLab,
 						    const WriteLabel *sLab) const;
 
-	/** Returns true if ELAB has revisited, or is in the prefix of a write that has */
-	bool inRevisitPrefix(const EventLabel *eLab);
-
 	bool isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLabel *lab);
 
 	bool coherenceSuccRemainInGraph(const BackwardRevisit &r);
