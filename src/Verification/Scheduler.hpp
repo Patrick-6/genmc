@@ -1,6 +1,27 @@
+/*
+ * GenMC -- Generic Model Checking.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-3.0.html.
+ *
+ * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
+ */
+
 #ifndef GENMC_SCHEDULER_HPP
 #define GENMC_SCHEDULER_HPP
 
+#include "ADT/Trie.hpp"
 #include "ADT/View.hpp"
 #include "Config/Config.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
@@ -10,27 +31,18 @@
 #include <random>
 #include <vector>
 
-/** Determine whether a thread still has more events to replay and is not blocked. */
-static auto isSchedulable(const ExecutionGraph &g, int thread) -> bool
-{
-	const auto *lab = g.getLastThreadLabel(thread);
-	return !llvm::isa_and_nonnull<TerminatorLabel>(lab);
-}
+class GenMCDriver;
 
 class Scheduler {
 public:
-	enum class Phase : std::uint8_t {
-		TryOptimizeScheduling,
-		Replay,
-		Exploration,
-	};
-
 	Scheduler() = delete;
+	Scheduler(const Scheduler &) = delete;
+	Scheduler(Scheduler &&) = default;
+	auto operator=(const Scheduler &) -> Scheduler & = delete;
+	auto operator=(Scheduler &&) -> Scheduler & = default;
 	virtual ~Scheduler() = default;
 
-	static auto create(const Config *conf, bool estimationMode) -> std::unique_ptr<Scheduler>;
-
-	auto getSchedulingPhase() const -> Phase { return phase_; }
+	static auto create(GenMCDriver *driver) -> std::unique_ptr<Scheduler>;
 
 	/** This function should be called at the beginning of every execution. */
 	void resetExplorationOptions(const ExecutionGraph &g);
@@ -47,15 +59,13 @@ public:
 	[[nodiscard]] auto scheduleNext(ExecutionGraph &g, std::span<Action> runnable)
 		-> std::optional<int>;
 
-	/** Opt: Check if we have any reads that were added blocked and whether we should reschedule
-	 * them. */
-	[[nodiscard]] auto checkRescheduleReads(ExecutionGraph &g) -> std::optional<int>;
-
 	/** Opt: Whether the exploration should try to repair R */
 	[[nodiscard]] auto isRescheduledRead(Event r) const -> bool
 	{
 		return readToReschedule_ == r;
 	}
+
+	void cacheEventLabel(const ExecutionGraph &g, const EventLabel *lab);
 
 	/** Opt: Sets R as a read to be repaired */
 	void setRescheduledRead(Event r) { readToReschedule_ = r; }
@@ -75,16 +85,41 @@ public:
 	void enterReplayPhase(const ExecutionGraph &g);
 
 protected:
-	Scheduler(const Config *conf) : conf_(conf) {}
+	Scheduler(GenMCDriver *driver) : driver_(driver) {}
+
+	[[nodiscard]] auto getDriver() const -> const GenMCDriver * { return driver_; }
+	auto getDriver() -> GenMCDriver * { return driver_; }
 
 private:
-	/**
-	 * Schedule the next thread according to a policy.
-	 * Each subclass should provide this method with the specific policy
-	 *  */
-	[[nodiscard]] virtual auto scheduleWithPolicy(const ExecutionGraph &g,
-						      std::span<Action> runnable)
-		-> std::optional<int> = 0;
+	enum class Phase : std::uint8_t {
+		TryOptimizeScheduling,
+		Replay,
+		Exploration,
+	};
+
+	using ValuePrefixT = std::unordered_map<
+		std::pair<unsigned int, unsigned int>, // fun_id, tid
+		Trie<std::vector<SVal>, std::vector<std::unique_ptr<EventLabel>>, SValUCmp>,
+		PairHasher<unsigned int, unsigned int>>;
+
+	[[nodiscard]] auto getPhase() const -> Phase { return phase_; }
+
+	/** Opt: Checks whether SEQ has been seen before for <FUN_ID, TID> and
+	 * if so returns its successors. Returns nullptr otherwise. */
+	auto retrieveCachedSuccessors(std::pair<unsigned int, unsigned int> key,
+				      const std::vector<SVal> &seq)
+		-> std::vector<std::unique_ptr<EventLabel>> *
+	{
+		return seenPrefixes[key].lookup(seq);
+	}
+
+	/** Opt: Try to extend a thread in the ExecutionGraph with events from the cache.
+	 *  Returns `false` if the de-caching failed. */
+	auto tryOptimizeScheduling(const ExecutionGraph &g) -> bool;
+
+	/** Opt: Try to extend a specific thread in the ExecutionGraph with events from the cache.
+	 *  Returns `false` if the de-caching failed. */
+	auto scheduleFromCache(const ExecutionGraph &g, int thread) -> std::optional<Event>;
 
 	/** Tries to schedule according to the current prioritization scheme */
 	[[nodiscard]] auto schedulePrioritized(const ExecutionGraph &g) -> std::optional<int>;
@@ -96,16 +131,14 @@ private:
 	auto getNextThreadToReplay(const ExecutionGraph &g, std::span<Action> runnable)
 		-> std::optional<int>;
 
-	[[nodiscard]] auto getConf() const -> const Config * { return conf_; }
+	/** Schedules a thread according to a policy */
+	[[nodiscard]] virtual auto scheduleWithPolicy(const ExecutionGraph &g,
+						      std::span<Action> runnable)
+		-> std::optional<int> = 0;
 
-	/** Opt: Whether a particular read needs to be repaired during rescheduling */
-	Event readToReschedule_ = Event::getInit();
+	GenMCDriver *driver_{};
 
-	/** Opt: Which thread(s) the scheduler should prioritize
-	 * (empty if none) */
-	std::vector<Event> threadPrios_{};
-
-	const Config *conf_;
+	Scheduler::Phase phase_{};
 
 	/**
 	 * Pre-calculated replay schedule containing positions that should be replayed in order.
@@ -116,21 +149,20 @@ private:
 	 */
 	std::vector<Event> replaySchedule_;
 
-	Scheduler::Phase phase_{};
+	/** Opt: Whether a particular read needs to be repaired during rescheduling */
+	Event readToReschedule_ = Event::getInit();
+
+	/** Opt: Which thread(s) the scheduler should prioritize
+	 * (empty if none) */
+	std::vector<Event> threadPrios_;
+
+	/** Opt: Cached labels for optimized scheduling */
+	ValuePrefixT seenPrefixes;
 };
 
 class ArbitraryScheduler : public Scheduler {
 public:
-	ArbitraryScheduler(const Config *conf) : Scheduler(conf)
-	{
-		/* Set up a random-number generator for the scheduler */
-		std::random_device rd;
-		auto seedVal =
-			(!conf->randomScheduleSeed.empty())
-				? static_cast<MyRNG::result_type>(stoull(conf->randomScheduleSeed))
-				: rd();
-		rng_.seed(seedVal);
-	}
+	ArbitraryScheduler(GenMCDriver *driver);
 
 protected:
 	using MyRNG = std::mt19937;
@@ -149,7 +181,7 @@ private:
 #define DEFINE_PURE_SCHEDULER_SUBCLASS(_policy, _base)                                             \
 	class _policy##Scheduler : public _base {                                                  \
 	public:                                                                                    \
-		_policy##Scheduler(const Config *conf) : _base(conf) {}                            \
+		_policy##Scheduler(GenMCDriver *driver) : _base(driver) {}                         \
                                                                                                    \
 	private:                                                                                   \
 		virtual auto scheduleWithPolicy(const ExecutionGraph &g,                           \

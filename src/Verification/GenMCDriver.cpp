@@ -53,8 +53,7 @@
 
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool /* = nullptr */,
 			 Mode mode /* = VerificationMode{} */)
-	: mode(mode), pool(pool), userConf(std::move(conf)),
-	  scheduler(Scheduler::create(getConf(), inEstimationMode()))
+	: mode(mode), pool(pool), userConf(std::move(conf)), scheduler(Scheduler::create(this))
 {
 	/* Set up the execution context */
 	auto initValGetter = [this](const auto &access) { return getEE()->getLocInitVal(access); };
@@ -211,113 +210,12 @@ static auto getFreshAddr(const MallocLabel *aLab, SAddrAllocator &alloctor) -> S
 	return {};
 }
 
-void GenMCDriver::resetExplorationOptions()
-{
-	unmoot();
-	auto &g = getExec().getGraph();
-	scheduler->resetExplorationOptions(g);
-
-	/* Check whether the event that led to this execs needs thread prioritization */
-	auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(getExec().getLastAdded()));
-	if (!rLab)
-		return;
-
-	if (llvm::isa<LockCasReadLabel>(rLab) &&
-	    llvm::isa_and_nonnull<LockNotAcqBlockLabel>(g.po_imm_succ(rLab)) &&
-	    !getConf()->bound.has_value()) {
-		scheduler->prioritize(rLab->getRf()->getPos());
-		return;
-	}
-
-	auto rpreds = po_preds(g, rLab);
-	auto oLabIt = std::ranges::find_if(
-		rpreds, [&](auto &oLab) { return llvm::isa<SpeculativeReadLabel>(&oLab); });
-	if (llvm::isa<SpeculativeReadLabel>(rLab) || oLabIt != rpreds.end())
-		scheduler->prioritize(rLab->getPos());
-}
-
 void GenMCDriver::handleExecutionStart()
 {
 	/* Set various exploration options for this execution */
-	resetExplorationOptions();
-}
-
-auto GenMCDriver::extractValPrefix(Event pos) const
-	-> std::pair<std::vector<SVal>, std::vector<Event>>
-{
+	unmoot();
 	auto &g = getExec().getGraph();
-	std::vector<SVal> vals;
-	std::vector<Event> events;
-
-	for (auto i = 0u; i < pos.index; i++) {
-		auto *lab = g.getEventLabel(Event(pos.thread, i));
-		if (lab->returnsValue()) {
-			vals.push_back(lab->getReturnValue());
-			events.push_back(lab->getPos());
-		}
-	}
-	return {vals, events};
-}
-
-static auto findNextLabelToAdd(const ExecutionGraph &g, int thread) -> Event
-{
-	const auto *firstLab = g.getFirstThreadLabel(thread);
-	auto succs = po_succs(g, firstLab);
-	auto it =
-		std::ranges::find_if(succs, [&](auto &lab) { return llvm::isa<EmptyLabel>(&lab); });
-	return it == succs.end() ? g.getLastThreadLabel(thread)->getPos().next() : (*it).getPos();
-}
-
-auto GenMCDriver::tryOptimizeScheduling() -> bool
-{
-	auto &g = getExec().getGraph();
-	auto success = true;
-	do {
-		auto tids = g.thr_ids();
-		auto nextIt =
-			std::ranges::find_if(tids, [&](auto tid) { return isSchedulable(g, tid); });
-		if (nextIt == std::ranges::end(tids))
-			return true;
-
-		success = fillThreadFromCache(*nextIt);
-
-		/* Graph well-formedness: ensure RMWs events are scheduled as one.
-		 * (Cannot rely on the next round scheduling the same thread.) */
-		if (auto *rLab =
-			    llvm::dyn_cast<ReadLabel>(g.getEventLabel(getExec().getLastAdded()))) {
-			if (auto wLab = createRMWWriteLabel(g, rLab)) {
-				DriverHandlerDispatcher dispatcher(this);
-				dispatcher.visit(*wLab);
-			}
-		}
-	} while (success);
-	return false;
-}
-
-auto GenMCDriver::fillThreadFromCache(int thread) -> bool
-{
-	auto &g = getExec().getGraph();
-	auto key = std::make_pair(g.getFirstThreadLabel(thread)->getThreadInfo().funId,
-				  (unsigned)thread);
-
-	auto next = findNextLabelToAdd(g, thread);
-	auto [vals, last] = extractValPrefix(next);
-	auto *res = retrieveCachedSuccessors(key, vals);
-	if (res == nullptr || res->empty() || res->back()->getIndex() < next.index)
-		return false;
-
-	for (auto &vlab : *res) {
-		BUG_ON(vlab->hasStamp());
-
-		DriverHandlerDispatcher dispatcher(this);
-		dispatcher.visit(vlab);
-
-		if (llvm::isa<BlockLabel>(g.getLastThreadLabel(vlab->getThread())) || isMoot() ||
-		    isHalting()) {
-			return false;
-		}
-	}
-	return true;
+	scheduler->resetExplorationOptions(getExec().getGraph());
 }
 
 void GenMCDriver::checkHelpingCasAnnotation()
@@ -530,23 +428,8 @@ void GenMCDriver::blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab)
 
 auto GenMCDriver::scheduleNext(std::span<Action> runnable) -> std::optional<int>
 {
-	if (isMoot() || isHalting())
-		return {};
-
-	auto &g = getExec().getGraph();
-
-	if (scheduler->getSchedulingPhase() == Scheduler::Phase::TryOptimizeScheduling) {
-		/* Scheduling phase 1: Fill the graph from cache with LTR
-		 * scheduling, without involving the interpreter. Stop if any thread
-		 * cannot be completed from the cache or we encounter any errors. */
-		if (getConf()->instructionCaching && !inEstimationMode() && tryOptimizeScheduling())
-			return {};
-		if (isMoot() || isHalting())
-			return {};
-		scheduler->enterReplayPhase(g);
-	}
-
-	return scheduler->scheduleNext(g, runnable);
+	return (isMoot() || isHalting()) ? std::nullopt
+					 : scheduler->scheduleNext(getExec().getGraph(), runnable);
 }
 
 bool isUninitializedAccess(const SAddr &addr, const Event &pos)
@@ -616,7 +499,7 @@ EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 	auto &g = getExec().getGraph();
 
 	/* Cache the event before updating views (inits are added w/ tcreate) */
-	cacheEventLabel(&*lab);
+	scheduler->cacheEventLabel(g, &*lab);
 
 	/* Add and update views */
 	auto *addedLab = g.addLabelToGraph(std::move(lab));
@@ -673,71 +556,6 @@ VerificationError GenMCDriver::checkForRaces(const EventLabel *lab)
 			return wcode;
 	}
 	return VerificationError::VE_OK;
-}
-
-void GenMCDriver::cacheEventLabel(const EventLabel *lab)
-{
-	if (!getConf()->instructionCaching || inEstimationMode())
-		return;
-
-	/* FInd the respective function ID: if no label has been cached, lab is a begin */
-	auto &g = getExec().getGraph();
-	const auto *firstLab = llvm::isa<ThreadStartLabel>(lab)
-				       ? llvm::dyn_cast<ThreadStartLabel>(lab)
-				       : g.getFirstThreadLabel(lab->getThread());
-	auto cacheKey = std::make_pair(firstLab->getThreadInfo().funId, (unsigned)lab->getThread());
-
-	/* Helper that copies and resets the prefix of LAB starting from index FROM. */
-	auto copyPrefix = [&](auto from, auto &lab) {
-		std::vector<std::unique_ptr<EventLabel>> labs;
-		for (auto i = from; i <= lab->getIndex(); i++) {
-			auto cLab = (i == lab->getIndex())
-					    ? lab->clone()
-					    : g.getEventLabel(Event(lab->getThread(), i))->clone();
-			cLab->reset();
-			labs.push_back(std::move(cLab));
-		}
-		return labs;
-	};
-
-	/* Extract value prefix and find how much of it has already been cached */
-	auto [vals, indices] = extractValPrefix(lab->getPos());
-	auto commonPrefixLen = seenPrefixes[cacheKey].findLongestCommonPrefix(vals);
-	std::vector<SVal> seenVals(vals.begin(), vals.begin() + commonPrefixLen);
-	auto *data = retrieveCachedSuccessors(cacheKey, seenVals);
-	BUG_ON(!data);
-
-	/*
-	 * Fastpath: if there are no new data to cache, return.
-	 * (For dep-tracking, we could optimize toIdx and collect until
-	 * a new (non-empty) label with a value is found.)
-	 */
-	if (!data->empty() && data->back()->getIndex() >= lab->getIndex())
-		return;
-
-	/*
-	 * Fetch the labels to cache. We try to copy as little as possible,
-	 * by inspecting what's already cached.
-	 */
-	auto fromIdx = commonPrefixLen == 0 ? 0 : indices[commonPrefixLen - 1].index + 1;
-	if (!data->empty())
-		fromIdx = std::max(data->back()->getIndex() + 1, fromIdx);
-	auto labs = copyPrefix(fromIdx, lab);
-
-	/* Go ahead and copy */
-	for (auto i = 0U; i < labs.size(); i++) {
-		/* Ensure label has not already been cached */
-		BUG_ON(!data->empty() && data->back()->getIndex() >= labs[i]->getIndex());
-		/* If the last cached label returns a value, then we need
-		 * to cache to a different bucket */
-		if (!data->empty() && data->back()->returnsValue()) {
-			seenVals.push_back(vals[seenVals.size()]);
-			auto res = seenPrefixes[cacheKey].addSeq(seenVals, {});
-			BUG_ON(!res);
-			data = retrieveCachedSuccessors(cacheKey, seenVals);
-		}
-		data->push_back(std::move(labs[i]));
-	}
 }
 
 std::optional<SVal> GenMCDriver::getReadRetValue(const ReadLabel *rLab)

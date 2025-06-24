@@ -1,8 +1,31 @@
+/*
+ * GenMC -- Generic Model Checking.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-3.0.html.
+ *
+ * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
+ */
+
 #include "Verification/Scheduler.hpp"
 #include "ExecutionGraph/Event.hpp"
 #include "ExecutionGraph/EventLabel.hpp"
+#include "ExecutionGraph/GraphIterators.hpp"
 #include "ExecutionGraph/GraphUtils.hpp"
 #include "Support/Error.hpp"
+#include "Verification/DriverHandlerDispatcher.hpp"
+#include "Verification/GenMCDriver.hpp"
 
 #include <llvm/Support/Casting.h>
 
@@ -12,16 +35,16 @@
 #include <string>
 #include <vector>
 
-auto Scheduler::create(const Config *conf, bool estimationMode) -> std::unique_ptr<Scheduler>
+auto Scheduler::create(GenMCDriver *driver) -> std::unique_ptr<Scheduler>
 {
-	if (estimationMode)
-		return std::make_unique<WFRScheduler>(conf);
+	if (driver->inEstimationMode())
+		return std::make_unique<WFRScheduler>(driver);
 
 #define CREATE_SCHEDULER(_policy)                                                                  \
 	case SchedulePolicy::_policy:                                                              \
-		return std::make_unique<_policy##Scheduler>(conf)
+		return std::make_unique<_policy##Scheduler>(driver)
 
-	switch (conf->schedulePolicy) {
+	switch (driver->getConf()->schedulePolicy) {
 		CREATE_SCHEDULER(LTR);
 		CREATE_SCHEDULER(WF);
 		CREATE_SCHEDULER(WFR);
@@ -29,6 +52,12 @@ auto Scheduler::create(const Config *conf, bool estimationMode) -> std::unique_p
 	default:
 		BUG();
 	}
+}
+
+static auto isSchedulable(const ExecutionGraph &g, int thread) -> bool
+{
+	const auto *lab = g.getLastThreadLabel(thread);
+	return !llvm::isa_and_nonnull<TerminatorLabel>(lab);
 }
 
 static auto getFirstSchedulableSymmetric(const ExecutionGraph &g, int tid) -> int
@@ -41,6 +70,146 @@ static auto getFirstSchedulableSymmetric(const ExecutionGraph &g, int tid) -> in
 		symm = g.getFirstThreadLabel(symm)->getSymmPredTid();
 	}
 	return firstSched;
+}
+
+static auto extractValPrefix(const ExecutionGraph &g, Event pos)
+	-> std::pair<std::vector<SVal>, std::vector<Event>>
+{
+	std::vector<SVal> vals;
+	std::vector<Event> events;
+
+	for (auto i = 0U; i < pos.index; i++) {
+		const auto *lab = g.getEventLabel(Event(pos.thread, i));
+		if (lab->returnsValue()) {
+			vals.push_back(lab->getReturnValue());
+			events.push_back(lab->getPos());
+		}
+	}
+	return {vals, events};
+}
+
+void Scheduler::cacheEventLabel(const ExecutionGraph &g, const EventLabel *lab)
+{
+	if (!getDriver()->getConf()->instructionCaching || getDriver()->inEstimationMode())
+		return;
+
+	/* Find the respective function ID: if no label has been cached, lab is a begin */
+	const auto *firstLab = llvm::isa<ThreadStartLabel>(lab)
+				       ? llvm::dyn_cast<ThreadStartLabel>(lab)
+				       : g.getFirstThreadLabel(lab->getThread());
+	auto cacheKey = std::make_pair(firstLab->getThreadInfo().funId, (unsigned)lab->getThread());
+
+	/* Helper that copies and resets the prefix of LAB starting from index FROM. */
+	auto copyPrefix = [&](auto from, auto &lab) {
+		std::vector<std::unique_ptr<EventLabel>> labs;
+		for (auto i = from; i <= lab->getIndex(); i++) {
+			auto cLab = (i == lab->getIndex())
+					    ? lab->clone()
+					    : g.getEventLabel(Event(lab->getThread(), i))->clone();
+			cLab->reset();
+			labs.push_back(std::move(cLab));
+		}
+		return labs;
+	};
+
+	/* Extract value prefix and find how much of it has already been cached */
+	auto [vals, indices] = extractValPrefix(g, lab->getPos());
+	auto commonPrefixLen = seenPrefixes[cacheKey].findLongestCommonPrefix(vals);
+	std::vector<SVal> seenVals(vals.begin(), vals.begin() + commonPrefixLen);
+	auto *data = retrieveCachedSuccessors(cacheKey, seenVals);
+	BUG_ON(!data);
+
+	/*
+	 * Fastpath: if there are no new data to cache, return.
+	 * (For dep-tracking, we could optimize toIdx and collect until
+	 * a new (non-empty) label with a value is found.)
+	 */
+	if (!data->empty() && data->back()->getIndex() >= lab->getIndex())
+		return;
+
+	/*
+	 * Fetch the labels to cache. We try to copy as little as possible,
+	 * by inspecting what's already cached.
+	 */
+	auto fromIdx = commonPrefixLen == 0 ? 0 : indices[commonPrefixLen - 1].index + 1;
+	if (!data->empty())
+		fromIdx = std::max(data->back()->getIndex() + 1, fromIdx);
+	auto labs = copyPrefix(fromIdx, lab);
+
+	/* Go ahead and copy */
+	for (auto i = 0U; i < labs.size(); i++) {
+		/* Ensure label has not already been cached */
+		BUG_ON(!data->empty() && data->back()->getIndex() >= labs[i]->getIndex());
+		/* If the last cached label returns a value, then we need
+		 * to cache to a different bucket */
+		if (!data->empty() && data->back()->returnsValue()) {
+			seenVals.push_back(vals[seenVals.size()]);
+			auto res = seenPrefixes[cacheKey].addSeq(seenVals, {});
+			BUG_ON(!res);
+			data = retrieveCachedSuccessors(cacheKey, seenVals);
+		}
+		data->push_back(std::move(labs[i]));
+	}
+}
+
+static auto findNextLabelToAdd(const ExecutionGraph &g, int thread) -> Event
+{
+	const auto *firstLab = g.getFirstThreadLabel(thread);
+	auto succs = po_succs(g, firstLab);
+	auto it =
+		std::ranges::find_if(succs, [&](auto &lab) { return llvm::isa<EmptyLabel>(&lab); });
+	return it == succs.end() ? g.getLastThreadLabel(thread)->getPos().next() : (*it).getPos();
+}
+
+auto Scheduler::tryOptimizeScheduling(const ExecutionGraph &g) -> bool
+{
+	std::optional<Event> scheduled;
+	do {
+		auto tids = g.thr_ids();
+		auto nextIt =
+			std::ranges::find_if(tids, [&](auto tid) { return isSchedulable(g, tid); });
+		if (nextIt == std::ranges::end(tids))
+			return true;
+
+		scheduled = scheduleFromCache(g, *nextIt);
+
+		/* Graph well-formedness: ensure RMWs events are scheduled as one.
+		 * (Cannot rely on next round scheduling the same thread.) */
+		if (scheduled) {
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(*scheduled))) {
+				if (auto wLab = createRMWWriteLabel(g, rLab)) {
+					DriverHandlerDispatcher dispatcher(getDriver());
+					dispatcher.visit(*wLab);
+				}
+			}
+		}
+	} while (scheduled);
+	return false;
+}
+
+auto Scheduler::scheduleFromCache(const ExecutionGraph &g, int thread) -> std::optional<Event>
+{
+	auto key = std::make_pair(g.getFirstThreadLabel(thread)->getThreadInfo().funId,
+				  (unsigned)thread);
+
+	auto next = findNextLabelToAdd(g, thread);
+	auto [vals, last] = extractValPrefix(g, next);
+	auto *res = retrieveCachedSuccessors(key, vals);
+	if (res == nullptr || res->empty() || res->back()->getIndex() < next.index)
+		return {};
+
+	for (auto &vlab : *res) {
+		BUG_ON(vlab->hasStamp());
+
+		DriverHandlerDispatcher dispatcher(getDriver());
+		dispatcher.visit(vlab);
+
+		if (llvm::isa<BlockLabel>(g.getLastThreadLabel(vlab->getThread())) ||
+		    getDriver()->isMoot() || getDriver()->isHalting()) {
+			return {};
+		}
+	}
+	return {res->back()->getPos()};
 }
 
 static void calcPorfReplay(const EventLabel *lab, View &view, std::vector<Event> &schedule)
@@ -99,7 +268,7 @@ static auto calculateReplaySchedule(const ExecutionGraph &g, const Config *conf)
 void Scheduler::enterReplayPhase(const ExecutionGraph &g)
 {
 	BUG_ON(phase_ != Scheduler::Phase::TryOptimizeScheduling);
-	replaySchedule_ = calculateReplaySchedule(g, getConf());
+	replaySchedule_ = calculateReplaySchedule(g, getDriver()->getConf());
 	phase_ = Scheduler::Phase::Replay;
 }
 
@@ -109,6 +278,25 @@ void Scheduler::resetExplorationOptions(const ExecutionGraph &g)
 
 	setRescheduledRead(Event::getInit());
 	resetThreadPrioritization();
+
+	/* Check whether the event that led to this execs needs thread prioritization */
+	const auto *rLab =
+		llvm::dyn_cast<ReadLabel>(g.getEventLabel(getDriver()->getExec().getLastAdded()));
+	if (!rLab)
+		return;
+
+	if (llvm::isa<LockCasReadLabel>(rLab) &&
+	    llvm::isa_and_nonnull<LockNotAcqBlockLabel>(g.po_imm_succ(rLab)) &&
+	    !getDriver()->getConf()->bound.has_value()) {
+		prioritize(rLab->getRf()->getPos());
+		return;
+	}
+
+	auto rpreds = po_preds(g, rLab);
+	auto oLabIt = std::ranges::find_if(
+		rpreds, [&](auto &oLab) { return llvm::isa<SpeculativeReadLabel>(&oLab); });
+	if (llvm::isa<SpeculativeReadLabel>(rLab) || oLabIt != rpreds.end())
+		prioritize(rLab->getPos());
 }
 
 auto Scheduler::getNextThreadToReplay(const ExecutionGraph &g, std::span<Action> runnable)
@@ -137,14 +325,19 @@ auto Scheduler::getNextThreadToReplay(const ExecutionGraph &g, std::span<Action>
 	return {next.thread};
 }
 
-/**
- * Sets up the next thread to run in the interpreter
- * Will schedule according to the execution graph during replay,
- * then schedule according to the policy implemented in `scheduleWithPolicy`.
- *   */
 auto Scheduler::scheduleNext(ExecutionGraph &g, std::span<Action> runnable) -> std::optional<int>
 {
-	BUG_ON(phase_ == Phase::TryOptimizeScheduling);
+	/* Scheduling phase 1: Fill the graph from cache with LTR
+	 * scheduling, without involving the interpreter. Stop if any thread
+	 * cannot be completed from the cache or we encounter any errors. */
+	if (getPhase() == Scheduler::Phase::TryOptimizeScheduling) {
+		if (getDriver()->getConf()->instructionCaching &&
+		    !getDriver()->inEstimationMode() && tryOptimizeScheduling(g))
+			return {};
+		if (getDriver()->isMoot() || getDriver()->isHalting())
+			return {};
+		enterReplayPhase(g);
+	}
 
 	std::optional<int> result;
 	if (phase_ == Phase::Replay && (result = getNextThreadToReplay(g, runnable)))
@@ -170,7 +363,7 @@ auto Scheduler::schedulePrioritized(const ExecutionGraph &g) -> std::optional<in
 	if (threadPrios_.empty())
 		return {};
 
-	BUG_ON(getConf()->bound.has_value());
+	BUG_ON(getDriver()->getConf()->bound.has_value());
 
 	auto result = std::ranges::find_if(
 		threadPrios_, [&g](const auto &pos) { return isSchedulable(g, pos.thread); });
@@ -185,7 +378,7 @@ auto Scheduler::rescheduleReads(ExecutionGraph &g, std::span<Action> runnable) -
 		if (!bLab)
 			return false;
 
-		BUG_ON(getConf()->bound.has_value());
+		BUG_ON(getDriver()->getConf()->bound.has_value());
 		setRescheduledRead(bLab->getPos());
 		unblockThread(g, bLab->getPos());
 		return true;
@@ -194,6 +387,17 @@ auto Scheduler::rescheduleReads(ExecutionGraph &g, std::span<Action> runnable) -
 }
 
 /**** Specific Scheduling Policy Subclasses ****/
+
+ArbitraryScheduler::ArbitraryScheduler(GenMCDriver *driver) : Scheduler(driver)
+{
+	/* Set up a random-number generator for the scheduler */
+	std::random_device rd;
+	const auto *conf = getDriver()->getConf();
+	auto seedVal = (!conf->randomScheduleSeed.empty())
+			       ? static_cast<MyRNG::result_type>(stoull(conf->randomScheduleSeed))
+			       : rd();
+	rng_.seed(seedVal);
+}
 
 auto LTRScheduler::scheduleWithPolicy(const ExecutionGraph &g, std::span<Action> runnable)
 	-> std::optional<int>

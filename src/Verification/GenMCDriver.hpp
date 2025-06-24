@@ -58,10 +58,6 @@ class GenMCDriver {
 
 protected:
 	using LocalQueueT = WorkList;
-	using ValuePrefixT = std::unordered_map<
-		std::pair<unsigned int, unsigned int>, // fun_id, tid
-		Trie<std::vector<SVal>, std::vector<std::unique_ptr<EventLabel>>, SValUCmp>,
-		PairHasher<unsigned int, unsigned int>>;
 
 public:
 	/** The operating mode of the driver */
@@ -260,6 +256,8 @@ public:
 	virtual ~GenMCDriver();
 
 protected:
+	friend class Scheduler;
+	friend class ArbitraryScheduler;
 	friend class ThreadPool;
 	friend void run(GenMCDriver *driver, llvm::Interpreter *EE);
 	friend auto estimate(std::shared_ptr<const Config> conf,
@@ -321,9 +319,6 @@ protected:
 	 * The driver is left in an inconsistent form */
 	std::unique_ptr<Execution> extractState();
 
-	/** Returns all values read leading up to POS */
-	auto extractValPrefix(Event pos) const -> std::pair<std::vector<SVal>, std::vector<Event>>;
-
 	/** Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
 	 * interpreter. */
@@ -364,9 +359,6 @@ private:
 	void moot() { isMootExecution = true; }
 	void unmoot() { isMootExecution = false; }
 
-	/** Resets some options before the beginning of a new execution */
-	void resetExplorationOptions();
-
 	/** Blocks thread at POS with type T. Tries to moot afterward */
 	void blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab);
 
@@ -405,15 +397,6 @@ private:
 	/** Opt: Caches LAB to optimize scheduling next time */
 	void cacheEventLabel(const EventLabel *lab);
 
-	/** Opt: Checks whether SEQ has been seen before for <FUN_ID, TID> and
-	 * if so returns its successors. Returns nullptr otherwise. */
-	std::vector<std::unique_ptr<EventLabel>> *
-	retrieveCachedSuccessors(std::pair<unsigned int, unsigned int> key,
-				 const std::vector<SVal> &seq)
-	{
-		return seenPrefixes[key].lookup(seq);
-	}
-
 	/** Adds LAB to graph (maintains well-formedness).
 	 * If another label exists in the specified position, it is replaced. */
 	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
@@ -423,13 +406,6 @@ private:
 
 	/** Est: Picks (and sets) a random CO among some possible options */
 	void pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos);
-
-	/** Opt: Try to extend a thread in the ExecutionGraph with events from the cache.
-	 *  Returns `false` if the de-caching failed. */
-	auto tryOptimizeScheduling() -> bool;
-	/** Opt: Try to extend a specific thread in the ExecutionGraph with events from the cache.
-	 *  Returns `false` if the de-caching failed. */
-	auto fillThreadFromCache(int thread) -> bool;
 
 	/** BAM: Tries to optimize barrier-related revisits */
 	bool tryOptimizeBarrierRevisits(BIncFaiWriteLabel *sLab, std::vector<ReadLabel *> &loads);
@@ -684,9 +660,6 @@ private:
 
 	/** Symmetry checker) */
 	std::unique_ptr<SymmetryChecker> symmChecker;
-
-	/** Opt: Cached labels for optimized scheduling */
-	ValuePrefixT seenPrefixes;
 
 	/** Decider used to bound the exploration */
 	std::unique_ptr<BoundDecider> bounder;
