@@ -150,26 +150,21 @@ auto Scheduler::getNextThreadToReplay(const ExecutionGraph &g, std::span<Action>
  *   */
 auto Scheduler::scheduleNext(ExecutionGraph &g, std::span<Action> runnable) -> std::optional<int>
 {
-	/* Scheduling phase 2: Replay the ExecutionGraph by scheduling the interpreter. */
 	BUG_ON(phase_ == Phase::TryOptimizeScheduling);
-	if (phase_ == Phase::Replay) {
-		if (auto next = getNextThreadToReplay(g, runnable))
-			return next;
 
-		phase_ = Phase::Exploration;
-	}
+	std::optional<int> result;
+	if (phase_ == Phase::Replay && (result = getNextThreadToReplay(g, runnable)))
+		return result;
 
-	/* NOTE: At this point, `runnable.size() == g.getNumThread()` might not hold, since
-	 * `runnable` might not contain some fully completed threads. */
+	phase_ = Phase::Exploration;
 
-	/* Scheduling phase 3: Normal execution by scheduling the interpreter repeatedly. */
 	/* Check if we should prioritize some thread */
-	if (auto next = schedulePrioritized(g))
-		return next;
+	if ((result = schedulePrioritized(g)))
+		return result;
 
 	/* Schedule the next thread according to the chosen policy. */
-	if (auto next = scheduleWithPolicy(g, runnable))
-		return next;
+	if ((result = scheduleWithPolicy(g, runnable)))
+		return result;
 
 	/* All threads are either blocked or terminated, so we check if we can unblock some
 	 * blocked reads. */
