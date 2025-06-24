@@ -65,7 +65,7 @@ void Scheduler::calcPoRfReplayRec(const EventLabel *lab, View &view)
 	view.updateIdx(lab->getPos());
 
 	const auto &g = *lab->getParent();
-	for (; i <= lab->getIndex(); ++i) {
+	for (++i; i <= lab->getIndex(); ++i) {
 		const auto *pLab = g.getEventLabel(Event(lab->getThread(), i));
 		if (const auto *rLab = llvm::dyn_cast<ReadLabel>(pLab))
 			calcPoRfReplayRec(rLab->getRf(), view);
