@@ -73,7 +73,8 @@ void Scheduler::calcPoRfReplayRec(const EventLabel *lab, View &view)
 			calcPoRfReplayRec(g.getLastThreadLabel(jLab->getChildId()), view);
 		else if (const auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(pLab))
 			calcPoRfReplayRec(tsLab->getCreate(), view);
-		replaySchedule_.push_back(pLab->getPos());
+		if (!llvm::isa<BlockLabel>(lab))
+			replaySchedule_.push_back(pLab->getPos());
 	}
 }
 
