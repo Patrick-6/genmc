@@ -43,7 +43,7 @@ static auto getFirstSchedulableSymmetric(const ExecutionGraph &g, int tid) -> in
 	return firstSched;
 }
 
-void Scheduler::calcPoRfReplayRec(const EventLabel *lab, View &view)
+static void calcPorfReplay(const EventLabel *lab, View &view, std::vector<Event> &schedule)
 {
 	if (!lab || view.contains(lab->getPos()))
 		return;
@@ -55,26 +55,28 @@ void Scheduler::calcPoRfReplayRec(const EventLabel *lab, View &view)
 	for (++i; i <= lab->getIndex(); ++i) {
 		const auto *pLab = g.getEventLabel(Event(lab->getThread(), i));
 		if (const auto *rLab = llvm::dyn_cast<ReadLabel>(pLab))
-			calcPoRfReplayRec(rLab->getRf(), view);
+			calcPorfReplay(rLab->getRf(), view, schedule);
 		else if (const auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(pLab))
-			calcPoRfReplayRec(g.getLastThreadLabel(jLab->getChildId()), view);
+			calcPorfReplay(g.getLastThreadLabel(jLab->getChildId()), view, schedule);
 		else if (const auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(pLab))
-			calcPoRfReplayRec(tsLab->getCreate(), view);
+			calcPorfReplay(tsLab->getCreate(), view, schedule);
 		if (!llvm::isa<BlockLabel>(lab))
-			replaySchedule_.push_back(pLab->getPos());
+			schedule.push_back(pLab->getPos());
 	}
 }
 
-void Scheduler::calcPoRfReplay(const ExecutionGraph &g)
+static auto calculateReplaySchedule(const ExecutionGraph &g, const Config *conf)
+	-> std::vector<Event>
 {
 	/* Calculate preliminary replay schedule (reversed order) */
 	View view;
+	std::vector<Event> result;
 	for (auto i = 0U; i < g.getNumThreads(); i++)
-		calcPoRfReplayRec(g.getLastThreadLabel(i), view);
+		calcPorfReplay(g.getLastThreadLabel(i), view, result);
 
 	/* Erase any non-schedulable threads. */
-	if (!getConf()->replayCompletedThreads) {
-		std::erase_if(replaySchedule_, [&g](const auto &pos) {
+	if (!conf->replayCompletedThreads) {
+		std::erase_if(result, [&g](const auto &pos) {
 			auto *lab = g.getLastThreadLabel(pos.thread);
 			return !isSchedulable(g, lab->getThread()) &&
 			       !llvm::isa_and_nonnull<BlockLabel>(lab);
@@ -82,16 +84,23 @@ void Scheduler::calcPoRfReplay(const ExecutionGraph &g)
 	}
 
 	/* Erase NAs as they cannot affect the schedule (unless RD is disabled) */
-	if (!getConf()->disableRaceDetection) {
-		std::erase_if(replaySchedule_, [&g](const auto &pos) {
+	if (!conf->disableRaceDetection) {
+		std::erase_if(result, [&g](const auto &pos) {
 			return g.getEventLabel(pos)->isNotAtomic();
 		});
 	}
 
 	/* The schedule is still reversed, need to fix that. */
-	std::ranges::reverse(replaySchedule_);
-
+	std::ranges::reverse(result);
 	// GENMC_DEBUG(llvm::dbgs() << format(std::ranges::reverse_view(replaySchedule_)) << "\n";);
+	return result;
+}
+
+void Scheduler::enterReplayPhase(const ExecutionGraph &g)
+{
+	BUG_ON(phase_ != Scheduler::Phase::TryOptimizeScheduling);
+	replaySchedule_ = calculateReplaySchedule(g, getConf());
+	phase_ = Scheduler::Phase::Replay;
 }
 
 void Scheduler::resetExplorationOptions(const ExecutionGraph &g)

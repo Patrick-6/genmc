@@ -72,13 +72,7 @@ public:
 	/** Pre-calculate the replay schedule based on the `ExecutionGraph` and set the scheduling
 	 * phase to replay. This function should only be called once per execution, once no more
 	 * events can be added from the cache in `Phase::TryOptimizeScheduling`. */
-	void enterReplayPhase(const ExecutionGraph &g)
-	{
-		BUG_ON(phase_ != Scheduler::Phase::TryOptimizeScheduling);
-		replaySchedule_.clear();
-		calcPoRfReplay(g);
-		phase_ = Scheduler::Phase::Replay;
-	}
+	void enterReplayPhase(const ExecutionGraph &g);
 
 protected:
 	Scheduler(const Config *conf) : conf_(conf) {}
@@ -98,20 +92,6 @@ private:
 	/** Opt: Tries to reschedule any reads that were added blocked */
 	[[nodiscard]] auto rescheduleReads(ExecutionGraph &g, std::span<Action> runnable)
 		-> std::optional<int>;
-
-	/**
-	 * Pre-calculate a replay schedule for the given ExecutionGraph. The schedule will allow an
-	 * interpreter to be brought up to a state corresponding to the ExecutionGraph.
-	 *
-	 * The replay will respect the (po U rf) relations in the graph, meaning it will run read
-	 * events after the write events they read from.
-	 * The replay is also WF (Writes-first), meaning it will attempt to schedule writes before
-	 * reads when possible.
-	 *
-	 * Fully completed threads will be replayed iff `Config::replayCompletedThreads` is true.
-	 */
-	void calcPoRfReplay(const ExecutionGraph &g);
-	void calcPoRfReplayRec(const EventLabel *lab, View &view);
 
 	auto getNextThreadToReplay(const ExecutionGraph &g, std::span<Action> runnable)
 		-> std::optional<int>;
