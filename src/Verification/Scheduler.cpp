@@ -103,9 +103,8 @@ void Scheduler::finalizeReplaySchedule(const ExecutionGraph &g)
 		 *
 		 * Scheduling based on the first event potentially misses dependencies. Only
 		 * scheduling at atomic events is sufficient to prevent this issue. */
-		std::erase_if(replaySchedule_, [&g](const Event pos) {
-			const auto *currLab = g.getEventLabel(pos);
-			return currLab->isNotAtomic();
+		std::erase_if(replaySchedule_, [&g](const auto &pos) {
+			return g.getEventLabel(pos)->isNotAtomic();
 		});
 	}
 
