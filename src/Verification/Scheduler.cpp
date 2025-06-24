@@ -43,19 +43,6 @@ static auto getFirstSchedulableSymmetric(const ExecutionGraph &g, int tid) -> in
 	return firstSched;
 }
 
-#ifdef ENABLE_GENMC_DEBUG
-static void printReplaySchedule(std::span<Event> schedule)
-{
-	if (logLevel < VerbosityLevel::Tip)
-		return;
-	llvm::errs() << "Replay Schedule (" << schedule.size() << " entries): [";
-	for (const auto &next : std::ranges::reverse_view(schedule)) {
-		llvm::errs() << next << ", ";
-	}
-	llvm::errs() << "]\n";
-}
-#endif
-
 void Scheduler::calcPoRfReplayRec(const EventLabel *lab, View &view)
 {
 	if (!lab || view.contains(lab->getPos()))
@@ -119,8 +106,7 @@ void Scheduler::calcPoRfReplay(const ExecutionGraph &g)
 		calcPoRfReplayRec(g.getLastThreadLabel(i), view);
 	finalizeReplaySchedule(g);
 
-	/* Print the calculated replay schedule. */
-	// GENMC_DEBUG(printReplaySchedule(replaySchedule_););
+	// GENMC_DEBUG(llvm::dbgs() << format(std::ranges::reverse_view(replaySchedule_)) << "\n";);
 }
 
 void Scheduler::resetExplorationOptions(const ExecutionGraph &g)
