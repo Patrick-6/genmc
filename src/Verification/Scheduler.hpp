@@ -114,7 +114,7 @@ private:
 	void calcPoRfReplayRec(const EventLabel *lab, View &view);
 	void finalizeReplaySchedule(const ExecutionGraph &g);
 
-	auto nextReplayThread(const ExecutionGraph &g, std::span<Action> runnable)
+	auto getNextThreadToReplay(const ExecutionGraph &g, std::span<Action> runnable)
 		-> std::optional<int>;
 
 	[[nodiscard]] auto getConf() const -> const Config * { return conf_; }

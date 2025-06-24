@@ -80,15 +80,13 @@ void Scheduler::calcPoRfReplayRec(const EventLabel *lab, View &view)
 
 void Scheduler::finalizeReplaySchedule(const ExecutionGraph &g)
 {
-	if (replaySchedule_.empty())
-		return;
-
-	/* NOTE: the replay schedule is still in reverse order in the vector. */
-
+	/* Erase any non-schedulable threads. */
 	if (!getConf()->replayCompletedThreads) {
-		/* Erase any non-schedulable threads. */
-		std::erase_if(replaySchedule_,
-			      [&g](const Event pos) { return !isSchedulable(g, pos.thread); });
+		std::erase_if(replaySchedule_, [&g](const auto &pos) {
+			auto *lab = g.getLastThreadLabel(pos.thread);
+			return !isSchedulable(g, lab->getThread()) &&
+			       !llvm::isa_and_nonnull<BlockLabel>(lab);
+		});
 	}
 	if (getConf()->onlyScheduleAtAtomics) {
 		/* Erase any non-atomic replay events.
@@ -110,22 +108,6 @@ void Scheduler::finalizeReplaySchedule(const ExecutionGraph &g)
 			return currLab->isNotAtomic();
 		});
 	}
-
-	/* Compress consecutive events for the same thread. */
-	if (replaySchedule_.empty())
-		return; /* We may have filtered out all events. */
-	auto curr = replaySchedule_.begin();
-	auto prev = curr;
-	auto end = replaySchedule_.end();
-	while (++curr != end) {
-		if (curr->thread == prev->thread) {
-			prev->index = std::max(prev->index, curr->index);
-		} else {
-			++prev;
-			*prev = *curr;
-		}
-	}
-	replaySchedule_.erase(++prev, end);
 
 	/* The schedule is still reversed, need to fix that. */
 	std::ranges::reverse(replaySchedule_);
@@ -150,21 +132,30 @@ void Scheduler::resetExplorationOptions(const ExecutionGraph &g)
 	resetThreadPrioritization();
 }
 
-auto Scheduler::nextReplayThread(const ExecutionGraph &g, std::span<Action> runnable)
+auto Scheduler::getNextThreadToReplay(const ExecutionGraph &g, std::span<Action> runnable)
 	-> std::optional<int>
 {
-	while (!replaySchedule_.empty()) {
-		const Event next = replaySchedule_.back();
-
-		// if ((next.thread >= runnable.size() || next.index == 0 ||
-		if ((next.thread >= runnable.size() ||
-		     next.index > runnable[next.thread].event.index) &&
-		    isSchedulable(g, next.thread))
-			return {getFirstSchedulableSymmetric(g, next.thread)};
-
+	/* Pop any events already replayed. This is done lazily as:
+	 * 1. one interpreter instruction may map to many graph events (currently only for RMWs);
+	 *    in such cases, schedule() is not called in between the events.
+	 * 2. some runtimes may call schedule() before local instructions not tracked in the
+	 *    graph (i.e., runnable remains the same across different calls) */
+	while (!replaySchedule_.empty() &&
+	       replaySchedule_.back().index <= runnable[replaySchedule_.back().thread].event.index)
 		replaySchedule_.pop_back();
-	}
-	return {};
+
+	if (replaySchedule_.empty())
+		return {};
+
+	/* If the next event to be replayed is an assume()-read, eagerly pop it. Otherwise,
+	 * the instruction counter might never increase (due to the read blocking), and
+	 * we will be stuck scheduling the same thread forever. */
+	auto next = replaySchedule_.back();
+	const auto *lastLab = g.getLastThreadLabel(next.thread);
+	if (llvm::isa<BlockLabel>(lastLab) && next.index == lastLab->getIndex() - 1 &&
+	    llvm::isa<ReadLabel>(g.po_imm_pred(lastLab))) /* overapproximation */
+		replaySchedule_.pop_back();
+	return {next.thread};
 }
 
 /**
@@ -177,7 +168,7 @@ auto Scheduler::scheduleNext(ExecutionGraph &g, std::span<Action> runnable) -> s
 	/* Scheduling phase 2: Replay the ExecutionGraph by scheduling the interpreter. */
 	BUG_ON(phase_ == Phase::TryOptimizeScheduling);
 	if (phase_ == Phase::Replay) {
-		if (auto next = nextReplayThread(g, runnable))
+		if (auto next = getNextThreadToReplay(g, runnable))
 			return next;
 
 		phase_ = Phase::Exploration;
