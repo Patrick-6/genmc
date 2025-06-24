@@ -112,7 +112,6 @@ private:
 	 */
 	void calcPoRfReplay(const ExecutionGraph &g);
 	void calcPoRfReplayRec(const EventLabel *lab, View &view);
-	void finalizeReplaySchedule(const ExecutionGraph &g);
 
 	auto getNextThreadToReplay(const ExecutionGraph &g, std::span<Action> runnable)
 		-> std::optional<int>;

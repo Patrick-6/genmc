@@ -65,8 +65,13 @@ void Scheduler::calcPoRfReplayRec(const EventLabel *lab, View &view)
 	}
 }
 
-void Scheduler::finalizeReplaySchedule(const ExecutionGraph &g)
+void Scheduler::calcPoRfReplay(const ExecutionGraph &g)
 {
+	/* Calculate preliminary replay schedule (reversed order) */
+	View view;
+	for (auto i = 0U; i < g.getNumThreads(); i++)
+		calcPoRfReplayRec(g.getLastThreadLabel(i), view);
+
 	/* Erase any non-schedulable threads. */
 	if (!getConf()->replayCompletedThreads) {
 		std::erase_if(replaySchedule_, [&g](const auto &pos) {
@@ -75,21 +80,22 @@ void Scheduler::finalizeReplaySchedule(const ExecutionGraph &g)
 			       !llvm::isa_and_nonnull<BlockLabel>(lab);
 		});
 	}
+
+	/* Erase any non-atomic replay events.
+	 *
+	 * Some interpreter frontends (e.g., Miri) can add multiple events when scheduled
+	 * once. One example of this is `atomic_load`, which is treated like a special
+	 * function call, so it can only be scheduled as one unit. It still creates multiple
+	 * events for the graph:
+	 *
+	 * - Allocate any variables used in the function. 	(no dependencies)
+	 * - NA read of the `ordering` from a constant.		(no dependencies)
+	 * - Do the actual atomic load. 			  (possible dependencies)
+	 * - Deallocate any variables used in the function. (no dependencies)
+	 *
+	 * Scheduling based on the first event potentially misses dependencies. Only
+	 * scheduling at atomic events is sufficient to prevent this issue. */
 	if (getConf()->onlyScheduleAtAtomics) {
-		/* Erase any non-atomic replay events.
-		 *
-		 * Some interpreter frontends (e.g., Miri) can add multiple events when scheduled
-		 * once. One example of this is `atomic_load`, which is treated like a special
-		 * function call, so it can only be scheduled as one unit. It still creates multiple
-		 * events for the graph:
-		 *
-		 * - Allocate any variables used in the function. 	(no dependencies)
-		 * - NA read of the `ordering` from a constant.		(no dependencies)
-		 * - Do the actual atomic load. 			  (possible dependencies)
-		 * - Deallocate any variables used in the function. (no dependencies)
-		 *
-		 * Scheduling based on the first event potentially misses dependencies. Only
-		 * scheduling at atomic events is sufficient to prevent this issue. */
 		std::erase_if(replaySchedule_, [&g](const auto &pos) {
 			return g.getEventLabel(pos)->isNotAtomic();
 		});
@@ -97,14 +103,6 @@ void Scheduler::finalizeReplaySchedule(const ExecutionGraph &g)
 
 	/* The schedule is still reversed, need to fix that. */
 	std::ranges::reverse(replaySchedule_);
-}
-
-void Scheduler::calcPoRfReplay(const ExecutionGraph &g)
-{
-	View view;
-	for (auto i = 0U; i < g.getNumThreads(); i++)
-		calcPoRfReplayRec(g.getLastThreadLabel(i), view);
-	finalizeReplaySchedule(g);
 
 	// GENMC_DEBUG(llvm::dbgs() << format(std::ranges::reverse_view(replaySchedule_)) << "\n";);
 }
