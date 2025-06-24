@@ -81,21 +81,8 @@ void Scheduler::calcPoRfReplay(const ExecutionGraph &g)
 		});
 	}
 
-	/* Erase any non-atomic replay events.
-	 *
-	 * Some interpreter frontends (e.g., Miri) can add multiple events when scheduled
-	 * once. One example of this is `atomic_load`, which is treated like a special
-	 * function call, so it can only be scheduled as one unit. It still creates multiple
-	 * events for the graph:
-	 *
-	 * - Allocate any variables used in the function. 	(no dependencies)
-	 * - NA read of the `ordering` from a constant.		(no dependencies)
-	 * - Do the actual atomic load. 			  (possible dependencies)
-	 * - Deallocate any variables used in the function. (no dependencies)
-	 *
-	 * Scheduling based on the first event potentially misses dependencies. Only
-	 * scheduling at atomic events is sufficient to prevent this issue. */
-	if (getConf()->onlyScheduleAtAtomics) {
+	/* Erase NAs as they cannot affect the schedule (unless RD is disabled) */
+	if (!getConf()->disableRaceDetection) {
 		std::erase_if(replaySchedule_, [&g](const auto &pos) {
 			return g.getEventLabel(pos)->isNotAtomic();
 		});

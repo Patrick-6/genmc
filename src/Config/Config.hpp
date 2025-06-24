@@ -63,10 +63,7 @@ struct Config {
 	std::optional<std::string> checkLinSpec;
 	unsigned int maxExtSize{};
 	bool dotPrintOnlyClientEvents{};
-
-	/*** Scheduling options (interpreter dependent) ***/
 	bool replayCompletedThreads{};
-	bool onlyScheduleAtAtomics{};
 
 	/*** Transformation options ***/
 	std::optional<unsigned> unroll;
