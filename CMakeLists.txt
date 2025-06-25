@@ -73,7 +73,7 @@ endif()
 
 add_subdirectory(src)
 add_subdirectory(tests)
-OPTION(BUILD_DOC "Enable documentation building" ON)
+OPTION(BUILD_DOC "Enable documentation building" OFF)
 if(BUILD_DOC)
   add_subdirectory(${CMAKE_SOURCE_DIR}/doc)
 endif()
