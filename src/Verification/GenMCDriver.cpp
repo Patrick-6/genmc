@@ -24,6 +24,7 @@
 #include "ExecutionGraph/Consistency/ConsistencyChecker.hpp"
 #include "ExecutionGraph/Consistency/SymmetryChecker.hpp"
 #include "ExecutionGraph/DepExecutionGraph.hpp"
+#include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/GraphIterators.hpp"
 #include "ExecutionGraph/GraphUtils.hpp"
 #include "ExecutionGraph/LabelVisitor.hpp"
@@ -53,7 +54,7 @@
 
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool /* = nullptr */,
 			 Mode mode /* = VerificationMode{} */)
-	: mode(mode), pool(pool), userConf(std::move(conf)), scheduler(Scheduler::create(this))
+	: mode(mode), pool(pool), userConf(std::move(conf))
 {
 	/* Set up the execution context */
 	auto initValGetter = [this](const auto &access) { return getEE()->getLocInitVal(access); };
@@ -70,6 +71,9 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool /*
 	GENMC_DEBUG(hasBounder |= userConf->boundsHistogram;);
 	if (hasBounder)
 		bounder = BoundDecider::create(getConf()->boundType);
+
+	scheduler = inEstimationMode() ? std::make_unique<WFRScheduler>(getConf())
+				       : Scheduler::create(getConf());
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;
@@ -214,7 +218,6 @@ void GenMCDriver::handleExecutionStart()
 {
 	/* Set various exploration options for this execution */
 	unmoot();
-	auto &g = getExec().getGraph();
 	scheduler->resetExplorationOptions(getExec().getGraph());
 }
 
@@ -429,7 +432,24 @@ void GenMCDriver::blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab)
 auto GenMCDriver::scheduleNext(std::span<Action> runnable) -> std::optional<int>
 {
 	return (isMoot() || isHalting()) ? std::nullopt
-					 : scheduler->scheduleNext(getExec().getGraph(), runnable);
+					 : scheduler->schedule(getExec().getGraph(), runnable);
+}
+
+auto GenMCDriver::runFromCache() -> bool
+{
+	if (!getConf()->instructionCaching || inEstimationMode())
+		return false;
+
+	do {
+		auto toAdd = scheduler->scheduleFromCache(getExec().getGraph());
+		if (!toAdd)
+			return true;
+		if (*toAdd == nullptr)
+			return false;
+
+		addLabelsToGraph(**toAdd);
+	} while (!isMoot() && !isHalting());
+	return true;
 }
 
 bool isUninitializedAccess(const SAddr &addr, const Event &pos)
@@ -499,7 +519,8 @@ EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 	auto &g = getExec().getGraph();
 
 	/* Cache the event before updating views (inits are added w/ tcreate) */
-	scheduler->cacheEventLabel(g, &*lab);
+	if (getConf()->instructionCaching && !inEstimationMode())
+		scheduler->cacheEventLabel(g, &*lab);
 
 	/* Add and update views */
 	auto *addedLab = g.addLabelToGraph(std::move(lab));
@@ -514,6 +535,29 @@ EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 			<< "Consider bounding all loops or using -unroll\n";
 	}
 	return addedLab;
+}
+
+void GenMCDriver::addLabelsToGraph(const std::vector<std::unique_ptr<EventLabel>> &labs)
+{
+	auto &g = getExec().getGraph();
+	DriverHandlerDispatcher dispatcher(this);
+
+	for (const auto &vlab : labs) {
+		BUG_ON(vlab->hasStamp());
+
+		dispatcher.visit(vlab);
+
+		if (llvm::isa<BlockLabel>(g.getLastThreadLabel(vlab->getThread())))
+			break;
+	}
+
+	/* Graph well-formedness: ensure RMWs events are scheduled as one.
+	 * (Cannot rely on next round scheduling the same thread.) */
+	auto *lastLab = g.getEventLabel(getExec().getLastAdded());
+	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lastLab)) {
+		if (auto wLab = createRMWWriteLabel(g, rLab))
+			dispatcher.visit(*wLab);
+	}
 }
 
 void GenMCDriver::updateLabelViews(EventLabel *lab)
@@ -795,15 +839,7 @@ void GenMCDriver::filterConflictingBarriers(const ReadLabel *lab, std::vector<Ev
 	    (!llvm::isa<BIncFaiReadLabel>(lab) && !llvm::isa<BWaitReadLabel>(lab)))
 		return;
 
-	/* barrier_wait()'s plain load should read maximally */
-	if (auto *rLab = llvm::dyn_cast<BWaitReadLabel>(lab)) {
-		std::swap(stores[0], stores.back());
-		stores.resize(1);
-		return;
-	}
-
-	/* barrier_wait()'s FAI loads should not read from conflicting stores */
-	auto &g = getExec().getGraph();
+	/* Helper lambdas */
 	auto isReadByExclusiveRead = [&](auto *oLab) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(oLab))
 			return std::ranges::any_of(wLab->readers(),
@@ -813,6 +849,30 @@ void GenMCDriver::filterConflictingBarriers(const ReadLabel *lab, std::vector<Ev
 						   [&](auto &rLab) { return rLab.isRMW(); });
 		BUG();
 	};
+	auto findFaiReader = [](BIncFaiWriteLabel *wLab) {
+		return std::find_if(wLab->readers_begin(), wLab->readers_end(),
+				    [](auto &rLab) { return llvm::isa<BIncFaiReadLabel>(&rLab); });
+	};
+	auto findSameRoundMaximal = [&](BIncFaiWriteLabel *wLab) {
+		auto &g = *wLab->getParent();
+		auto iVal = findBarrierInitValue(g, wLab->getAccess());
+		while (wLab->getVal() != iVal && findFaiReader(wLab) != wLab->readers_end()) {
+			wLab = llvm::dyn_cast<BIncFaiWriteLabel>(
+				g.po_imm_succ(&*findFaiReader(wLab)));
+		}
+		return wLab;
+	};
+
+	/* barrier_wait()'s plain load should read maximally */
+	if (auto *rLab = llvm::dyn_cast<BWaitReadLabel>(lab)) {
+		auto *wLab = llvm::dyn_cast<BIncFaiWriteLabel>(stores[0]);
+		BUG_ON(!wLab || wLab->getPos().next() != lab->getPos());
+		stores[0] = findSameRoundMaximal(wLab);
+		stores.resize(1);
+		return;
+	}
+
+	/* barrier_wait()'s FAI loads should not read from conflicting stores */
 	stores.erase(std::remove_if(stores.begin(), stores.end(),
 				    [&](auto &sLab) { return isReadByExclusiveRead(sLab); }),
 		     stores.end());
@@ -1003,9 +1063,8 @@ bool GenMCDriver::isSymmetricToSR(int candidate, Event parent, const ThreadInfo 
 	 * symmetric, but we cannot deem it */
 	auto tipSymmetry = [&]() {
 		LOG_ONCE("possible-symmetry", VerbosityLevel::Tip)
-			<< "Threads (" << getEE()->getThrById(cInfo.id) << ") and ("
-			<< getEE()->getThrById(info.id)
-			<< ") could benefit from symmetry reduction."
+			<< "Threads " << cInfo.id << " and " << info.id
+			<< " could benefit from symmetry reduction."
 			<< " Consider using __VERIFIER_spawn_symmetric().\n";
 	};
 
@@ -1072,9 +1131,6 @@ int GenMCDriver::handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab)
 	/* Add an event for the thread creation */
 	tcLab->setChildId(cid);
 	auto *lab = llvm::dyn_cast<ThreadCreateLabel>(addLabelToGraph(std::move(tcLab)));
-
-	/* Prepare the execution context for the new thread */
-	EE->constructAddThreadFromInfo(lab->getChildInfo());
 
 	/* This tid should not already exist in the graph */
 	BUG_ON(cid != (long)g.getNumThreads());

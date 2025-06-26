@@ -124,6 +124,15 @@ void Interpreter::reset()
 
 Thread &Interpreter::addNewThread(Thread &&thread)
 {
+	/* In case of a replay, do nothing (so that we don't have to replay in porf) */
+	if (thread.id < getNumThreads()) {
+		auto &exstThr = dynState.threads[thread.id];
+		BUG_ON(exstThr.id != thread.id);
+		BUG_ON(exstThr.parentId != thread.parentId);
+		BUG_ON(exstThr.threadFun != thread.threadFun);
+		return exstThr;
+	}
+
 	BUG_ON(thread.id != getNumThreads());
 	dynState.threads.push_back(std::move(thread));
 

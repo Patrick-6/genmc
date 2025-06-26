@@ -3133,7 +3133,6 @@ void Interpreter::callThreadCreate(Function *F, const std::vector<GenericValue> 
 {
 	Function *calledFun = (Function *)GVTOP(ArgVals[1]);
 	ExecutionContext SF;
-	GenericValue val, result;
 
 	if (!calledFun) {
 		driver->reportError({currPos(), VerificationError::VE_InvalidCreate,
@@ -3157,6 +3156,10 @@ void Interpreter::callThreadCreate(Function *F, const std::vector<GenericValue> 
 			       SVal((uintptr_t)ArgVals[2].PointerVal), symm);
 	auto tid = CALL_DRIVER(handleThreadCreate,
 			       ThreadCreateLabel::create(currPos(), info, GET_DEPS(deps)));
+
+	/* Prepare the execution context for the new thread */
+	info.id = tid;
+	constructAddThreadFromInfo(info);
 
 	/* ... and return the TID of the created thread to the caller */
 	Type *typ = F->getReturnType();
@@ -3758,8 +3761,6 @@ int Interpreter::runAsMain(const std::string &main)
 	dynState.globalInstructions[currPos().thread].kind =
 		getInstKind(&*ECStack().back().CurInst);
 
-	driver->handleExecutionStart();
 	run();
-	driver->handleExecutionEnd();
 	return dynState.ExitValue.IntVal.getZExtValue();
 }

@@ -22,8 +22,6 @@
 #define GENMC_SCHEDULER_HPP
 
 #include "ADT/Trie.hpp"
-#include "ADT/View.hpp"
-#include "Config/Config.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "Runtime/InterpreterEnumAPI.hpp"
 
@@ -31,7 +29,7 @@
 #include <random>
 #include <vector>
 
-class GenMCDriver;
+class Config;
 
 class Scheduler {
 public:
@@ -42,22 +40,25 @@ public:
 	auto operator=(Scheduler &&) -> Scheduler & = default;
 	virtual ~Scheduler() = default;
 
-	static auto create(GenMCDriver *driver) -> std::unique_ptr<Scheduler>;
+	static auto create(const Config *config) -> std::unique_ptr<Scheduler>;
 
-	/** This function should be called at the beginning of every execution. */
+	/** Should be called at the beginning of each execution */
 	void resetExplorationOptions(const ExecutionGraph &g);
 
-	/**
-	 * Returns the next thread to run the interpreter on.
-	 * The selected thread will be any unblocked prioritized thread if available, otherwise a
-	 * thread is selected according to the current scheduling policy. Finally, if all threads
-	 * are blocked or finished and any thread has a read to reschedule, it will be unblocked to
-	 * run next.
-	 * This function should only be used after the `TryOptimizeScheduling` phase is
-	 * completed.
-	 *   */
-	[[nodiscard]] auto scheduleNext(ExecutionGraph &g, std::span<Action> runnable)
+	/** Returns the next thread to run according to the specified policy  */
+	[[nodiscard]] auto schedule(ExecutionGraph &g, std::span<Action> runnable)
 		-> std::optional<int>;
+
+	/** Prioritizes thread of POS */
+	void prioritize(Event pos) { threadPrios_ = {pos}; }
+
+	/** Adds LAB to the cache. Should be called before LAB is added to G. */
+	void cacheEventLabel(const ExecutionGraph &g, const EventLabel *lab);
+
+	/** Returns the next labels to add by inspecting the cache. If the execution is full,
+	 * returns nullopt. If no cached information exists, returns Some(nullptr) */
+	[[nodiscard]] auto scheduleFromCache(ExecutionGraph &g)
+		-> std::optional<std::vector<std::unique_ptr<EventLabel>> *>;
 
 	/** Opt: Whether the exploration should try to repair R */
 	[[nodiscard]] auto isRescheduledRead(Event r) const -> bool
@@ -65,44 +66,24 @@ public:
 		return readToReschedule_ == r;
 	}
 
-	void cacheEventLabel(const ExecutionGraph &g, const EventLabel *lab);
-
 	/** Opt: Sets R as a read to be repaired */
 	void setRescheduledRead(Event r) { readToReschedule_ = r; }
 
-	/** Set a thread to be prioritised */
-	void prioritize(Event pos) { threadPrios_ = {pos}; }
-
-	/** Add another thread to be prioritised */
-	void addThreadPrio(Event pos) { threadPrios_.push_back(pos); }
-
-	/** Resets the prioritization scheme */
-	void resetThreadPrioritization() { threadPrios_.clear(); }
-
-	/** Pre-calculate the replay schedule based on the `ExecutionGraph` and set the scheduling
-	 * phase to replay. This function should only be called once per execution, once no more
-	 * events can be added from the cache in `Phase::TryOptimizeScheduling`. */
-	void enterReplayPhase(const ExecutionGraph &g);
-
 protected:
-	Scheduler(GenMCDriver *driver) : driver_(driver) {}
+	Scheduler(const Config *config) : conf_(config) {}
 
-	[[nodiscard]] auto getDriver() const -> const GenMCDriver * { return driver_; }
-	auto getDriver() -> GenMCDriver * { return driver_; }
+	[[nodiscard]] auto getConf() const -> const Config * { return conf_; }
 
 private:
-	enum class Phase : std::uint8_t {
-		TryOptimizeScheduling,
-		Replay,
-		Exploration,
-	};
-
 	using ValuePrefixT = std::unordered_map<
 		std::pair<unsigned int, unsigned int>, // fun_id, tid
 		Trie<std::vector<SVal>, std::vector<std::unique_ptr<EventLabel>>, SValUCmp>,
 		PairHasher<unsigned int, unsigned int>>;
 
-	[[nodiscard]] auto getPhase() const -> Phase { return phase_; }
+	/** Opt: Retrieves the next labels to add for THREAD from the cache.
+	 * Returns nullptr if no cached info exists. */
+	auto retrieveFromCache(const ExecutionGraph &g, int thread)
+		-> std::vector<std::unique_ptr<EventLabel>> *;
 
 	/** Opt: Checks whether SEQ has been seen before for <FUN_ID, TID> and
 	 * if so returns its successors. Returns nullptr otherwise. */
@@ -113,47 +94,31 @@ private:
 		return seenPrefixes[key].lookup(seq);
 	}
 
-	/** Opt: Try to extend a thread in the ExecutionGraph with events from the cache.
-	 *  Returns `false` if the de-caching failed. */
-	auto tryOptimizeScheduling(const ExecutionGraph &g) -> bool;
+	/** If there are more events to replay, schedules according to those */
+	auto scheduleReplay(const ExecutionGraph &g, std::span<Action> runnable)
+		-> std::optional<int>;
 
-	/** Opt: Try to extend a specific thread in the ExecutionGraph with events from the cache.
-	 *  Returns `false` if the de-caching failed. */
-	auto scheduleFromCache(const ExecutionGraph &g, int thread) -> std::optional<Event>;
-
-	/** Tries to schedule according to the current prioritization scheme */
+	/** Schedule according to the current prioritization scheme (if any) */
 	[[nodiscard]] auto schedulePrioritized(const ExecutionGraph &g) -> std::optional<int>;
 
-	/** Opt: Tries to reschedule any reads that were added blocked */
-	[[nodiscard]] auto rescheduleReads(ExecutionGraph &g, std::span<Action> runnable)
-		-> std::optional<int>;
+	/** Opt: Reschedules opt-blocked reads */
+	[[nodiscard]] auto rescheduleReads(ExecutionGraph &g) -> std::optional<int>;
 
-	auto getNextThreadToReplay(const ExecutionGraph &g, std::span<Action> runnable)
-		-> std::optional<int>;
-
-	/** Schedules a thread according to a policy */
-	[[nodiscard]] virtual auto scheduleWithPolicy(const ExecutionGraph &g,
-						      std::span<Action> runnable)
+	/** Schedules according to the selected policy */
+	[[nodiscard]] virtual auto schedulePolicy(const ExecutionGraph &g,
+						  std::span<Action> runnable)
 		-> std::optional<int> = 0;
 
-	GenMCDriver *driver_{};
+	/** Scheduling configuration */
+	const Config *conf_{};
 
-	Scheduler::Phase phase_{};
-
-	/**
-	 * Pre-calculated replay schedule containing positions that should be replayed in order.
-	 * The thread of the event at the `back` of `replaySchedule_` is always the one to be
-	 * replayed next, until the event is in the execution graph. Once the event is in the graph,
-	 * it can be popped from the replay schedule. Depending on the interpreter, this may
-	 * correspond to multiple calls to `scheduleNext`.
-	 */
+	/** The schedule for replays (porf-linearization) */
 	std::vector<Event> replaySchedule_;
 
 	/** Opt: Whether a particular read needs to be repaired during rescheduling */
 	Event readToReschedule_ = Event::getInit();
 
-	/** Opt: Which thread(s) the scheduler should prioritize
-	 * (empty if none) */
+	/** Opt: Thread priorities */
 	std::vector<Event> threadPrios_;
 
 	/** Opt: Cached labels for optimized scheduling */
@@ -162,7 +127,7 @@ private:
 
 class ArbitraryScheduler : public Scheduler {
 public:
-	ArbitraryScheduler(GenMCDriver *driver);
+	ArbitraryScheduler(const Config *config);
 
 protected:
 	using MyRNG = std::mt19937;
@@ -171,21 +136,20 @@ protected:
 	auto getRng() -> MyRNG & { return rng_; }
 
 private:
-	auto scheduleWithPolicy(const ExecutionGraph &g, std::span<Action> runnable)
+	auto schedulePolicy(const ExecutionGraph &g, std::span<Action> runnable)
 		-> std::optional<int> override;
 
-	/** Dbg: Random-number generator for scheduling randomization */
+	/** RNG for scheduling randomization */
 	MyRNG rng_;
 };
 
 #define DEFINE_PURE_SCHEDULER_SUBCLASS(_policy, _base)                                             \
 	class _policy##Scheduler : public _base {                                                  \
 	public:                                                                                    \
-		_policy##Scheduler(GenMCDriver *driver) : _base(driver) {}                         \
+		_policy##Scheduler(const Config *config) : _base(config) {}                        \
                                                                                                    \
 	private:                                                                                   \
-		virtual auto scheduleWithPolicy(const ExecutionGraph &g,                           \
-						std::span<Action> runnable)                        \
+		virtual auto schedulePolicy(const ExecutionGraph &g, std::span<Action> runnable)   \
 			-> std::optional<int> override;                                            \
 	};
 

@@ -179,8 +179,12 @@ public:
 
 	/**** Generic actions ***/
 
-	/** Sets up the next thread to run in the interpreter */
+	/** Returns to the interpreter the next thread to run (nullopt if none) */
 	auto scheduleNext(std::span<Action> runnable) -> std::optional<int>;
+
+	/** Attemps to complete the execution by inspecting the cache.
+	 * Returns whether it succeeded. */
+	auto runFromCache() -> bool;
 
 	/** Things to do when an execution starts/ends */
 	void handleExecutionStart();
@@ -400,6 +404,9 @@ private:
 	/** Adds LAB to graph (maintains well-formedness).
 	 * If another label exists in the specified position, it is replaced. */
 	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
+
+	/** Adds each one of LABS to graph (maintains well-formedness) */
+	void addLabelsToGraph(const std::vector<std::unique_ptr<EventLabel>> &labs);
 
 	/** Est: Picks (and sets) a random RF among some possible options */
 	EventLabel *pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *> &stores);
