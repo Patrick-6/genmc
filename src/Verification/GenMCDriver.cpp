@@ -72,8 +72,8 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool /*
 	if (hasBounder)
 		bounder = BoundDecider::create(getConf()->boundType);
 
-	scheduler = inEstimationMode() ? std::make_unique<WFRScheduler>(getConf())
-				       : Scheduler::create(getConf());
+	scheduler_ = inEstimationMode() ? std::make_unique<WFRScheduler>(getConf())
+					: Scheduler::create(getConf());
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;
@@ -218,7 +218,7 @@ void GenMCDriver::handleExecutionStart()
 {
 	/* Set various exploration options for this execution */
 	unmoot();
-	scheduler->resetExplorationOptions(getExec().getGraph());
+	getScheduler().resetExplorationOptions(getExec().getGraph());
 }
 
 void GenMCDriver::checkHelpingCasAnnotation()
@@ -432,7 +432,7 @@ void GenMCDriver::blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab)
 auto GenMCDriver::scheduleNext(std::span<Action> runnable) -> std::optional<int>
 {
 	return (isMoot() || isHalting()) ? std::nullopt
-					 : scheduler->schedule(getExec().getGraph(), runnable);
+					 : getScheduler().schedule(getExec().getGraph(), runnable);
 }
 
 auto GenMCDriver::runFromCache() -> bool
@@ -441,7 +441,7 @@ auto GenMCDriver::runFromCache() -> bool
 		return false;
 
 	do {
-		auto toAdd = scheduler->scheduleFromCache(getExec().getGraph());
+		auto toAdd = getScheduler().scheduleFromCache(getExec().getGraph());
 		if (!toAdd)
 			return true;
 		if (*toAdd == nullptr)
@@ -520,7 +520,7 @@ EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 
 	/* Cache the event before updating views (inits are added w/ tcreate) */
 	if (getConf()->instructionCaching && !inEstimationMode())
-		scheduler->cacheEventLabel(g, &*lab);
+		getScheduler().cacheEventLabel(g, &*lab);
 
 	/* Add and update views */
 	auto *addedLab = g.addLabelToGraph(std::move(lab));
@@ -1364,11 +1364,11 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	checkReconsiderFaiSpinloop(lab);
 
 	/* If a CAS read cannot be added maximally, reschedule */
-	if (!scheduler->isRescheduledRead(lab->getPos()) &&
+	if (!getScheduler().isRescheduledRead(lab->getPos()) &&
 	    removeCASReadIfBlocks(lab, g.co_max(lab->getAddr())))
 		return std::nullopt;
-	if (scheduler->isRescheduledRead(lab->getPos()))
-		scheduler->setRescheduledRead(Event::getInit());
+	if (getScheduler().isRescheduledRead(lab->getPos()))
+		getScheduler().setRescheduledRead(Event::getInit());
 
 	/* Get an approximation of the stores we can read from */
 	auto stores = getRfsApproximation(lab);

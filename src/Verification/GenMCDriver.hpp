@@ -301,6 +301,10 @@ protected:
 	LinearizabilityChecker &getRelinche() { return *relinche; }
 	const LinearizabilityChecker &getRelinche() const { return *relinche; }
 
+	/** Returns a reference to the scheduler */
+	Scheduler &getScheduler() { return *scheduler_; }
+	const Scheduler &getScheduler() const { return *scheduler_; }
+
 	/** Stops the verification procedure when an error is found */
 	void halt(VerificationError status);
 
@@ -652,6 +656,9 @@ private:
 	/** Execution stack */
 	std::vector<Execution> execStack;
 
+	/** Scheduler */
+	std::unique_ptr<Scheduler> scheduler_;
+
 	/** Consistency checker (mm-specific) */
 	std::unique_ptr<ConsistencyChecker> consChecker;
 
@@ -675,8 +682,6 @@ private:
 
 	/** Dbg: Random-number generators for estimation randomization */
 	MyRNG estRng;
-
-	std::unique_ptr<Scheduler> scheduler;
 };
 
 #endif /* GENMC_GENMC_DRIVER_HPP */
