@@ -44,9 +44,6 @@ struct Action {
 	Event event;
 };
 
-/* Pers: Journaling mount options */
-enum class JournalDataFS { writeback, ordered, journal };
-
 /* Types of allocations in the interpreter */
 enum class AddressSpace { AS_User, AS_Internal };
 
