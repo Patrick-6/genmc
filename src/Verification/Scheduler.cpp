@@ -68,7 +68,7 @@ static void calcPorfReplay(const EventLabel *lab, View &view, std::vector<Event>
 			calcPorfReplay(g.getLastThreadLabel(jLab->getChildId()), view, schedule);
 		else if (const auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(pLab))
 			calcPorfReplay(tsLab->getCreate(), view, schedule);
-		if (!llvm::isa<BlockLabel>(lab))
+		if (!llvm::isa<BlockLabel>(pLab))
 			schedule.push_back(pLab->getPos());
 	}
 }
