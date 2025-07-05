@@ -21,7 +21,7 @@
 #include "ExecutionGraph/GraphUtils.hpp"
 #include "ExecutionGraph/LabelVisitor.hpp"
 #include "GenMCDriver.hpp"
-#include "Runtime/Interpreter.h"
+// #include "Runtime/Interpreter.h" // FIXME: remove interpreter dependency
 #include "Static/LLVMModule.hpp"
 #include "Support/DotPrint.hpp"
 #include "Support/Error.hpp"
@@ -56,7 +56,10 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool /*
 	: mode(mode), pool(pool), userConf(std::move(conf))
 {
 	/* Set up the execution context */
-	auto initValGetter = [this](const auto &access) { return getEE()->getLocInitVal(access); };
+	auto initValGetter = [this](const auto &access) {
+		ERROR("HACK: dummy initValGetter to remove EE dependency.");
+		return SVal(0);
+	};
 	auto execGraph = userConf->isDepTrackingModel
 				 ? std::make_unique<DepExecutionGraph>(initValGetter)
 				 : std::make_unique<ExecutionGraph>(initValGetter);
