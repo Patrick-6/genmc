@@ -250,7 +250,7 @@ void GenMCDriver::checkHelpingCasAnnotation()
 
 		/* Special case for the initializer (as above) */
 		if (hLab->getAddr().isStatic() &&
-		    hLab->getExpected() == getEE()->getLocInitVal(hLab->getAccess())) {
+		    hLab->getExpected() == g.getInitVal(hLab->getAccess())) {
 			auto rsView = g.labels() | std::views::filter([hLab](auto &lab) {
 					      auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
 					      return rLab && rLab->getAddr() == hLab->getAddr();
