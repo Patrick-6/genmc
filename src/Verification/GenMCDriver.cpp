@@ -274,18 +274,6 @@ void GenMCDriver::trackExecutionBound()
 }
 #endif
 
-bool GenMCDriver::isExecutionBlocked() const
-{
-	return std::any_of(
-		getEE()->threads_begin(), getEE()->threads_end(), [this](const llvm::Thread &thr) {
-			// FIXME: was thr.isBlocked()
-			auto &g = getExec().getGraph();
-			if (thr.id >= g.getNumThreads() || g.isThreadEmpty(thr.id)) // think rec
-				return false;
-			return llvm::isa_and_nonnull<BlockLabel>(g.getLastThreadLabel(thr.id));
-		});
-}
-
 void GenMCDriver::updateStSpaceEstimation()
 {
 	/* Calculate current sample */
@@ -340,7 +328,8 @@ void GenMCDriver::handleExecutionEnd()
 	}
 
 	/* Ignore the execution if some assume has failed */
-	if (isExecutionBlocked()) {
+	auto &g = getExec().getGraph();
+	if (g.isBlocked()) {
 		++result.exploredBlocked;
 		if (getConf()->printBlockedExecs)
 			printGraph();
@@ -360,7 +349,7 @@ void GenMCDriver::handleExecutionEnd()
 	if (fullExecutionExceedsBound())
 		++result.boundExceeding;
 
-	if (isHalting() || isExecutionBlocked() || isMoot())
+	if (isHalting() || g.isBlocked() || isMoot())
 		return;
 
 	if (inEstimationMode())
@@ -368,8 +357,7 @@ void GenMCDriver::handleExecutionEnd()
 
 	/* Relinche: Collect/check abstract behavior */
 	if (getConf()->collectLinSpec)
-		result.specification->add(getExec().getGraph(), &getConsChecker(),
-					  getConf()->symmetryReduction);
+		result.specification->add(g, &getConsChecker(), getConf()->symmetryReduction);
 	if (getConf()->checkLinSpec) {
 		result.relincheResult += maybeTimeRelinche(getRelinche(), getExec().getGraph());
 		if (result.relincheResult.status) {
