@@ -381,9 +381,6 @@ private:
 	/** Blocks thread at POS with type T. Tries to moot afterward */
 	void blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab);
 
-	/** Returns whether the current execution is blocked */
-	bool isExecutionBlocked() const;
-
 	/** If LAB accesses a valid location, reports an error  */
 	std::optional<VerificationError> checkAccessValidity(const MemAccessLabel *lab);
 
