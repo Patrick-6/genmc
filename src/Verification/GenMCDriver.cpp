@@ -1692,6 +1692,10 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 
 	getEE()->replayExecutionBefore(*getReplayView());
 
+	/* Refetch ERRLAB in case it's a block label and was replaced during replay.
+	 * (This may happen when replaying assume reads.) */
+	errLab = details.pos.isBottom() ? nullptr : g.getEventLabel(details.pos);
+
 	llvm::raw_string_ostream out(result.message);
 
 	out << (isHardError(details.type) ? "Error: " : "Warning: ") << details.type << "!\n";
