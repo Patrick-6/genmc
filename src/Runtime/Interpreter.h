@@ -34,13 +34,13 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-
 #ifndef LLI_INTERPRETER_H
 #define LLI_INTERPRETER_H
 
 #include "ADT/View.hpp"
 #include "ADT/value_ptr.hpp"
 #include "Config/Config.hpp"
+#include "ExecutionGraph/LoadAnnotation.hpp"
 #include "Runtime/DepTracker.hpp"
 #include "Runtime/InterpreterEnumAPI.hpp"
 #include "Static/LLVMUtils.hpp"
@@ -173,17 +173,16 @@ public:
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
 	static constexpr int seed = 1995;
 
-	int id;
-	int parentId;
-	llvm::Function *threadFun;
+	Thread() = default;
+
+	int id{};
+	int parentId{};
+	llvm::Function *threadFun{};
 	SVal threadArg;
 	std::vector<llvm::ExecutionContext> ECStack;
 	std::vector<llvm::ExecutionContext> initEC;
 	std::unordered_map<const void *, llvm::GenericValue> tls;
-	unsigned int globalInstructions;
-	unsigned int globalInstSnap;
-	BasicBlock::iterator curInstSnap;
-	BlockageType blocked;
+	BlockageType blocked{};
 	MyRNG rng;
 	std::vector<std::pair<int, std::string>> prefixLOC;
 
@@ -194,37 +193,24 @@ public:
 	bool isBlocked() const { return blocked != BlockageType::NotBlocked; }
 	BlockageType getBlockageType() const { return blocked; }
 
-	/* Useful for one-to-many instr->events correspondence */
-	void takeSnapshot()
-	{
-		globalInstSnap = globalInstructions;
-		curInstSnap = --ECStack.back().CurInst;
-		++ECStack.back().CurInst;
-	}
-	void rollToSnapshot()
-	{
-		globalInstructions = globalInstSnap;
-		ECStack.back().CurInst = curInstSnap;
-	}
-
 protected:
 	friend class Interpreter;
 
 	Thread(llvm::Function *F, int id)
-		: id(id), parentId(-1), threadFun(F), initEC(), globalInstructions(0),
-		  blocked(BlockageType::NotBlocked), rng(seed)
+		: id(id), parentId(-1), threadFun(F), initEC(), blocked(BlockageType::NotBlocked),
+		  rng(seed)
 	{}
 
 	Thread(llvm::Function *F, SVal arg, int id, int pid, const llvm::ExecutionContext &SF)
 		: id(id), parentId(pid), threadFun(F), threadArg(arg), initEC({SF}),
-		  globalInstructions(0), blocked(BlockageType::NotBlocked), rng(seed)
+		  blocked(BlockageType::NotBlocked), rng(seed)
 	{}
 };
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const Thread &thr);
 
-/* Pers: The state of the program -- i.e., part of the program being interpreted */
-enum class ProgramState { Ctors, Main, Dtors, Recovery };
+/* The state of the program -- i.e., part of the program being interpreted */
+enum class ProgramState { Ctors, Main, Dtors };
 
 /* The state of the current execution */
 enum class ExecutionState { Normal, Replay };
@@ -233,6 +219,7 @@ struct DynamicComponents {
 
 	/* Information about threads as well as the currently executing thread */
 	std::vector<Thread> threads;
+	std::vector<Action> globalInstructions;
 	int currentThread = 0;
 
 	/* Pointer to the dependency tracker */
@@ -241,13 +228,6 @@ struct DynamicComponents {
 	/* Information about the interpreter's state */
 	ExecutionState execState = ExecutionState::Normal;
 	ProgramState programState = ProgramState::Main; /* Pers */
-
-	/* Pers: A map from file descriptors to file descriptions */
-	llvm::IndexedMap<void *> fdToFile;
-
-	/* Pers: Maps a filename to the address of the contents of the directory's inode for
-	 * said name (the contents should have the address of the file's inode) */
-	std::unordered_map<std::string, void *> nameToInodeAddr;
 
 	GenericValue ExitValue; // The return value of the called function
 
@@ -262,11 +242,10 @@ using InterpreterState = DynamicComponents;
 //
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 
-public:
+protected:
 	using AnnotID = ModuleID::ID;
 	using AnnotT = SExpr<AnnotID>;
 
-protected:
 	/*** Static components (once set, do not change) ***/
 
 	/* Information about the module under test */
@@ -297,9 +276,6 @@ protected:
 	/* Where system errors return values should be stored (if required) */
 	SAddr errnoAddr;
 	Type *errnoTyp;
-
-	/* Pers: The recovery routine to run */
-	Function *recoveryRoutine = nullptr;
 
 	/* This is not exactly static but is reset to the same value each time*/
 	std::vector<ExecutionContext> mainECStack;
@@ -335,6 +311,7 @@ public:
 	void setExecutionContext(const std::vector<ThreadInfo> &tis)
 	{
 		dynState.threads.clear();
+		dynState.globalInstructions.clear();
 		createAddMainThread();
 		for (auto &ti : tis)
 			constructAddThreadFromInfo(ti);
@@ -342,10 +319,7 @@ public:
 
 #define CALL_DRIVER(method, ...)                                                                   \
 	({                                                                                         \
-		if (getProgramState() != ProgramState::Recovery ||                                 \
-		    strcmp(#method, "handleLoad")) {                                               \
-			incPos();                                                                  \
-		}                                                                                  \
+		incPos();                                                                          \
 		driver->method(__VA_ARGS__);                                                       \
 	})
 
@@ -360,9 +334,6 @@ public:
 		if (!ret.has_value() && getExecState() != ExecutionState::Replay) {                \
 			decPos();                                                                  \
 			--ECStack().back().CurInst;                                                \
-		} else if (getProgramState() == ProgramState::Recovery &&                          \
-			   (strcmp(#method, "handleLoad") == 0)) {                                 \
-			decPos();                                                                  \
 		}                                                                                  \
 		ret;                                                                               \
 	})
@@ -390,24 +361,9 @@ public:
 	/* Resets the interpreter at the beginning of a new execution */
 	void reset();
 
-	/* Pers: Setups the execution context for the recovery routine
-	 * in thread TID. Assumes that the thread has already been added
-	 * to the thread list. */
-	void setupRecoveryRoutine(int tid);
-
-	/* Pers: Does cleanups after the recovery routine has run */
-	void cleanupRecoveryRoutine(int tid);
-
 	/* Creates a new thread and adds it to the thread list */
 	Thread &createAddNewThread(llvm::Function *F, SVal arg, int tid, int pid,
 				   const llvm::ExecutionContext &SF);
-
-	/* Pers: Creates a thread for the recovery routine and adds it to
-	 * the thread list */
-	Thread &createAddRecoveryThread(int tid);
-
-	/* Sets-up the specified thread for execution */
-	void scheduleThread(int tid) { dynState.currentThread = tid; }
 
 	/* Returns the currently executing thread */
 	Thread &getCurThr() { return dynState.threads[dynState.currentThread]; }
@@ -438,18 +394,12 @@ public:
 	std::vector<ExecutionContext> &ECStack() { return getCurThr().ECStack; }
 
 	/* Returns the current (global) position (thread, index) interpreted */
-	Event currPos() const { return Event(getCurThr().id, getCurThr().globalInstructions); };
-	Event nextPos() const { return currPos().next(); };
-	Event incPos()
-	{
-		auto &thr = getCurThr();
-		return Event(thr.id, ++thr.globalInstructions);
-	};
-	Event decPos()
-	{
-		auto &thr = getCurThr();
-		return Event(thr.id, --thr.globalInstructions);
-	};
+	Event currPos() const { return dynState.globalInstructions[getCurThr().id].event; }
+	Event nextPos() const { return currPos().next(); }
+	Event incPos() { return ++dynState.globalInstructions[getCurThr().id].event; }
+	Event decPos() { return --dynState.globalInstructions[getCurThr().id].event; }
+
+	Event threadPos(unsigned int i) const { return dynState.globalInstructions[i].event; }
 
 	/* Query interpreter's state */
 	ProgramState getProgramState() const { return dynState.programState; }
@@ -457,17 +407,9 @@ public:
 
 	/* Annotation information */
 
-	/* Returns annotation information for the instruction I */
-	const AnnotT *getAnnotation(Instruction *I) const
-	{
-		auto id = MI->idInfo.VID[I];
-		return MI->annotInfo.annotMap.count(id) ? MI->annotInfo.annotMap.at(id).get()
-							: nullptr;
-	}
-
 	/* Returns (concretized) annotation information for the
 	 * current instruction (assuming we're executing it) */
-	std::unique_ptr<AnnotT> getCurrentAnnotConcretized();
+	std::optional<Annotation> getCurrentAnnotConcretized();
 
 	/* Memory pools checks */
 
@@ -487,8 +429,8 @@ public:
 	create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI, GenMCDriver *driver,
 	       const Config *userConf, SAddrAllocator &alloctor, std::string *ErrorStr = nullptr);
 
-	/// run - Start execution with the specified function and arguments.
-	///
+/// run - Start execution with the specified function and arguments.
+///
 #ifdef LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR
 	virtual GenericValue runFunction(Function *F, const std::vector<GenericValue> &ArgValues);
 #else
@@ -546,7 +488,6 @@ public:
 
 	/* run() wrappers */
 	int runAsMain(const std::string &main);
-	void runRecovery();
 
 	// Opcode Implementations
 	void visitReturnInst(ReturnInst &I);
@@ -655,54 +596,6 @@ private: // Helper functions
 
 	void handleSystemError(SystemError code, const std::string &msg);
 
-	SVal getInodeTransStatus(void *inode, Type *intTyp);
-	void setInodeTransStatus(void *inode, Type *intTyp, SVal status);
-	SVal readInodeSizeFS(void *inode, Type *intTyp, const std::unique_ptr<EventDeps> &deps);
-	void updateInodeSizeFS(void *inode, Type *intTyp, SVal newSize,
-			       const std::unique_ptr<EventDeps> &deps);
-	void updateInodeDisksizeFS(void *inode, Type *intTyp, SVal newSize, SVal ordDataBegin,
-				   SVal ordDataEnd);
-	void writeDataToDisk(void *buf, int bufOffset, void *inode, int inodeOffset, int count,
-			     Type *dataTyp, const std::unique_ptr<EventDeps> &deps);
-	void readDataFromDisk(void *inode, int inodeOffset, void *buf, int bufOffset, int count,
-			      Type *dataTyp, const std::unique_ptr<EventDeps> &deps);
-	void updateDirNameInode(const std::string &name, Type *intTyp, SVal inode);
-
-	SVal checkOpenFlagsFS(SVal &flags, Type *intTyp);
-	SVal executeInodeLookupFS(const std::string &name, Type *intTyp);
-	SVal executeInodeCreateFS(const std::string &name, Type *intTyp,
-				  const std::unique_ptr<EventDeps> &deps);
-	SVal executeLookupOpenFS(const std::string &filename, SVal &flags, Type *intTyp,
-				 const std::unique_ptr<EventDeps> &deps);
-	SVal executeOpenFS(const std::string &filename, SVal flags, SVal inode, Type *intTyp,
-			   const std::unique_ptr<EventDeps> &deps);
-
-	void executeReleaseFileFS(void *fileDesc, Type *intTyp,
-				  const std::unique_ptr<EventDeps> &deps);
-	SVal executeCloseFS(SVal fd, Type *intTyp, const std::unique_ptr<EventDeps> &deps);
-	SVal executeRenameFS(const std::string &oldpath, SVal oldInode, const std::string &newpath,
-			     SVal newInode, Type *intTyp);
-	SVal executeLinkFS(const std::string &newpath, SVal oldInode, Type *intTyp);
-	SVal executeUnlinkFS(const std::string &pathname, Type *intTyp);
-
-	SVal executeTruncateFS(SVal inode, SVal length, Type *intTyp,
-			       const std::unique_ptr<EventDeps> &deps);
-	SVal executeReadFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp, SVal offset,
-			   SVal count, const std::unique_ptr<EventDeps> &deps);
-	void zeroDskRangeFS(void *inode, SVal start, SVal end, Type *writeIntTyp);
-	SVal executeWriteChecksFS(void *inode, Type *intTyp, SVal flags, SVal offset, SVal count,
-				  SVal &wOffset, const std::unique_ptr<EventDeps> &deps);
-	bool shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, SVal size, SVal offset,
-					 SVal count, SVal &dSize);
-	SVal executeBufferedWriteFS(void *inode, Type *intTyp, void *buf, Type *bufElemTyp,
-				    SVal wOffset, SVal count,
-				    const std::unique_ptr<EventDeps> &deps);
-	SVal executeWriteFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp, SVal offset,
-			    SVal count, const std::unique_ptr<EventDeps> &deps);
-	SVal executeLseekFS(void *file, Type *intTyp, SVal offset, SVal whence,
-			    const std::unique_ptr<EventDeps> &deps);
-	void executeFsyncFS(void *inode, Type *intTyp);
-
 	void setProgramState(ProgramState s) { dynState.programState = s; }
 	void setExecState(ExecutionState s) { dynState.execState = s; }
 
@@ -728,8 +621,8 @@ private: // Helper functions
 	/* Sets up how some errors will be reported to the user */
 	void setupErrorPolicy(Module *M, const Config *userConf);
 
-	/* Pers: Sets up information about the modeled filesystem */
-	void setupFsInfo(Module *M, const Config *userConf);
+	/* Sets-up the specified thread for execution */
+	void scheduleThread(int tid) { dynState.currentThread = tid; }
 
 	/* Adds the specified thread to the list */
 	Thread &addNewThread(Thread &&thread);
@@ -804,17 +697,7 @@ private: // Helper functions
 	 * an internal variable with no value correspondence */
 	const NameInfo *getVarNameInfo(Value *v, StorageDuration sd, AddressSpace spc,
 				       const VariableInfo<ModuleID::ID>::InternalKey &key = {});
-
-	/* Pers: Returns the address of the file description referenced by FD */
-	void *getFileFromFd(int fd) const;
-
-	/* Pers: Tracks that the address of the file description of FD is FILEADDR */
-	void setFdToFile(int fd, void *fileAddr);
-
-	/* Pers: Directory operations */
-	void *getDirInode() const;
-	void *getInodeAddrFromName(const std::string &filename) const;
-};
+}; // namespace llvm
 
 } // namespace llvm
 

@@ -23,6 +23,7 @@
 
 #include "ADT/VSet.hpp"
 #include "ExecutionGraph/EventAttr.hpp"
+#include "Runtime/InterpreterEnumAPI.hpp"
 #include "Support/Error.hpp"
 #include <llvm/IR/CFG.h>
 #include <llvm/IR/Constants.h>
@@ -149,6 +150,16 @@ auto hasSideEffects(const llvm::Instruction *i, const VSet<llvm::Function *> *cl
  * If a list of allocFuns is provided, then these are also considered as allocating instructions.
  */
 auto isAlloc(const llvm::Instruction *i, const VSet<llvm::Function *> *allocFuns = nullptr) -> bool;
+
+/**
+ * Returns true if I has load semantics (i.e., is load/FAI/CAS/LoadInternalCall).
+ */
+auto hasLoadSemantics(llvm::Instruction *I) -> bool;
+
+/**
+ * Returns the action of instruction I.
+ */
+auto getInstKind(llvm::Instruction *I) -> ActionKind;
 
 /**
  * Annotates I by setting the metadata TYPE to VALUE

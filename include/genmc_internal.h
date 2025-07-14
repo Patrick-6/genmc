@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <sys/types.h>
 
 /* Internal declarations for GenMC -- should not be used by user programs */
 
@@ -36,42 +35,6 @@ typedef struct __VERIFIER_plock {
 
 typedef struct { void *__dummy; } __VERIFIER_hazptr_t;
 
-#ifndef __cplusplus
-
-#ifndef __CONFIG_GENMC_INODE_DATA_SIZE
-# error "Internal error: inode size not defined!"
-#endif
-
-#define __genmc __attribute__((address_space(42)))
-
-struct __VERIFIER_inode {
-	/* VFS */
-	__VERIFIER_mutex_t lock; // setupFsInfo() + interp rely on the layout
-	int i_size; // <-- need to treat this atomically
-
-	/* journaling helpers (embedded avoid indirection) */
-	int i_transaction; // <-- writes protected by the lock above
-
-	/* ext4 disk data (embedded to avoid indirection)
-	 * The implementation can now accommodate only one metadata piece
-	 * due to the current metadata block mapping */
-	int i_disksize; // <-- used as metadata block mapping
-	char data[__CONFIG_GENMC_INODE_DATA_SIZE]; // <-- used as data block mapping
-};
-
-struct __VERIFIER_file {
-	struct inode *inode;
-	unsigned int count; // need to manipulate atomically
-	unsigned int flags; // encompasses f_mode
-	__VERIFIER_mutex_t pos_lock;
-	int pos;
-};
-
-struct __VERIFIER_inode __genmc __genmc_dir_inode;
-struct __VERIFIER_file __genmc __genmc_dummy_file;
-
-#endif /* __cplusplus */
-
 /* assert */
 
 extern void __VERIFIER_assert_fail(const char *, const char *, int) __attribute__ ((__nothrow__));
@@ -86,42 +49,6 @@ extern void *__VERIFIER_malloc(size_t) __attribute__ ((__nothrow__));
 extern void *__VERIFIER_malloc_aligned(size_t, size_t) __attribute__ ((__nothrow__));
 
 extern int __VERIFIER_atexit(void (*func)(void)) __attribute__ ((__nothrow__));
-
-
-/* fcntl */
-
-extern int __VERIFIER_openFS (const char *__file, int __oflag, mode_t __mode) __attribute__ ((__nothrow__));
-
-extern int __VERIFIER_creatFS (const char *__file, mode_t __mode) __attribute__ ((__nothrow__));
-
-extern int __VERIFIER_renameFS (const char *__old, const char *__new) __attribute__ ((__nothrow__));
-
-
-/* unistd */
-
-extern __off_t __VERIFIER_lseekFS (int __fd, __off_t __offset, int __whence) __attribute__ ((__nothrow__));
-
-extern int __VERIFIER_closeFS (int __fd) __attribute__ ((__nothrow__));
-
-extern ssize_t __VERIFIER_readFS (int __fd, void *__buf, size_t __nbytes) __attribute__ ((__nothrow__));
-
-extern ssize_t __VERIFIER_writeFS (int __fd, const void *__buf, size_t __n) __attribute__ ((__nothrow__));
-
-extern ssize_t __VERIFIER_preadFS (int __fd, void *__buf, size_t __nbytes,
-				   __off_t __offset) __attribute__ ((__nothrow__));
-
-extern ssize_t __VERIFIER_pwriteFS (int __fd, const void *__buf, size_t __n,
-				    __off_t __offset) __attribute__ ((__nothrow__));
-
-extern int __VERIFIER_linkFS (const char *__from, const char *__to) __attribute__ ((__nothrow__));
-
-extern int __VERIFIER_unlinkFS (const char *__name) __attribute__ ((__nothrow__));
-
-extern int __VERIFIER_fsyncFS (int __fd) __attribute__ ((__nothrow__));
-
-extern void __VERIFIER_syncFS (void) __attribute__ ((__nothrow__));
-
-extern int __VERIFIER_truncateFS (const char *__file, __off_t __length) __attribute__ ((__nothrow__));
 
 
 /* Thread functions */

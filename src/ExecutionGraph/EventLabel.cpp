@@ -160,7 +160,7 @@ bool ReadLabel::valueMakesRMWSucceed(const SVal &val) const
 bool ReadLabel::valueMakesAssumeSucceed(const SVal &val) const
 {
 	using Evaluator = SExprEvaluator<ModuleID::ID>;
-	return getAnnot() && Evaluator().evaluate(getAnnot(), val);
+	return getAnnot() && Evaluator().evaluate(&*getAnnot()->expr, val);
 }
 
 void ReadLabel::setRf(EventLabel *rfLab)
@@ -210,6 +210,18 @@ void WriteLabel::moveCo(EventLabel *predLab)
 	auto &g = *getParent();
 	g.coherence[getAddr()].remove(*this);
 	addCo(predLab);
+}
+
+auto BlockLabel::createAssumeBlock(Event pos, AssumeType type) -> std::unique_ptr<BlockLabel>
+{
+	switch (type) {
+	case AssumeType::User:
+		return UserBlockLabel::create(pos);
+	case AssumeType::Spinloop:
+		return SpinloopBlockLabel::create(pos);
+	default:
+		BUG();
+	}
 }
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabelKind k)

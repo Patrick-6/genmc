@@ -25,6 +25,25 @@
 #include <string>
 #include <unordered_map>
 
+#include "ExecutionGraph/Event.hpp"
+#include "ExecutionGraph/LoadAnnotation.hpp"
+
+enum class ActionKind { Load, NonLoad };
+
+struct Action {
+	Action(ActionKind kind, Event event) : kind(kind), event(event) {}
+	Action(Action &&) = default;
+	Action(const Action &other) = default;
+
+	auto operator=(const Action &) -> Action & = default;
+	auto operator=(Action &&) -> Action & = default;
+
+	~Action() = default;
+
+	ActionKind kind;
+	Event event;
+};
+
 /* Pers: Journaling mount options */
 enum class JournalDataFS { writeback, ordered, journal };
 

@@ -141,9 +141,10 @@ HANDLE_PURE_FUNCTION(2, "__VERIFIER_opt_begin", OptBegin)
 HANDLE_PURE_FUNCTION(3, "__VERIFIER_loop_begin", LoopBegin)
 HANDLE_PURE_FUNCTION(4, "__VERIFIER_spin_start", SpinStart)
 
+/* TODO: Have single assume function (additions affect AssumeType) */
 FIRST_ASSUME_FUNCTION(5)
-HANDLE_PURE_FUNCTION(5, "__VERIFIER_spin_end", SpinEnd)
-HANDLE_PURE_FUNCTION(8, "__VERIFIER_assume", Assume)
+HANDLE_ASSUME_FUNCTION(5, "__VERIFIER_spin_end", SpinEnd)
+HANDLE_ASSUME_FUNCTION(8, "__VERIFIER_assume", Assume)
 LAST_ASSUME_FUNCTION(8)
 
 HANDLE_PURE_FUNCTION(6, "__VERIFIER_faiZNE_spin_end", FaiZNESpinEnd)

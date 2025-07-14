@@ -30,7 +30,7 @@
 #include <optional>
 #include <string>
 
-enum class SchedulePolicy : std::uint8_t { ltr, wf, wfr, arbitrary };
+enum class SchedulePolicy : std::uint8_t { LTR, WF, WFR, Arbitrary };
 enum class BoundType : std::uint8_t { context, round };
 
 struct Config {
@@ -63,13 +63,7 @@ struct Config {
 	std::optional<std::string> checkLinSpec;
 	unsigned int maxExtSize{};
 	bool dotPrintOnlyClientEvents{};
-
-	/*** Persistency options ***/
-	bool persevere{};
-	unsigned int blockSize{};
-	unsigned int maxFileSize{};
-	JournalDataFS journalData{};
-	bool disableDelalloc{};
+	bool replayCompletedThreads{};
 
 	/*** Transformation options ***/
 	std::optional<unsigned> unroll;

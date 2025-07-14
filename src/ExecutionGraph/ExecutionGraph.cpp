@@ -100,11 +100,13 @@ void ExecutionGraph::removeLast(unsigned int thread)
 			dLab->setAlloc(nullptr);
 	}
 	if (auto *cLab = llvm::dyn_cast<ThreadCreateLabel>(lab)) {
-		if (auto *tsLab = llvm::dyn_cast_or_null<ThreadStartLabel>(getFirstThreadLabel(lab->getThread())))
+		if (auto *tsLab = llvm::dyn_cast_or_null<ThreadStartLabel>(
+			    getFirstThreadLabel(lab->getThread())))
 			tsLab->setCreate(nullptr);
 	}
 	if (auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(lab)) {
-		if (auto *eLab = llvm::dyn_cast_or_null<ThreadFinishLabel>(getLastThreadLabel(tjLab->getChildId())))
+		if (auto *eLab = llvm::dyn_cast_or_null<ThreadFinishLabel>(
+			    getLastThreadLabel(tjLab->getChildId())))
 			eLab->setParentJoin(nullptr);
 	}
 	/* Nothing to do for start/finish: childId remains the same */
@@ -243,16 +245,32 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 					return !preds->contains(begLab->getPos());
 				});
 			}
-			/* No special action for CreateLabels; we can
-			 * keep the begin event of the child the since
-			 * it will not be deleted */
 		}
 	}
 
-	/* Restrict the graph according to the view (keep begins around) */
+	/* Restrict the graph according to the view (keeps begins around) */
 	for (auto i = 0U; i < getNumThreads(); i++) {
 		auto &thr = events[i];
 		thr.erase(thr.begin() + preds->getMax(i) + 1, thr.end());
+	}
+
+	/* Remove begins as well */
+	for (auto i : std::views::reverse(thr_ids()) | std::views::take_while([this](auto i) {
+			      return getThreadSize(i) == 1 &&
+				     !llvm::isa<InitLabel>(getFirstThreadLabel(i));
+		      })) {
+		auto *bLab = getFirstThreadLabel(i);
+		BUG_ON(!bLab);
+		if (!bLab->getCreate()) {
+			if (bLab->getSymmPredTid() != -1) {
+				auto *symmLab = getFirstThreadLabel(bLab->getSymmPredTid());
+				symmLab->setSymmSuccTid(-1);
+			}
+			insertionOrder.remove(*bLab);
+			poLists[i].remove(*bLab);
+			events.erase(events.begin() + i);
+			poLists.erase(poLists.begin() + i);
+		}
 	}
 
 	/* Fix stamps */
@@ -265,9 +283,9 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 {
 	other.recoveryTID = recoveryTID;
 
-	/* Then, copy the appropriate events */
-	// FIXME: The reason why we resize to num of threads instead of v.size() is
-	// to keep the same size as the interpreter threads.
+	/* We resize up to g.size() (instead of v.size()) because there might be a create
+	 * that is contained in v, but its respective begin is not.
+	 * Will clean up orphaned begins later. */
 	other.events.resize(getNumThreads());
 	other.poLists.resize(getNumThreads());
 	for (auto i = 0u; i < getNumThreads(); i++) {
@@ -292,15 +310,40 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 		}
 	}
 
+	/* Clean up begins */
+	for (auto i :
+	     std::views::reverse(other.thr_ids()) | std::views::take_while([&other](auto i) {
+		     return other.getThreadSize(i) == 1 &&
+			    !llvm::isa<InitLabel>(other.getFirstThreadLabel(i));
+	     })) {
+		auto *bLab = other.getFirstThreadLabel(i);
+		BUG_ON(!bLab);
+		/* Have to use containsPos() below due to trailing begins */
+		if (!bLab->getCreate() || !other.containsPos(bLab->getCreate()->getPos())) {
+			if (bLab->getSymmPredTid() != -1) {
+				auto *symmLab = other.getFirstThreadLabel(bLab->getSymmPredTid());
+				symmLab->setSymmSuccTid(-1);
+			}
+			other.insertionOrder.remove(*bLab);
+			other.poLists[i].remove(*bLab);
+			other.events.erase(other.events.begin() + i);
+			other.poLists.erase(other.poLists.begin() + i);
+			BUG_ON(i < other.getNumThreads() - 1 && other.getThreadSize(i + 1) > 0);
+		}
+	}
+
+	/* Fix insertion order */
 	other.insertionOrder.clear();
 	other.resetStamp(0);
-	for (auto &lab : insertionOrder) {
-		if (v.contains(lab.getPos()) || lab.getIndex() <= v.getMax(lab.getThread())) {
+	for (const auto &lab : insertionOrder) {
+		/* Do not use v here because of trailing begins */
+		if (other.containsPos(lab.getPos())) {
 			other.insertionOrder.push_back(*other.getEventLabel(lab.getPos()));
 			other.getEventLabel(lab.getPos())->setStamp(other.nextStamp());
 		}
 	}
 
+	/* Fix pointers */
 	for (auto &lab : other.labels()) {
 		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
 		if (rLab && rLab->getRf()) {

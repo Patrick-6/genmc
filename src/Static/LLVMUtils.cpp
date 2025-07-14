@@ -19,7 +19,6 @@
  */
 
 #include "LLVMUtils.hpp"
-#include "Runtime/InterpreterEnumAPI.hpp"
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Dominators.h>
 #include <llvm/IR/ValueHandle.h>
@@ -183,6 +182,21 @@ bool isAlloc(const Instruction *i, const VSet<Function *> *allocFuns /* = nullpt
 	CallInstWrapper CW(const_cast<CallInst *>(ci));
 	const auto *fun = dyn_cast<Function>(CW.getCalledOperand()->stripPointerCasts());
 	return allocFuns && allocFuns->count(const_cast<Function *>(fun));
+}
+
+auto hasLoadSemantics(llvm::Instruction *I) -> bool
+{
+	/* Overapproximate with function calls some of which might be modeled as loads */
+	auto *ci = llvm::dyn_cast<llvm::CallInst>(I);
+	return llvm::isa<llvm::LoadInst>(I) || llvm::isa<llvm::AtomicCmpXchgInst>(I) ||
+	       llvm::isa<llvm::AtomicRMWInst>(I) ||
+	       (ci && ci->getCalledFunction() &&
+		hasGlobalLoadSemantics(ci->getCalledFunction()->getName().str()));
+}
+
+auto getInstKind(llvm::Instruction *I) -> ActionKind
+{
+	return hasLoadSemantics(I) ? ActionKind::Load : ActionKind::NonLoad;
 }
 
 void annotateInstruction(llvm::Instruction *i, const std::string &type, uint64_t value)

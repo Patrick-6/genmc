@@ -19,8 +19,10 @@
  */
 
 #include "Config/Config.hpp"
+#include "Runtime/Interpreter.h"
 #include "Static/LLVMModule.hpp"
 #include "Support/Error.hpp"
+#include "Support/ThreadPool.hpp"
 #include "Verification/GenMCDriver.hpp"
 
 #include <llvm/Support/FileSystem.h>
@@ -28,6 +30,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <future>
 #include <memory>
 #include <unistd.h>
 
@@ -70,8 +73,6 @@ static auto buildCompilationArgs(const std::shared_ptr<const Config> &conf) -> s
 		args += " " + f;
 	args += " -I" SRC_INCLUDE_DIR;
 	args += " -I" INCLUDE_DIR;
-	auto inodeFlag = " -D__CONFIG_GENMC_INODE_DATA_SIZE=" + std::to_string(conf->maxFileSize);
-	args += " " + inodeFlag;
 	args += " -S -emit-llvm";
 	args += " -o " + getOutFilename(conf);
 	args += " " + conf->inputFile;
@@ -197,6 +198,79 @@ static void calculateHintsAndSaveSpec(const std::shared_ptr<const Config> &conf,
 	serialize(specFile, spec);
 }
 
+static auto createExecutionContext(const ExecutionGraph &g) -> std::vector<ThreadInfo>
+{
+	std::vector<ThreadInfo> tis;
+	for (auto i = 1U; i < g.getNumThreads(); i++) { // skip main
+		const auto *bLab = g.getFirstThreadLabel(i);
+		BUG_ON(!bLab);
+		tis.push_back(bLab->getThreadInfo());
+	}
+	return tis;
+}
+
+void run(GenMCDriver *driver, llvm::Interpreter *EE)
+{
+	do {
+		driver->handleExecutionStart();
+		if (driver->runFromCache()) {
+			driver->handleExecutionEnd();
+			continue;
+		}
+		EE->reset();
+		EE->setExecutionContext(createExecutionContext(driver->getExec().getGraph()));
+		EE->runAsMain(driver->getConf()->programEntryFun);
+		driver->handleExecutionEnd();
+	} while (!driver->done());
+}
+
+auto estimate(std::shared_ptr<const Config> conf, const std::unique_ptr<llvm::Module> &mod,
+	      const std::unique_ptr<ModuleInfo> &modInfo) -> GenMCDriver::Result
+{
+	auto estCtx = std::make_unique<llvm::LLVMContext>();
+	auto newmod = LLVMModule::cloneModule(mod, estCtx);
+	auto newMI = modInfo->clone(*newmod);
+	auto driver = GenMCDriver::create(conf, nullptr,
+					  GenMCDriver::EstimationMode{conf->estimationMax});
+	std::string buf;
+	auto EE = llvm::Interpreter::create(std::move(newmod), std::move(newMI), &*driver,
+					    driver->getConf(), driver->getExec().getAllocator(),
+					    &buf);
+	driver->setEE(&*EE);
+
+	run(&*driver, &*EE);
+	return std::move(driver->getResult());
+}
+
+auto verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+	    std::unique_ptr<ModuleInfo> modInfo) -> GenMCDriver::Result
+{
+	/* Spawn a single or multiple drivers depending on the configuration */
+	if (conf->threads == 1) {
+		auto driver = GenMCDriver::create(conf, nullptr, GenMCDriver::VerificationMode{});
+		std::string buf;
+		auto EE = llvm::Interpreter::create(std::move(mod), std::move(modInfo), &*driver,
+						    driver->getConf(),
+						    driver->getExec().getAllocator(), &buf);
+		driver->setEE(&*EE);
+		run(&*driver, &*EE);
+		return std::move(driver->getResult());
+	}
+
+	std::vector<std::future<GenMCDriver::Result>> futures;
+	{
+		/* Then, fire up the drivers */
+		ThreadPool pool(conf, mod, modInfo, run);
+		futures = pool.waitForTasks();
+	}
+
+	GenMCDriver::Result res;
+	for (auto &f : futures) {
+		res += f.get();
+	}
+	return res;
+}
+
 auto main(int argc, char **argv) -> int
 {
 	auto begin = std::chrono::high_resolution_clock::now();
@@ -226,14 +300,14 @@ auto main(int argc, char **argv) -> int
 	if (conf->estimate) {
 		LOG(VerbosityLevel::Tip) << "Estimating state-space size. For better performance, "
 					    "you can use --disable-estimation.\n";
-		auto res = GenMCDriver::estimate(conf, module, modInfo);
+		auto res = estimate(conf, module, modInfo);
 		printEstimationResults(conf, begin, res);
 		if (res.status != VerificationError::VE_OK)
 			return EVERIFY;
 	}
 
 	/* Go ahead and try to verify */
-	auto res = GenMCDriver::verify(conf, std::move(module), std::move(modInfo));
+	auto res = verify(conf, std::move(module), std::move(modInfo));
 	printVerificationResults(conf, res);
 
 	/* Serialize spec if in analysis mode */

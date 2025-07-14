@@ -110,8 +110,10 @@ void initializeAnnotationInfo(ModuleInfo &MI, PassModuleInfo &PI)
 	Transformer tr;
 
 	for (auto &kv : PI.annotInfo.annotMap) {
-		MI.annotInfo.annotMap[MI.idInfo.VID.at(kv.first)] = tr.transform(
-			&*kv.second, [&](llvm::Value *v) { return MI.idInfo.VID.at(v); });
+		MI.annotInfo.annotMap[MI.idInfo.VID.at(kv.first)] = std::make_pair(
+			kv.second.first, tr.transform(&*kv.second.second, [&](llvm::Value *v) {
+				return MI.idInfo.VID.at(v);
+			}));
 	}
 }
 

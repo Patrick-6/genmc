@@ -19,6 +19,7 @@
  */
 
 #include "LoadAnnotationPass.hpp"
+#include "Runtime/InterpreterEnumAPI.hpp"
 #include "Static/LLVMUtils.hpp"
 #include "Static/Transforms/InstAnnotator.hpp"
 #include "Support/Error.hpp"
@@ -143,12 +144,14 @@ auto LoadAnnotationAnalysis::run(Function &F, FunctionAnalysisManager &FAM) -> R
 	InstAnnotator annotator;
 
 	for (auto &i : instructions(F)) {
-		if (auto *a = llvm::dyn_cast<llvm::CallInst>(&i)) {
-			if (isAssumeFunction(getCalledFunOrStripValName(*a))) {
-				auto loads = getAnnotatableLoads(a);
-				for (auto *l : loads) {
-					result_.annotMap[l] = annotator.annotate(l);
-				}
+		auto *call = llvm::dyn_cast<llvm::CallInst>(&i);
+		if (call && isAssumeFunction(getCalledFunOrStripValName(*call))) {
+			auto loads = getAnnotatableLoads(call);
+			for (auto *l : loads) {
+				auto type = isSpinEndFunction(getCalledFunOrStripValName(*call))
+						    ? AssumeType::Spinloop
+						    : AssumeType::User;
+				result_.annotMap[l] = std::make_pair(type, annotator.annotate(l));
 			}
 		}
 	}

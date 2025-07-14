@@ -25,10 +25,12 @@
 #include "Config/Config.hpp"
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
+#include "Support/Hash.hpp"
 #include "Support/SAddrAllocator.hpp"
 #include "Verification/ChoiceMap.hpp"
 #include "Verification/Relinche/LinearizabilityChecker.hpp"
 #include "Verification/Relinche/Specification.hpp"
+#include "Verification/Scheduler.hpp"
 #include "Verification/VerificationError.hpp"
 #include "Verification/WorkList.hpp"
 #include <llvm/ADT/BitVector.h>
@@ -56,9 +58,6 @@ class GenMCDriver {
 
 protected:
 	using LocalQueueT = WorkList;
-	using ValuePrefixT = std::unordered_map<
-		unsigned int,
-		Trie<std::vector<SVal>, std::vector<std::unique_ptr<EventLabel>>, SValUCmp>>;
 
 public:
 	/** The operating mode of the driver */
@@ -178,32 +177,21 @@ public:
 		return std::unique_ptr<GenMCDriver>(new GenMCDriver(std::forward<Ts>(params)...));
 	}
 
-	/** Creates driver instance(s) and starts verification for the given module. */
-	static auto verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-			   std::unique_ptr<ModuleInfo> modInfo) -> Result;
-
-	static auto estimate(std::shared_ptr<const Config> conf,
-			     const std::unique_ptr<llvm::Module> &mod,
-			     const std::unique_ptr<ModuleInfo> &modInfo) -> Result;
-
 	/**** Generic actions ***/
 
-	/** Sets up the next thread to run in the interpreter */
-	bool scheduleNext();
+	/** Returns to the interpreter the next thread to run (nullopt if none) */
+	auto scheduleNext(std::span<Action> runnable) -> std::optional<int>;
 
-	/** Opt: Tries to optimize the scheduling of next instruction by checking the cache */
-	bool tryOptimizeScheduling(Event pos);
+	/** Attemps to complete the execution by inspecting the cache.
+	 * Returns whether it succeeded. */
+	auto runFromCache() -> bool;
 
 	/** Things to do when an execution starts/ends */
 	void handleExecutionStart();
 	void handleExecutionEnd();
 
-	/** Pers: Functions that run at the start/end of the recovery routine */
-	void handleRecoveryStart();
-	void handleRecoveryEnd();
-
-	/** Starts the verification procedure for a driver */
-	void run();
+	/** Whether there are more executions to be explored */
+	bool done();
 
 	/** Returns the result of the verification procedure */
 	const Result &getResult() const { return result; }
@@ -272,10 +260,17 @@ public:
 	virtual ~GenMCDriver();
 
 protected:
+	friend class Scheduler;
+	friend class ArbitraryScheduler;
 	friend class ThreadPool;
+	friend void run(GenMCDriver *driver, llvm::Interpreter *EE);
+	friend auto estimate(std::shared_ptr<const Config> conf,
+			     const std::unique_ptr<llvm::Module> &mod,
+			     const std::unique_ptr<ModuleInfo> &modInfo) -> GenMCDriver::Result;
+	friend auto verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+			   std::unique_ptr<ModuleInfo> modInfo) -> GenMCDriver::Result;
 
-	GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		    std::unique_ptr<ModuleInfo> MI, ThreadPool *pool = nullptr,
+	GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool = nullptr,
 		    Mode = VerificationMode{});
 
 	/** No copying or copy-assignment of this class is allowed */
@@ -286,7 +281,10 @@ protected:
 	const Config *getConf() const { return userConf.get(); }
 
 	/** Returns a pointer to the interpreter */
-	llvm::Interpreter *getEE() const { return EE.get(); }
+	llvm::Interpreter *getEE() const { return EE; }
+
+	/** Sets pointer to the interpreter */
+	void setEE(llvm::Interpreter *interp) { EE = interp; }
 
 	/** Returns a reference to the current execution */
 	Execution &getExec() { return execStack.back(); }
@@ -302,6 +300,10 @@ protected:
 
 	LinearizabilityChecker &getRelinche() { return *relinche; }
 	const LinearizabilityChecker &getRelinche() const { return *relinche; }
+
+	/** Returns a reference to the scheduler */
+	Scheduler &getScheduler() { return *scheduler_; }
+	const Scheduler &getScheduler() const { return *scheduler_; }
 
 	/** Stops the verification procedure when an error is found */
 	void halt(VerificationError status);
@@ -325,17 +327,11 @@ protected:
 	 * The driver is left in an inconsistent form */
 	std::unique_ptr<Execution> extractState();
 
-	/** Returns all values read leading up to POS */
-	std::pair<std::vector<SVal>, std::vector<Event>> extractValPrefix(Event pos);
-
 	/** Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
 	 * interpreter. */
 	std::optional<SVal> getReadRetValue(const ReadLabel *rLab);
 	SVal getRecReadRetValue(const ReadLabel *rLab);
-
-	/** Pers: Returns true if we are currently running the recovery routine */
-	bool inRecoveryMode() const;
 
 	/** Est: Returns true if we are currently running in estimation mode */
 	bool inEstimationMode() const { return std::holds_alternative<EstimationMode>(mode); }
@@ -371,59 +367,11 @@ private:
 	void moot() { isMootExecution = true; }
 	void unmoot() { isMootExecution = false; }
 
-	/** Opt: Whether the exploration should try to repair R */
-	bool isRescheduledRead(Event r) const { return readToReschedule == r; }
-
-	/** Opt: Sets R as a read to be repaired */
-	void setRescheduledRead(Event r) { readToReschedule = r; }
-
-	/** Resets some options before the beginning of a new execution */
-	void resetExplorationOptions();
-
-	/** Returns true if THREAD is schedulable (i.e., there are more
-	 * instructions to run and it is not blocked) */
-	bool isSchedulable(int thread) const;
-
-	int getFirstSchedulableSymmetric(int tid);
-
-	/** Ensures the scheduler respects atomicity */
-	bool scheduleAtomicity();
-
-	/** Tries to schedule according to the current prioritization scheme */
-	bool schedulePrioritized();
-
-	/** Returns true if the next instruction of TID is a load
-	 * Note: assumes there is a next instruction in TID*/
-	bool isNextThreadInstLoad(int tid);
-
-	/** Helpers for schedule according to a policy */
-	bool scheduleNextLTR();
-	bool scheduleNextWF();
-	bool scheduleNextWFR();
-	bool scheduleNextRandom();
-
-	/** Tries to schedule the next instruction according to the
-	 * chosen policy */
-	bool scheduleNormal();
-
-	/** Blocks thread with BLAB. BLAB needs to either replace
-	 * the last label or be maximal */
-	void blockThread(std::unique_ptr<BlockLabel> bLab);
-
 	/** Blocks thread at POS with type T. Tries to moot afterward */
 	void blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab);
 
-	/** Unblocks thread at POS */
-	void unblockThread(Event pos);
-
 	/** Returns whether the current execution is blocked */
 	bool isExecutionBlocked() const;
-
-	/** Opt: Tries to reschedule any reads that were added blocked */
-	bool rescheduleReads();
-
-	/** Resets the prioritization scheme */
-	void resetThreadPrioritization();
 
 	/** If LAB accesses a valid location, reports an error  */
 	VerificationError checkAccessValidity(const MemAccessLabel *lab);
@@ -457,17 +405,12 @@ private:
 	/** Opt: Caches LAB to optimize scheduling next time */
 	void cacheEventLabel(const EventLabel *lab);
 
-	/** Opt: Checks whether SEQ has been seen before for THREAD and
-	 * if so returns its successors. Returns nullptr otherwise. */
-	std::vector<std::unique_ptr<EventLabel>> *
-	retrieveCachedSuccessors(unsigned int thread, const std::vector<SVal> &seq)
-	{
-		return seenPrefixes[thread].lookup(seq);
-	}
-
 	/** Adds LAB to graph (maintains well-formedness).
 	 * If another label exists in the specified position, it is replaced. */
 	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
+
+	/** Adds each one of LABS to graph (maintains well-formedness) */
+	void addLabelsToGraph(const std::vector<std::unique_ptr<EventLabel>> &labs);
 
 	/** Est: Picks (and sets) a random RF among some possible options */
 	EventLabel *pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *> &stores);
@@ -502,16 +445,6 @@ private:
 	 * of "fictional" revisits, e.g., the view of an event in a maximal path.) */
 	std::unique_ptr<VectorClock> getRevisitView(const ReadLabel *rLab,
 						    const WriteLabel *sLab) const;
-
-	/** Returnes true if the revisit R will delete LAB from the graph */
-	bool revisitDeletesEvent(const BackwardRevisit &r, const EventLabel *lab) const
-	{
-		auto &v = r.getViewNoRel();
-		return !v->contains(lab->getPos()) && !prefixContainsSameLoc(r, lab);
-	}
-
-	/** Returns true if ELAB has revisited, or is in the prefix of a write that has */
-	bool inRevisitPrefix(const EventLabel *eLab);
 
 	bool isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLabel *lab);
 
@@ -558,7 +491,7 @@ private:
 	 * successful, this function adds the corresponding write part.
 	 * Returns a pointer to the newly added event, or nullptr
 	 * if the event was not an RMW, or was an unsuccessful one */
-	WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
+	auto completeRevisitedRMW(const ReadLabel *rLab) -> WriteLabel *;
 
 	/** Copies the current EG according to BR's view V.
 	 * May modify V but will not execute BR in the copy. */
@@ -718,10 +651,13 @@ private:
 	std::shared_ptr<const Config> userConf;
 
 	/** The interpreter used by the driver */
-	std::unique_ptr<llvm::Interpreter> EE;
+	llvm::Interpreter *EE{};
 
 	/** Execution stack */
 	std::vector<Execution> execStack;
+
+	/** Scheduler */
+	std::unique_ptr<Scheduler> scheduler_;
 
 	/** Consistency checker (mm-specific) */
 	std::unique_ptr<ConsistencyChecker> consChecker;
@@ -729,24 +665,14 @@ private:
 	/** Symmetry checker) */
 	std::unique_ptr<SymmetryChecker> symmChecker;
 
-	/** Opt: Cached labels for optimized scheduling */
-	ValuePrefixT seenPrefixes;
-
 	/** Decider used to bound the exploration */
 	std::unique_ptr<BoundDecider> bounder;
 
 	/** Linearizability checker */
 	std::unique_ptr<LinearizabilityChecker> relinche;
 
-	/** Opt: Which thread(s) the scheduler should prioritize
-	 * (empty if none) */
-	std::vector<Event> threadPrios;
-
 	/** Opt: Whether this execution is moot (locking) */
 	bool isMootExecution = false;
-
-	/** Opt: Whether a particular read needs to be repaired during rescheduling */
-	Event readToReschedule = Event::getInit();
 
 	/** Verification result to be returned to caller */
 	Result result{};
@@ -754,8 +680,7 @@ private:
 	/** Whether we are stopping the exploration (e.g., due to an error found) */
 	bool shouldHalt = false;
 
-	/** Dbg: Random-number generators for scheduling/estimation randomization */
-	MyRNG rng;
+	/** Dbg: Random-number generators for estimation randomization */
 	MyRNG estRng;
 };
 

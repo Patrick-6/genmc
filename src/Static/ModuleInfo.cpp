@@ -95,7 +95,8 @@ std::unique_ptr<ModuleInfo> ModuleInfo::clone(const llvm::Module &mod) const
 
 	/* Copy annotation information */
 	for (auto &kv : annotInfo.annotMap)
-		info->annotInfo.annotMap[kv.first] = kv.second->clone();
+		info->annotInfo.annotMap[kv.first] =
+			std::make_pair(kv.second.first, kv.second.second->clone());
 
 	/* Copy fs information */
 	info->fsInfo.inodeTyp = fsInfo.inodeTyp;

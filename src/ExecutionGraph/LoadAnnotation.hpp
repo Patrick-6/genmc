@@ -18,24 +18,26 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef GENMC_HASH_HPP
-#define GENMC_HASH_HPP
+#ifndef GENMC_LOAD_ANNOTATION_HPP
+#define GENMC_LOAD_ANNOTATION_HPP
 
-#include <functional>
+#include "ADT/value_ptr.hpp"
+#include "Static/ModuleID.hpp"
+#include "Support/SExpr.hpp"
 
-template <class T> inline void hash_combine(std::size_t &seed, const T &v)
-{
-	seed ^= std::hash<T>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-}
+#include <cstdint>
 
-template <typename T1, typename T2> struct PairHasher {
-	auto operator()(const std::pair<T1, T2> &p) const -> size_t
-	{
-		std::size_t hash = 0;
-		hash_combine(hash, p.first);
-		hash_combine(hash, p.second);
-		return hash;
-	}
+enum class AssumeType : std::uint8_t {
+	User,
+	Spinloop,
 };
 
-#endif /* GENMC_HASH_HPP */
+struct Annotation {
+	using Expr = SExpr<ModuleID::ID>;
+	using ExprVP = value_ptr<Expr, SExprCloner<ModuleID::ID>>;
+
+	AssumeType type;
+	ExprVP expr;
+};
+
+#endif /* GENMC_LOAD_ANNOTATION_HPP */

@@ -28,7 +28,6 @@
 /*** Command-line argument categories ***/
 
 static llvm::cl::OptionCategory clGeneral("Exploration Options");
-static llvm::cl::OptionCategory clPersistency("Persistency Options");
 static llvm::cl::OptionCategory clTransformation("Transformation Options");
 static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
@@ -82,13 +81,14 @@ static llvm::cl::opt<bool> clDisableSymmetryReduction("disable-sr", llvm::cl::ca
 						      llvm::cl::desc("Disable symmetry reduction"));
 
 static llvm::cl::opt<bool> clDisableHelper("disable-helper", llvm::cl::cat(clGeneral),
-				    llvm::cl::desc("Disable helping pattern optimization"));
+					   llvm::cl::desc("Disable helping pattern optimization"));
 
-static llvm::cl::opt<bool> clConfirmation("confirmation", llvm::cl::cat(clGeneral),
-				     llvm::cl::desc("Enable confirmation pattern optimization"));
+static llvm::cl::opt<bool>
+	clConfirmation("confirmation", llvm::cl::cat(clGeneral),
+		       llvm::cl::desc("Enable confirmation pattern optimization"));
 
 static llvm::cl::opt<bool> clDisableFinalWrite("disable-final-write", llvm::cl::cat(clGeneral),
-				   llvm::cl::desc("Disable final write optimization"));
+					       llvm::cl::desc("Disable final write optimization"));
 
 static llvm::cl::opt<bool> clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
 					     llvm::cl::desc("Print error trace"));
@@ -138,30 +138,6 @@ static llvm::cl::opt<unsigned int> clMaxExtSize(
 	"max-hint-size", llvm::cl::init(std::numeric_limits<unsigned int>::max()),
 	llvm::cl::cat(clDebugging),
 	llvm::cl::desc("Limit the number of edges in hints to be considered (for debugging)"));
-
-/*** Persistency options ***/
-
-static llvm::cl::opt<bool> clPersevere("persevere", llvm::cl::cat(clPersistency),
-				       llvm::cl::desc("Enable persistency checks (Persevere)"));
-
-static llvm::cl::opt<unsigned int> clBlockSize("block-size", llvm::cl::cat(clPersistency),
-					       llvm::cl::init(2),
-					       llvm::cl::desc("Block size (in bytes)"));
-
-static llvm::cl::opt<unsigned int> clMaxFileSize("max-file-size", llvm::cl::cat(clPersistency),
-						 llvm::cl::init(64),
-						 llvm::cl::desc("Maximum file size (in bytes)"));
-
-static llvm::cl::opt<JournalDataFS> clJournalData(
-	"journal-data", llvm::cl::cat(clPersistency), llvm::cl::init(JournalDataFS::ordered),
-	llvm::cl::desc("Specify the journaling mode for file data:"),
-	llvm::cl::values(clEnumValN(JournalDataFS::writeback, "writeback",
-				    "Data ordering not preserved"),
-			 clEnumValN(JournalDataFS::ordered, "ordered", "Data before metadata"),
-			 clEnumValN(JournalDataFS::journal, "journal", "Journal data")));
-
-static llvm::cl::opt<bool> clDisableDelalloc("disable-delalloc", llvm::cl::cat(clPersistency),
-					     llvm::cl::desc("Do not model delayed allocation"));
 
 /*** Transformation options ***/
 
@@ -239,12 +215,12 @@ static llvm::cl::opt<unsigned int>
 			  llvm::cl::cat(clDebugging),
 			  llvm::cl::desc("Warn about graphs larger than N"));
 llvm::cl::opt<SchedulePolicy> clSchedulePolicy(
-	"schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(SchedulePolicy::wf),
+	"schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(SchedulePolicy::WF),
 	llvm::cl::desc("Choose the scheduling policy:"),
-	llvm::cl::values(clEnumValN(SchedulePolicy::ltr, "ltr", "Left-to-right"),
-			 clEnumValN(SchedulePolicy::wf, "wf", "Writes-first (default)"),
-			 clEnumValN(SchedulePolicy::wfr, "wfr", "Writes-first-random"),
-			 clEnumValN(SchedulePolicy::arbitrary, "arbitrary", "Arbitrary")));
+	llvm::cl::values(clEnumValN(SchedulePolicy::LTR, "ltr", "Left-to-right"),
+			 clEnumValN(SchedulePolicy::WF, "wf", "Writes-first (default)"),
+			 clEnumValN(SchedulePolicy::WFR, "wfr", "Writes-first-random"),
+			 clEnumValN(SchedulePolicy::Arbitrary, "arbitrary", "Arbitrary")));
 
 static llvm::cl::opt<bool> clPrintArbitraryScheduleSeed(
 	"print-schedule-seed", llvm::cl::cat(clDebugging),
@@ -330,10 +306,10 @@ static void checkConfigOptions()
 	}
 
 	/* Check debugging options */
-	if (clSchedulePolicy != SchedulePolicy::arbitrary && clPrintArbitraryScheduleSeed) {
+	if (clSchedulePolicy != SchedulePolicy::Arbitrary && clPrintArbitraryScheduleSeed) {
 		WARN("--print-schedule-seed used without -schedule-policy=arbitrary.\n");
 	}
-	if (clSchedulePolicy != SchedulePolicy::arbitrary && !clArbitraryScheduleSeed.empty()) {
+	if (clSchedulePolicy != SchedulePolicy::Arbitrary && !clArbitraryScheduleSeed.empty()) {
 		WARN("--schedule-seed used without -schedule-policy=arbitrary.\n");
 	}
 
@@ -351,12 +327,12 @@ static void checkConfigOptions()
 	bool bounding = (clBound != -1);
 	GENMC_DEBUG(bounding |= clBoundsHistogram;);
 	if (bounding && (clLAPOR || !clDisableBAM || !clDisableSymmetryReduction || !clDisableIPR ||
-			 clSchedulePolicy != SchedulePolicy::ltr)) {
+			 clSchedulePolicy != SchedulePolicy::LTR)) {
 		WARN("LAPOR/BAM/SR/IPR have no effect when --bound is used. Scheduling "
 		     "defaults to LTR.\n");
 		clLAPOR = false;
 		clDisableBAM = clDisableSymmetryReduction = clDisableIPR = true;
-		clSchedulePolicy = SchedulePolicy::ltr;
+		clSchedulePolicy = SchedulePolicy::LTR;
 	}
 
 	/* Check Relinche options */
@@ -407,13 +383,6 @@ static void saveConfigOptions(Config &conf)
 	conf.dotPrintOnlyClientEvents = clDotPrintOnlyClientEvents;
 	conf.maxExtSize = clMaxExtSize;
 
-	/* Save persistency options */
-	conf.persevere = clPersevere;
-	conf.blockSize = clBlockSize;
-	conf.maxFileSize = clMaxFileSize;
-	conf.journalData = clJournalData;
-	conf.disableDelalloc = clDisableDelalloc;
-
 	/* Save transformation options */
 	conf.unroll = clLoopUnroll >= 0 ? std::optional(clLoopUnroll.getValue()) : std::nullopt;
 	conf.noUnrollFuns.insert(clNoUnrollFuns.begin(), clNoUnrollFuns.end());
@@ -452,8 +421,7 @@ static void saveConfigOptions(Config &conf)
 void parseConfig(int argc, char **argv, Config &conf)
 {
 	/* Option categories printed */
-	const llvm::cl::OptionCategory *cats[] = {&clGeneral, &clDebugging, &clTransformation,
-						  &clPersistency};
+	const llvm::cl::OptionCategory *cats[] = {&clGeneral, &clDebugging, &clTransformation};
 
 	llvm::cl::SetVersionPrinter(printVersion);
 
