@@ -168,7 +168,7 @@ runvariants() {
     failure_output=""
     genmc_args=$(echo "$test_args" | cut -f1 -d'|')
     clang_args=$(echo "$test_args" | cut -f2 -d'|')
-    for t in $dir/variants/*.c $dir/variants/*.cpp
+    for t in $dir/variants/*.c $dir/variants/*.cpp $dir/variants/*.ll
     do
 	vars=$((vars+1))
 	output=`"${GenMC}" ${GENMCFLAGS} "-${model}" -disable-mm-detector $genmc_args -- ${CFLAGS} ${clang_args} "${t}" 2>&1`
@@ -184,7 +184,7 @@ runvariants() {
 	explored="$((${explored} - ${slacked}))"
 	explored_failed=""
 	blocked_failed=""
-	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)-1) }'`
+	time=`echo "${output}" | awk '/\ytime\y/ { print substr($4, 1, length($4)-1) }'`
 	time="${time}" && [[ -z "${time}" ]] && time=0 # if pattern was NOT found
 	test_time=`echo "${test_time}+${time}" | bc -l`
 	runtime=`echo "scale=2; ${runtime}+${time}" | bc -l`
