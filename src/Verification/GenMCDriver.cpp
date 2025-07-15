@@ -34,7 +34,6 @@
 #include "Verification/Scheduler.hpp"
 #include "Verification/VerificationResult.hpp"
 #include <llvm/IR/Verifier.h>
-#include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Format.h>
 #include <llvm/Support/raw_os_ostream.h>
 
@@ -78,17 +77,6 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool /*
 		PRINT(VerbosityLevel::Error) << "Seed: " << seedVal << "\n";
 	}
 	estRng.seed(rd());
-
-	/*
-	 * Make sure we can resolve symbols in the program as well. We use 0
-	 * as an argument in order to load the program, not a library. This
-	 * is useful as it allows the executions of external functions in the
-	 * user code.
-	 */
-	std::string ErrorStr;
-	if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr, &ErrorStr)) {
-		WARN("Could not resolve symbols in the program: " + ErrorStr);
-	}
 
 	if (userConf->collectLinSpec)
 		result.specification = std::make_unique<Specification>(userConf->maxExtSize
