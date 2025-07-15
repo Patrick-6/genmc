@@ -1067,7 +1067,6 @@ int GenMCDriver::getSymmetricTidSR(const ThreadCreateLabel *tcLab,
 int GenMCDriver::handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab)
 {
 	auto &g = getExec().getGraph();
-	auto *EE = getEE();
 
 	/* First, check if the thread to be created already exists */
 	int cid = 0;
