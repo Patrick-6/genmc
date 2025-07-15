@@ -1,0 +1,13 @@
+*** Compilation complete.
+*** Transformation complete.
+Error: Safety violation!
+Event (0, 2) in graph:
+<-1, 0> main:
+        (0, 1): MALLOC t
+        (0, 2): Wna (t.constr_writes_this, 1) L.6
+
+Trace to (0, 2):
+[main] names-const-members0.cpp: 6: int const constr_writes_this = 1;
+Assertion violation: 0 && "static constexpr variable is not initialized by ctor"
+*** Verification unsuccessful.
+Number of complete executions explored: 1
