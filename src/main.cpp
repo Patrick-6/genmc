@@ -20,6 +20,7 @@
 #include "Verification/GenMCDriver.hpp"
 
 #include <llvm/Support/CommandLine.h>
+#include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
@@ -867,6 +868,15 @@ auto main(int argc, char **argv) -> int
 	PRINT(VerbosityLevel::Error)
 		<< PACKAGE_NAME " v" PACKAGE_VERSION << " (LLVM " LLVM_VERSION ")\n"
 		<< "Copyright (C) 2024 MPI-SWS. All rights reserved.\n\n";
+
+	/* Make sure we can resolve symbols in the program. We use 0
+	 * as an argument in order to load the program, not a library. This
+	 * is useful as it allows the executions of external functions in the
+	 * user code. */
+	std::string errorStr;
+	if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr, &errorStr)) {
+		WARN("Could not resolve symbols in the program: " + errorStr);
+	}
 
 	auto ctx = std::make_unique<llvm::LLVMContext>(); // *dtor after module's*
 	auto moduleUP = compileToModule(lliConfig, ctx);
