@@ -959,39 +959,37 @@ bool GenMCDriver::checkHelpingCasCondition(const HelpingCasLabel *hLab)
 	return std::ranges::begin(hsView) != std::ranges::end(hsView);
 }
 
-std::optional<EventLabel *> GenMCDriver::findConsistentRf(ReadLabel *rLab,
-							  std::vector<EventLabel *> &rfs)
+EventLabel *GenMCDriver::findConsistentRf(ReadLabel *rLab, std::vector<EventLabel *> &rfs)
 {
 	auto &g = getExec().getGraph();
 
 	/* For the non-bounding case, maximal extensibility guarantees consistency */
 	if (!getConf()->bound.has_value()) {
 		rLab->setRf(rfs.back());
-		return {rfs.back()};
+		return rfs.back();
 	}
 
 	/* Otherwise, search for a consistent rf */
 	while (!rfs.empty()) {
 		rLab->setRf(rfs.back());
 		if (isExecutionValid(rLab))
-			return {rfs.back()};
+			return rfs.back();
 		rfs.erase(rfs.end() - 1);
 	}
 
 	/* If none is found, tough luck */
 	moot();
-	return std::nullopt;
+	return nullptr;
 }
 
-std::optional<EventLabel *> GenMCDriver::findConsistentCo(WriteLabel *wLab,
-							  std::vector<EventLabel *> &cos)
+EventLabel *GenMCDriver::findConsistentCo(WriteLabel *wLab, std::vector<EventLabel *> &cos)
 {
 	auto &g = getExec().getGraph();
 
 	/* Similarly to the read case: rely on extensibility */
 	wLab->addCo(cos.back());
 	if (!getConf()->bound.has_value())
-		return {cos.back()};
+		return cos.back();
 
 	/* In contrast to the read case, we need to be a bit more careful:
 	 * the consistent choice might not satisfy atomicity, but we should
@@ -999,11 +997,11 @@ std::optional<EventLabel *> GenMCDriver::findConsistentCo(WriteLabel *wLab,
 	while (!cos.empty()) {
 		wLab->moveCo(cos.back());
 		if (isExecutionValid(wLab))
-			return {cos.back()};
+			return cos.back();
 		cos.erase(cos.end() - 1);
 	}
 	moot();
-	return std::nullopt;
+	return nullptr;
 }
 
 void GenMCDriver::handleThreadKill(std::unique_ptr<ThreadKillLabel> kLab)
@@ -1346,7 +1344,7 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	filterOptimizeRfs(lab, stores);
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug3) << "Rfs (optimized): " << format(stores) << "\n";);
 
-	std::optional<EventLabel *> rf = std::nullopt;
+	EventLabel *rf;
 	if (inEstimationMode()) {
 		getExec().getChoiceMap().update(lab, stores);
 		filterAtomicityViolations(lab, stores);
@@ -1362,7 +1360,7 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	}
 
 	/* Ensured the selected rf comes from an initialized memory location */
-	if (!rf.has_value() || checkInitializedMem(lab) != VerificationError::VE_OK)
+	if (!rf || checkInitializedMem(lab) != VerificationError::VE_OK)
 		return std::nullopt;
 
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug2) << "--- Added load " << lab->getPos() << "\n"
@@ -1425,7 +1423,7 @@ std::vector<ReadLabel *> GenMCDriver::getRevisitableApproximation(WriteLabel *sL
 	return loads;
 }
 
-void GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos)
+EventLabel *GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos)
 {
 	auto &g = getExec().getGraph();
 
@@ -1443,12 +1441,13 @@ void GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos)
 	if (cos.empty()) {
 		moot();
 		getExec().getWorkqueue().add(std::make_unique<RerunForwardRevisit>());
-		return;
+		return nullptr;
 	}
 
 	MyDist dist(0, cos.size() - 1);
 	auto random = dist(estRng);
 	sLab->moveCo(cos[random]);
+	return cos[random];
 }
 
 void GenMCDriver::calcCoOrderings(WriteLabel *lab, const std::vector<EventLabel *> &cos)
@@ -1486,9 +1485,9 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 		reportWarningOnce(lab->getPos(), VerificationError::VE_WWRace, cos[0]);
 	}
 
-	std::optional<EventLabel *> co;
+	EventLabel *co;
 	if (inEstimationMode()) {
-		pickRandomCo(lab, cos);
+		co = pickRandomCo(lab, cos);
 		getExec().getChoiceMap().update(lab, cos);
 	} else {
 		co = findConsistentCo(lab, cos);
