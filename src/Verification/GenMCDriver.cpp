@@ -965,16 +965,19 @@ EventLabel *GenMCDriver::findConsistentRf(ReadLabel *rLab, std::vector<EventLabe
 
 	/* For the non-bounding case, maximal extensibility guarantees consistency */
 	if (!getConf()->bound.has_value()) {
-		rLab->setRf(rfs.back());
-		return rfs.back();
+		auto *back = rfs.back();
+		rfs.pop_back();
+		rLab->setRf(back);
+		return back;
 	}
 
 	/* Otherwise, search for a consistent rf */
 	while (!rfs.empty()) {
-		rLab->setRf(rfs.back());
+		auto *back = rfs.back();
+		rfs.pop_back();
+		rLab->setRf(back);
 		if (isExecutionValid(rLab))
-			return rfs.back();
-		rfs.erase(rfs.end() - 1);
+			return back;
 	}
 
 	/* If none is found, tough luck */
@@ -1352,11 +1355,10 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 		rf = pickRandomRf(lab, stores);
 	} else {
 		rf = findConsistentRf(lab, stores);
-		/* Push all the other alternatives choices to the Stack (many maximals for wb) */
-		for (const auto &sLab : stores | std::views::take(stores.size() - 1)) {
-			auto status = false; /* MO messes with the status */
+		/* Push all the other alternatives choices to the Stack */
+		for (const auto &sLab : stores) {
 			getExec().getWorkqueue().add(std::make_unique<ReadForwardRevisit>(
-				lab->getPos(), sLab->getPos(), status));
+				lab->getPos(), sLab->getPos()));
 		}
 	}
 
