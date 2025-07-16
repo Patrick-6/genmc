@@ -290,6 +290,19 @@ static void printVersion(llvm::raw_ostream &s)
 	  << "\n  Built with LLVM " LLVM_VERSION " (" LLVM_BUILDMODE ")\n";
 }
 
+static auto doesPolicySupportSeed(const SchedulePolicy policy) -> bool
+{
+	switch (policy) {
+	case SchedulePolicy::Arbitrary:
+	case SchedulePolicy::WFR:
+		return true;
+	case SchedulePolicy::LTR:
+	case SchedulePolicy::WF:
+		return false;
+	}
+	BUG(); /* Unknown SchedulePolicy */
+}
+
 static void checkConfigOptions()
 {
 	/* Check exploration options */
@@ -306,12 +319,10 @@ static void checkConfigOptions()
 	}
 
 	/* Check debugging options */
-	if (clSchedulePolicy != SchedulePolicy::Arbitrary && clPrintArbitraryScheduleSeed) {
-		WARN("--print-schedule-seed used without -schedule-policy=arbitrary.\n");
-	}
-	if (clSchedulePolicy != SchedulePolicy::Arbitrary && !clArbitraryScheduleSeed.empty()) {
-		WARN("--schedule-seed used without -schedule-policy=arbitrary.\n");
-	}
+	if (!doesPolicySupportSeed(clSchedulePolicy) && clPrintArbitraryScheduleSeed)
+		WARN("--print-schedule-seed used without --schedule-policy={arbitrary,wfr}.\n");
+	if (!doesPolicySupportSeed(clSchedulePolicy) && !clArbitraryScheduleSeed.empty())
+		WARN("--schedule-seed used without --schedule-policy={arbitrary,wfr}.\n");
 
 	/* Check bounding options */
 	if (clBound != -1 && clModelType != ModelType::SC) {
