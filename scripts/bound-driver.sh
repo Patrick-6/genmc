@@ -24,9 +24,6 @@ GenMC="${GenMC:-$DIR/../RelWithDebInfo/genmc}"
 
 source "${DIR}/terminal.sh"
 
-# We need to get the LLVM version for this particular configuration
-LLVM_VERSION=`cat ${DIR}/../config.h | awk '/LLVM_VERSION/ {gsub(/"/, "", $3); print $3}'`
-
 # test whether arrays are supported
 arrtest[0]='test' ||
     (echo 'Failure: arrays not supported in this version of bash.' && exit 2)
