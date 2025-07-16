@@ -2059,6 +2059,7 @@ bool GenMCDriver::isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLab
 	auto succE = wLab ? g.co_succ_end(wLab) : g.co_end(mLab->getAddr());
 	return any_of(succIt, succE, [&](auto &sLab) {
 		return v->contains(sLab.getPos()) &&
+		/* Exclude the write that revisits from the prefix */
 		       (!getConf()->isDepTrackingModel ||
 			mLab->getIndex() > getPrefixView(&sLab).getMax(mLab->getThread())) &&
 		       sLab.getPos() != r.getRev();
@@ -2091,6 +2092,8 @@ bool wasAddedMaximally(const EventLabel *lab)
 
 bool GenMCDriver::isMaximalExtension(const BackwardRevisit &r)
 {
+	/* Only revisit when the write's direct successor (if any) remains in the graph;
+	 * revisits should not only differ on the write's placement */
 	if (!coherenceSuccRemainInGraph(r))
 		return false;
 
@@ -2098,6 +2101,7 @@ bool GenMCDriver::isMaximalExtension(const BackwardRevisit &r)
 	auto &v = r.getViewNoRel();
 
 	for (const auto &lab : g.labels()) {
+		/* Exclude events unaffected by the revisit */
 		if ((lab.getPos() != r.getPos() && v->contains(lab.getPos())) ||
 		    prefixContainsSameLoc(r, &lab))
 			continue;
