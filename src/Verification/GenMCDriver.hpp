@@ -467,10 +467,6 @@ private:
 	std::optional<EventLabel *> findConsistentCo(WriteLabel *wLab,
 						     std::vector<EventLabel *> &cos);
 
-	/** Checks whether the addition of WLAB creates an atomicity violation.
-	 * If so, returns false and moots the execution if possible. */
-	bool checkAtomicity(const WriteLabel *wLab);
-
 	/** SAVer: Checks whether the addition of an event changes our
 	 * perspective of a potential spinloop */
 	void checkReconsiderFaiSpinloop(const MemAccessLabel *lab);

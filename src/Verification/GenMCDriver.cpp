@@ -576,12 +576,6 @@ VerificationError GenMCDriver::checkForRaces(const EventLabel *lab)
 	if (getConf()->disableRaceDetection || inEstimationMode())
 		return VerificationError::VE_OK;
 
-	/* Bounding: extensibility not guaranteed; RD should be disabled */
-	if (llvm::isa<WriteLabel>(lab) && !checkAtomicity(llvm::dyn_cast<WriteLabel>(lab))) {
-		BUG_ON(!getConf()->bound.has_value());
-		return VerificationError::VE_OK;
-	}
-
 	/* Check for hard errors */
 	const EventLabel *racyLab = nullptr;
 	auto err = getConsChecker().checkErrors(lab, racyLab);
@@ -964,15 +958,6 @@ bool GenMCDriver::checkHelpingCasCondition(const HelpingCasLabel *hLab)
 		ERROR("Helped/Helping CAS annotation error! "
 		      "Not all stores before helped-CAS are visible to helping-CAS!\n");
 	return std::ranges::begin(hsView) != std::ranges::end(hsView);
-}
-
-bool GenMCDriver::checkAtomicity(const WriteLabel *wLab)
-{
-	if (violatesAtomicity(wLab)) {
-		moot();
-		return false;
-	}
-	return true;
 }
 
 std::optional<EventLabel *> GenMCDriver::findConsistentRf(ReadLabel *rLab,
