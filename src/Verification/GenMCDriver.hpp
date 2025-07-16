@@ -586,8 +586,6 @@ private:
 
 	friend llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const VerificationError &r);
 
-	static constexpr unsigned int defaultFdNum = 20;
-
 	/** Random generator facilities used */
 	using MyRNG = std::mt19937;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
