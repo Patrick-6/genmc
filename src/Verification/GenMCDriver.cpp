@@ -978,7 +978,6 @@ EventLabel *GenMCDriver::findConsistentRf(ReadLabel *rLab, std::vector<EventLabe
 	}
 
 	/* If none is found, tough luck */
-	moot();
 	return nullptr;
 }
 
@@ -1000,7 +999,6 @@ EventLabel *GenMCDriver::findConsistentCo(WriteLabel *wLab, std::vector<EventLab
 			return cos.back();
 		cos.erase(cos.end() - 1);
 	}
-	moot();
 	return nullptr;
 }
 
@@ -1303,7 +1301,6 @@ EventLabel *GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *>
 	/* Not always extensible */
 	if (stores.empty()) {
 		BUG_ON(!getConf()->bound.has_value());
-		moot();
 		return nullptr;
 	}
 
@@ -1344,7 +1341,7 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	filterOptimizeRfs(lab, stores);
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug3) << "Rfs (optimized): " << format(stores) << "\n";);
 
-	EventLabel *rf;
+	EventLabel *rf = nullptr;
 	if (inEstimationMode()) {
 		getExec().getChoiceMap().update(lab, stores);
 		filterAtomicityViolations(lab, stores);
@@ -1358,6 +1355,9 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 				lab->getPos(), sLab->getPos(), status));
 		}
 	}
+
+	if (!rf)
+		moot();
 
 	/* Ensured the selected rf comes from an initialized memory location */
 	if (!rf || checkInitializedMem(lab) != VerificationError::VE_OK)
@@ -1439,7 +1439,6 @@ EventLabel *GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *
 	 * (during estimation, reads read from arbitrary places anyway).
 	 * If that is the case, we have to ensure that estimation won't stop. */
 	if (cos.empty()) {
-		moot();
 		getExec().getWorkqueue().add(std::make_unique<RerunForwardRevisit>());
 		return nullptr;
 	}
@@ -1485,7 +1484,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 		reportWarningOnce(lab->getPos(), VerificationError::VE_WWRace, cos[0]);
 	}
 
-	EventLabel *co;
+	EventLabel *co = nullptr;
 	if (inEstimationMode()) {
 		co = pickRandomCo(lab, cos);
 		getExec().getChoiceMap().update(lab, cos);
@@ -1501,7 +1500,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 		return;
 
 	calcRevisits(lab);
-	if (violatesAtomicity(lab))
+	if (!co || violatesAtomicity(lab))
 		moot();
 }
 
