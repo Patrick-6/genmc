@@ -986,18 +986,22 @@ EventLabel *GenMCDriver::findConsistentCo(WriteLabel *wLab, std::vector<EventLab
 	auto &g = getExec().getGraph();
 
 	/* Similarly to the read case: rely on extensibility */
-	wLab->addCo(cos.back());
-	if (!getConf()->bound.has_value())
-		return cos.back();
+	auto back = cos.back();
+	wLab->addCo(back);
+	if (!getConf()->bound.has_value()) {
+		cos.pop_back();
+		return back;
+	}
 
 	/* In contrast to the read case, we need to be a bit more careful:
 	 * the consistent choice might not satisfy atomicity, but we should
 	 * keep it around to try revisits */
 	while (!cos.empty()) {
-		wLab->moveCo(cos.back());
+		auto back = cos.back();
+		cos.pop_back();
+		wLab->moveCo(back);
 		if (isExecutionValid(wLab))
-			return cos.back();
-		cos.erase(cos.end() - 1);
+			return back;
 	}
 	return nullptr;
 }
@@ -1451,7 +1455,7 @@ EventLabel *GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *
 
 void GenMCDriver::calcCoOrderings(WriteLabel *lab, const std::vector<EventLabel *> &cos)
 {
-	for (auto &predLab : cos | std::views::take(cos.size() - 1)) {
+	for (auto &predLab : cos) {
 		getExec().getWorkqueue().add(
 			std::make_unique<WriteForwardRevisit>(lab->getPos(), predLab->getPos()));
 	}
