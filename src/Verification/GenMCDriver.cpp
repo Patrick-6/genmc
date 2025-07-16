@@ -996,6 +996,7 @@ EventLabel *GenMCDriver::findConsistentCo(WriteLabel *wLab, std::vector<EventLab
 		return back;
 	}
 
+	// FIXME: This is wrong
 	/* In contrast to the read case, we need to be a bit more careful:
 	 * the consistent choice might not satisfy atomicity, but we should
 	 * keep it around to try revisits */
