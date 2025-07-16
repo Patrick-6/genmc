@@ -240,11 +240,8 @@ auto createRMWWriteLabel(const ExecutionGraph &g, const ReadLabel *rLab)
 	-> std::unique_ptr<WriteLabel>
 {
 	/* Handle non-RMW cases first */
-	if (!llvm::isa<CasReadLabel>(rLab) && !llvm::isa<FaiReadLabel>(rLab))
+	if (!rLab->valueMakesRMWSucceed(rLab->getReturnValue()))
 		return nullptr;
-	if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab))
-		if (rLab->getAccessValue(rLab->getAccess()) != casLab->getExpected())
-			return nullptr;
 
 	SVal result;
 	WriteAttr wattr = WriteAttr::None;
