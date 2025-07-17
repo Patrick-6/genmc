@@ -124,6 +124,9 @@ public:
 	auto label_end() { return insertionOrder.end(); }
 	auto labels() { return std::views::all(insertionOrder); }
 
+	auto rlabels() const { return std::views::reverse(labels()); }
+	auto rlabels() { return std::views::reverse(labels()); }
+
 	auto thr_ids() const { return std::views::iota(0, (int)getNumThreads()); }
 
 	auto po(int tid) const { return std::views::all(poLists[tid]); }
@@ -460,6 +463,8 @@ public:
 	auto getInitVal(const AAccess &access) const -> SVal { return initValGetter_(access); }
 
 	void setInitValGetter(InitValGetter f) { initValGetter_ = std::move(f); }
+
+	auto containsLoc(SAddr addr) const -> bool { return coherence.contains(addr); }
 
 	auto isLocEmpty(SAddr addr) const -> bool { return co_begin(addr) == co_end(addr); }
 

@@ -124,12 +124,17 @@ auto findMatchingSpeculativeRead(const ReadLabel *cLab, const EventLabel *&scLab
 
 auto findAllocatingLabel(const ExecutionGraph &g, const SAddr &addr) -> const MallocLabel *
 {
-	/* Don't iterate over the graph if you don't have to */
+	/* Don't bother for static addresses */
 	if (!addr.isDynamic())
 		return nullptr;
 
-	auto labels = g.labels();
-	auto labIt = std::ranges::find_if(g.labels(), [addr](auto &lab) {
+	/* Fastpath: location contains a store */
+	if (g.containsLoc(addr) && g.co_max(addr) != g.getInitLabel())
+		return llvm::cast<WriteLabel>(g.co_max(addr))->getAlloc();
+
+	/* Iterate over labels */
+	auto labels = g.rlabels();
+	auto labIt = std::ranges::find_if(labels, [addr](auto &lab) {
 		auto *mLab = llvm::dyn_cast<MallocLabel>(&lab);
 		return mLab && mLab->contains(addr);
 	});
