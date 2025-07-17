@@ -21,6 +21,8 @@
 #ifndef GENMC_ROUND_BOUND_DECIDER_HPP
 #define GENMC_ROUND_BOUND_DECIDER_HPP
 
+#include "config.h"
+
 #include "BoundDecider.hpp"
 #include "ExecutionGraph/Event.hpp"
 

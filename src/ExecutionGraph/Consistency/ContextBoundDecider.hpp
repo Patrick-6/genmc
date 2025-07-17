@@ -21,6 +21,8 @@
 #ifndef GENMC_CONTEXT_BOUND_DECIDER_HPP
 #define GENMC_CONTEXT_BOUND_DECIDER_HPP
 
+#include "config.h"
+
 #include "ADT/View.hpp"
 #include "BoundDecider.hpp"
 
