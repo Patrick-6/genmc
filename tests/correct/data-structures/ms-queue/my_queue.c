@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdatomic.h>
+#include <genmc.h>
 
 #include "my_queue.h"
 
