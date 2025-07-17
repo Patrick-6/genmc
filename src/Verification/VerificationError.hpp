@@ -69,8 +69,6 @@ enum class VerificationError {
 	VE_InvalidJoin,
 	VE_InvalidUnlock,
 	VE_InvalidBInit,
-	VE_InvalidRecoveryCall,
-	VE_InvalidTruncate,
 	VE_Annotation,
 	VE_MixedSize,
 	VE_LinearizabilityError,
