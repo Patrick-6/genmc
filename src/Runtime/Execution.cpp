@@ -315,6 +315,9 @@ unsigned int Interpreter::getTypeSize(Type *typ) const
 
 /* Should match include/pthread.h (or barrier/mutex/thread decls) */
 #define GENMC_PTHREAD_BARRIER_SERIAL_THREAD -1
+#define GENMC_ASSUME_USER 0
+#define GENMC_ASSUME_BARRIER 1
+#define GENMC_ASSUME_SPINLOOP 2
 
 //===----------------------------------------------------------------------===//
 //                    Binary Instruction Implementations
@@ -2985,14 +2988,6 @@ void Interpreter::callSpinStart(Function *F, const std::vector<GenericValue> &Ar
 	CALL_DRIVER(handleSpinStart, SpinStartLabel::create(currPos()));
 }
 
-void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals,
-			      const std::unique_ptr<EventDeps> &specialDeps)
-{
-	/* XXX: If we ever remove EE blocking, account for blocked events in liveness */
-	if (!ArgVals[0].IntVal.getBoolValue())
-		CALL_DRIVER(handleBlock, SpinloopBlockLabel::create(currPos()));
-}
-
 void Interpreter::callFaiZNESpinEnd(Function *F, const std::vector<GenericValue> &ArgVals,
 				    const std::unique_ptr<EventDeps> &specialDeps)
 {
@@ -3017,8 +3012,12 @@ void Interpreter::callKillThread(Function *F, const std::vector<GenericValue> &A
 void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVals,
 			     const std::unique_ptr<EventDeps> &specialDeps)
 {
-	if (!ArgVals[0].IntVal.getBoolValue())
-		CALL_DRIVER(handleBlock, UserBlockLabel::create(currPos()));
+	if (ArgVals[0].IntVal.getBoolValue())
+		return;
+
+	CALL_DRIVER(handleBlock,
+		    BlockLabel::createAssumeBlock(currPos(),
+						  AssumeType(ArgVals[1].IntVal.getLimitedValue())));
 }
 
 void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals,

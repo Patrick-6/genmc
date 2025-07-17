@@ -121,7 +121,15 @@ extern int __VERIFIER_barrier_destroy (__VERIFIER_barrier_t *__barrier) __attrib
 #define GENMC_KIND_CONFIRM 0x00100000
 #define GENMC_ATTR_PLOCK   0x00200000
 
-void __VERIFIER_assume(bool) __attribute__ ((__nothrow__));
+/* Need to match Execution.cpp and GenMC's AssumeType */
+typedef enum {
+	GENMC_ASSUME_USER = 0 ,
+	GENMC_ASSUME_BARRIER = 1,
+	GENMC_ASSUME_SPINLOOP = 2,
+} __VERIFIER_assume_t;
+
+/* Should match interpreter's assume call (arg size used in annotation passes) */
+extern void __VERIFIER_assume_internal(bool cond, char type) __attribute__((__nothrow__));
 
 /*
  * Annotate a subsequent instruction with the given mask.

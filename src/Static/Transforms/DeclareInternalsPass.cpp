@@ -51,8 +51,9 @@ PreservedAnalyses DeclareInternalsPass::run(Module &M, ModuleAnalysisManager &AM
 {
 	bool modified = false;
 
-	modified |= declareInternal(M, "__VERIFIER_assume", Type::getVoidTy(M.getContext()),
-				    {Type::getInt1Ty(M.getContext())});
+	modified |=
+		declareInternal(M, "__VERIFIER_assume_internal", Type::getVoidTy(M.getContext()),
+				{Type::getInt1Ty(M.getContext()), Type::getInt8Ty(M.getContext())});
 	modified |= declareInternal(M, "__VERIFIER_kill_thread", Type::getVoidTy(M.getContext()),
 				    {Type::getInt1Ty(M.getContext())});
 	modified |= declareInternal(M, "__VERIFIER_opt_begin", Type::getInt1Ty(M.getContext()), {});

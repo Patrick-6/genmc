@@ -587,11 +587,14 @@ static void addLoopBeginCallBeforeTerm(BasicBlock *preheader)
 static void addSpinEndCallBeforeTerm(BasicBlock *latch, BasicBlock *header)
 {
 	auto *term = latch->getTerminator();
-	auto *endFun = latch->getParent()->getParent()->getFunction("__VERIFIER_spin_end");
+	auto *endFun = latch->getParent()->getParent()->getFunction("__VERIFIER_assume_internal");
 	BUG_ON(!endFun);
 
 	auto *cond = getOrCreateExitingCondition(header, term);
-	auto *ci = CallInst::Create(endFun, {cond}, "", term);
+	auto *assumeType = ConstantInt::get(
+		IntegerType::get(term->getContext(), 8),
+		APInt(8, static_cast<std::underlying_type_t<AssumeType>>(AssumeType::Spinloop)));
+	auto *ci = CallInst::Create(endFun, {cond, assumeType}, "", term);
 	ci->setMetadata("dbg", term->getMetadata("dbg"));
 }
 

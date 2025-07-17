@@ -217,6 +217,8 @@ auto BlockLabel::createAssumeBlock(Event pos, AssumeType type) -> std::unique_pt
 	switch (type) {
 	case AssumeType::User:
 		return UserBlockLabel::create(pos);
+	case AssumeType::Barrier:
+		return BarrierBlockLabel::create(pos);
 	case AssumeType::Spinloop:
 		return SpinloopBlockLabel::create(pos);
 	default:

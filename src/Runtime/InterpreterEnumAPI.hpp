@@ -85,22 +85,12 @@ inline bool isErrorFunction(const std::string &name)
 	       internalFunNames.at(name) == InternalFunctions::AssertFail;
 }
 
-inline bool isSpinEndFunction(const std::string &name)
-{
-	return isInternalFunction(name) && internalFunNames.at(name) == InternalFunctions::SpinEnd;
-}
-
 inline bool isAssumeFunction(const std::string &name)
 {
 	if (!isInternalFunction(name))
 		return false;
 
-	auto code =
-		static_cast<std::underlying_type_t<InternalFunctions>>(internalFunNames.at(name));
-	return
-#define FIRST_ASSUME_FUNCTION(NUM) code >= NUM &&
-#define LAST_ASSUME_FUNCTION(NUM) code <= NUM;
-#include "Runtime/InternalFunction.def"
+	return internalFunNames.at(name) == InternalFunctions::Assume;
 }
 
 inline bool isAllocFunction(const std::string &name)
