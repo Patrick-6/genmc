@@ -1717,8 +1717,7 @@ bool GenMCDriver::reportWarningOnce(Event pos, VerificationError wcode,
 				 [&](auto tid) {
 					 return g.getFirstThreadLabel(tid)->getSymmPredTid() != -1;
 				 })) ||
-			(getConf()->ipr &&
-			 std::any_of(sameloc_begin(g, lab), sameloc_end(g, lab), [&](auto &oLab) {
+			(getConf()->ipr && std::ranges::any_of(samelocs(g, lab), [&](auto &oLab) {
 				 auto *rLab = llvm::dyn_cast<ReadLabel>(&oLab);
 				 return rLab && rLab->getAnnot();
 			 }));

@@ -53,6 +53,8 @@ public:
 	using ThreadList = std::vector<Thread>;
 	using StoreList = llvm::simple_ilist<WriteLabel>;
 	using LocMap = std::unordered_map<SAddr, StoreList>;
+	using AccessVector = std::vector<EventLabel *>;
+	using AccessMap = std::unordered_map<SAddr, AccessVector>;
 	using InitValGetter = std::function<SVal(const AAccess &)>;
 	using PoList = llvm::simple_ilist<EventLabel, llvm::ilist_tag<po_tag>>;
 	using PoLists = std::vector<PoList>;
@@ -317,6 +319,22 @@ public:
 			       : (*co_pred_begin(wLab)).readers_end();
 	}
 
+	auto samelocs(const EventLabel *lab) const
+	{
+		auto isSameLabel = [lab](const EventLabel *oLab) { return lab != oLab; };
+		auto cIndirect = [](auto *lab) -> EventLabel & { return *lab; };
+		static const std::vector<EventLabel *> accessSentinelVector;
+
+		if (llvm::isa<MemAccessLabel>(lab))
+			return accessMap_.at(llvm::cast<MemAccessLabel>(lab)->getAddr()) |
+			       std::views::filter(isSameLabel) | std::views::transform(cIndirect);
+		if (llvm::isa<FreeLabel>(lab))
+			return accessMap_.at(llvm::cast<FreeLabel>(lab)->getFreedAddr()) |
+			       std::views::filter(isSameLabel) | std::views::transform(cIndirect);
+		return accessSentinelVector | std::views::filter(isSameLabel) |
+		       std::views::transform(cIndirect);
+	}
+
 	/* Thread-related methods */
 
 	/* Creates a new thread in the execution graph */
@@ -566,6 +584,9 @@ protected:
 	IoList insertionOrder;
 
 	PoLists poLists{};
+
+	/* XXX: Temporary map; eventually remove */
+	AccessMap accessMap_;
 
 	/* Pers: The ID of the recovery routine.
 	 * It should be -1 if not in recovery mode, or have the
