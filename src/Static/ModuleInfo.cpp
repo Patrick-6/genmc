@@ -29,7 +29,6 @@ void ModuleInfo::clear()
 	idInfo.clear();
 	varInfo.clear();
 	annotInfo.clear();
-	fsInfo.clear();
 }
 
 void ModuleInfo::collectIDs()
@@ -64,7 +63,7 @@ void ModuleInfo::collectIDs()
 	return;
 }
 
-ModuleInfo::ModuleInfo(const llvm::Module &mod) : varInfo(), annotInfo(), fsInfo(), mod(mod)
+ModuleInfo::ModuleInfo(const llvm::Module &mod) : varInfo(), annotInfo(), mod(mod)
 {
 	collectIDs();
 	return;
@@ -97,22 +96,6 @@ std::unique_ptr<ModuleInfo> ModuleInfo::clone(const llvm::Module &mod) const
 	for (auto &kv : annotInfo.annotMap)
 		info->annotInfo.annotMap[kv.first] =
 			std::make_pair(kv.second.first, kv.second.second->clone());
-
-	/* Copy fs information */
-	info->fsInfo.inodeTyp = fsInfo.inodeTyp;
-	info->fsInfo.fileTyp = fsInfo.fileTyp;
-
-	info->fsInfo.blockSize = fsInfo.blockSize;
-	info->fsInfo.blockSize = fsInfo.blockSize;
-
-	info->fsInfo.journalData = fsInfo.journalData;
-	info->fsInfo.delalloc = fsInfo.delalloc;
-
-	BUG_ON(fsInfo.dirInode != nullptr);
-	info->fsInfo.dirInode = fsInfo.dirInode;
-
-	for (auto &name : fsInfo.filenames)
-		info->fsInfo.filenames.insert(name);
 
 	return info;
 }

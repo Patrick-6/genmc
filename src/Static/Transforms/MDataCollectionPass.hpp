@@ -85,8 +85,6 @@ private:
 		return PMI.varInfo.internalInfo[key];
 	}
 
-	void collectFilename(const std::string &name) { PMI.filenames.insert(name); }
-
 	friend AnalysisInfoMixin<MDataInfo>;
 	static inline AnalysisKey Key;
 

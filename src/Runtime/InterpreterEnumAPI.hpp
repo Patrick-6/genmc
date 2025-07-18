@@ -28,7 +28,7 @@
 #include "ExecutionGraph/Event.hpp"
 #include "ExecutionGraph/LoadAnnotation.hpp"
 
-enum class ActionKind { Load, NonLoad };
+enum class ActionKind : std::uint8_t { Load, NonLoad };
 
 struct Action {
 	Action(ActionKind kind, Event event) : kind(kind), event(event) {}
@@ -44,20 +44,17 @@ struct Action {
 	Event event;
 };
 
-/* Pers: Journaling mount options */
-enum class JournalDataFS { writeback, ordered, journal };
-
 /* Types of allocations in the interpreter */
-enum class AddressSpace { AS_User, AS_Internal };
+enum class AddressSpace : std::uint8_t { AS_User, AS_Internal };
 
 /* Storage duration */
-enum class StorageDuration { SD_Static, SD_Automatic, SD_Heap, SD_StorageLast };
+enum class StorageDuration : std::uint8_t { SD_Static, SD_Automatic, SD_Heap, SD_StorageLast };
 
 /* Storage types */
-enum class StorageType { ST_Volatile, ST_Durable, ST_StorageLast };
+enum class StorageType : std::uint8_t { ST_Volatile, ST_Durable, ST_StorageLast };
 
 /* Modeled functions */
-enum class InternalFunctions {
+enum class InternalFunctions : std::int8_t {
 #define HANDLE_FUNCTION(NUM, FUN, NAME) NAME = NUM,
 #include "Runtime/InternalFunction.def"
 };

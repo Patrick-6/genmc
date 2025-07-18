@@ -118,17 +118,11 @@ void initializeAnnotationInfo(ModuleInfo &MI, PassModuleInfo &PI)
 	}
 }
 
-void initializeFsInfo(ModuleInfo &MI, PassModuleInfo &PI)
-{
-	MI.fsInfo.filenames.insert(PI.filenames.begin(), PI.filenames.end());
-}
-
 void initializeModuleInfo(ModuleInfo &MI, PassModuleInfo &PI)
 {
 	MI.collectIDs();
 	initializeVariableInfo(MI, PI);
 	initializeAnnotationInfo(MI, PI);
-	initializeFsInfo(MI, PI);
 	MI.determinedMM = PI.determinedMM;
 	MI.barrierResultsUsed = PI.barrierResultsUsed;
 }

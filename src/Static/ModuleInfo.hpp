@@ -77,49 +77,6 @@ template <typename K, typename V> struct AnnotationInfo {
 	AnnotUM annotMap;
 };
 
-/**
- * Pers: Maintains some information regarding the
- * filesystem (e.g., type of inodes, files, etc)
- */
-struct FsInfo {
-
-	/** Explicitly initialize PODs to be C++11-compatible */
-	FsInfo()
-		: inodeTyp(nullptr), fileTyp(nullptr), blockSize(0), maxFileSize(0),
-		  journalData(JournalDataFS::writeback), delalloc(false), dirInode(nullptr)
-	{}
-
-	/** Type information */
-	llvm::StructType *inodeTyp;
-	llvm::StructType *fileTyp;
-
-	/** Filesystem options*/
-	unsigned int blockSize;
-	unsigned int maxFileSize;
-
-	/** "Mount" options */
-	JournalDataFS journalData;
-	bool delalloc;
-
-	/** Filenames in the module. These must be known statically. */
-	VSet<std::string> filenames;
-
-	/** Should hold the address of the directory's inode */
-	void *dirInode;
-
-	void clear()
-	{
-		inodeTyp = nullptr;
-		fileTyp = nullptr;
-		blockSize = 0;
-		maxFileSize = 0;
-		journalData = JournalDataFS::writeback;
-		delalloc = false;
-		filenames.clear();
-		dirInode = nullptr;
-	}
-};
-
 enum class BarrierRetResult : std::uint8_t { Unused, Used };
 
 /** A struct to be used from LLVM passes where different kinds of data can be stored.
@@ -131,7 +88,6 @@ struct PassModuleInfo {
 
 	VariableInfo<llvm::Value *> varInfo;
 	AnnotationInfo<llvm::Instruction *, llvm::Value *> annotInfo;
-	VSet<std::string> filenames;
 	std::optional<ModelType> determinedMM;
 	std::optional<BarrierRetResult> barrierResultsUsed;
 };
@@ -156,7 +112,6 @@ struct ModuleInfo {
 	ModuleID idInfo;
 	VariableInfo<ModuleID::ID> varInfo;
 	AnnotationInfo<ModuleID::ID, ModuleID::ID> annotInfo;
-	FsInfo fsInfo;
 	std::optional<ModelType> determinedMM;
 	std::optional<BarrierRetResult> barrierResultsUsed;
 

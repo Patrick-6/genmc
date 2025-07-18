@@ -106,7 +106,7 @@ static auto calculateReplaySchedule(const ExecutionGraph &g, const Config *conf)
 
 	/* The schedule is still reversed, need to fix that. */
 	std::ranges::reverse(result);
-	// GENMC_DEBUG(llvm::dbgs() << format(std::ranges::reverse_view(replaySchedule_)) << "\n";);
+	// GENMC_DEBUG(llvm::dbgs() << format(std::ranges::reverse_view(result)) << "\n";);
 	return result;
 }
 

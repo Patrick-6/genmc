@@ -19,11 +19,12 @@
  */
 
 #include "ThreadPool.hpp"
+#include "Verification/VerificationResult.hpp"
 
 void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> driver,
 			   std::unique_ptr<llvm::Interpreter> EE, TFunT threadFun)
 {
-	using ThreadT = std::packaged_task<GenMCDriver::Result(
+	using ThreadT = std::packaged_task<VerificationResult(
 		unsigned int, std::unique_ptr<GenMCDriver> driver,
 		std::unique_ptr<llvm::Interpreter> EE, TFunT threadFun)>;
 
@@ -89,7 +90,7 @@ auto ThreadPool::popTask() -> ThreadPool::TaskT
 	return nullptr;
 }
 
-auto ThreadPool::waitForTasks() -> std::vector<std::future<GenMCDriver::Result>>
+auto ThreadPool::waitForTasks() -> std::vector<std::future<VerificationResult>>
 {
 	while (!shouldHalt() && getRemainingTasks() > 0)
 		std::this_thread::yield();
