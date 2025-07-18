@@ -94,8 +94,8 @@ LINUX_STAGES="build ftest rtest concurrency bounding test relinche regression"
 MACOS_STAGES="build ftest" ## only run quick stages for macos
 
 # for macos, we assume the lates
-LINUX_CONFIG_CMD='cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PATH_PREFIX=/usr/local/lib/llvm-${LLVM_VERSION}/cmake -B RelWithDebInfo -S .'
-MACOS_CONFIG_CMD='CXX=clang++ CXXFLAGS="-O2 -g -I$(brew --prefix llvm)/include/c++/v1" LDFLAGS="-L$(brew --prefix llvm)/lib/c++ -L$(brew --prefix llvm)/lib" cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PATH_PREFIX=/usr/local/opt/llvm@${LLVM_VERSION}/lib/cmake/llvm -B RelWithDebInfo -S .'
+LINUX_CONFIG_CMD='cmake -DGENMC_DEBUG=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH=/usr/lib/llvm-${LLVM_VERSION}/cmake -B RelWithDebInfo -S .'
+MACOS_CONFIG_CMD='CXX=clang++ CXXFLAGS="-O2 -g -I$(brew --prefix llvm)/include/c++/v1" LDFLAGS="-L$(brew --prefix llvm)/lib/c++ -L$(brew --prefix llvm)/lib" cmake -DGENMC_DEBUG=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH=/usr/local/opt/llvm@${LLVM_VERSION}/lib/cmake/llvm -B RelWithDebInfo -S .'
 
 build_stage() {
     cmd=$1_CONFIG_CMD
