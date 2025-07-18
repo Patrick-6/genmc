@@ -69,6 +69,12 @@ static auto isMutexCall(Instruction *i) -> bool
 	return isInternalFunction(name) && isMutexCode(internalFunNames.at(name));
 }
 
+/* We only annotate atomic instructions and selected intrinsics (e.g., locks) */
+static auto isAnnotatable(Instruction *i) -> bool
+{
+	return (i->isAtomic() && !isa<FenceInst>(i)) || isMutexCall(i);
+}
+
 static auto getAnnotationValue(CallInst *ci) -> uint64_t
 {
 	auto *funArg = llvm::dyn_cast<ConstantInt>(ci->getOperand(0));
@@ -109,9 +115,8 @@ static auto annotateInstructions(CallInst *begin, CallInst *end, const Config *c
 			endFound |= (dyn_cast<CallInst>(&i) == end);
 			return;
 		}
-		/* check until we find the begin; only deal with atomic insts + locks */
-		if (endFound && !beginFound &&
-		    ((i.isAtomic() && !isa<FenceInst>(i)) || isMutexCall(&i))) {
+		/* check until we find the begin; we only annotate atomics */
+		if (endFound && !beginFound && isAnnotatable(&i)) {
 			if (!opcode)
 				opcode = i.getOpcode();
 			BUG_ON(opcode != i.getOpcode()); /* annotations across paths must match */

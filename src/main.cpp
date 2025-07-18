@@ -100,6 +100,15 @@ static void transformInput(const std::shared_ptr<Config> &conf, llvm::Module &mo
 	if (!conf->transformFile.empty())
 		LLVMModule::printLLVMModule(module, conf->transformFile);
 
+	/* Warn if BAM is enabled and barrier results might be used */
+	if (!conf->disableBAM && modInfo.barrierResultsUsed.has_value() &&
+	    *modInfo.barrierResultsUsed == BarrierRetResult::Used) {
+		LOG(VerbosityLevel::Warning)
+			<< "Could not determine whether barrier_wait() result is used."
+			<< " Use -disable-bam if the order in which threads reach the barrier "
+			   "matters.\n";
+	}
+
 	/* Perhaps override the MM under which verification will take place */
 	if (conf->mmDetector && modInfo.determinedMM.has_value() &&
 	    isStrongerThan(*modInfo.determinedMM, conf->model)) {

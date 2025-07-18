@@ -115,15 +115,6 @@ inline bool isMutexCode(InternalFunctions code)
 #include "Runtime/InternalFunction.def"
 }
 
-inline bool isBarrierCode(InternalFunctions code)
-{
-	auto codeI = static_cast<std::underlying_type_t<InternalFunctions>>(code);
-	return
-#define FIRST_BARRIER_FUNCTION(NUM) codeI >= NUM &&
-#define LAST_BARRIER_FUNCTION(NUM) codeI <= NUM;
-#include "Runtime/InternalFunction.def"
-}
-
 inline bool isCondVarCode(InternalFunctions code)
 {
 	auto codeI = static_cast<std::underlying_type_t<InternalFunctions>>(code);
@@ -140,8 +131,7 @@ inline bool hasGlobalLoadSemantics(const std::string &name)
 
 	using IF = InternalFunctions;
 	auto code = internalFunNames.at(name);
-	return code == IF::MutexLock || code == IF::MutexTrylock || code == IF::BarrierWait ||
-	       code == IF::CondVarWait;
+	return code == IF::MutexLock || code == IF::MutexTrylock || code == IF::CondVarWait;
 }
 
 /* Should match our internal definitions */
@@ -155,6 +145,7 @@ inline bool hasGlobalLoadSemantics(const std::string &name)
 #define GENMC_KIND_SPECUL 0x00080000
 #define GENMC_KIND_CONFIRM 0x00100000
 #define GENMC_KIND_PLOCK 0x00200000
+#define GENMC_KIND_BARRIER 0x00400000
 
 #define GENMC_ATTR(flags) ((flags) & (0x0000ffff))
 #define GENMC_KIND(flags) ((flags) & (0xffff0000))

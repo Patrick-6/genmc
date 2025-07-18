@@ -53,6 +53,8 @@ public:
 	using ThreadList = std::vector<Thread>;
 	using StoreList = llvm::simple_ilist<WriteLabel>;
 	using LocMap = std::unordered_map<SAddr, StoreList>;
+	using AccessVector = std::vector<EventLabel *>;
+	using AccessMap = std::unordered_map<SAddr, AccessVector>;
 	using InitValGetter = std::function<SVal(const AAccess &)>;
 	using PoList = llvm::simple_ilist<EventLabel, llvm::ilist_tag<po_tag>>;
 	using PoLists = std::vector<PoList>;
@@ -121,6 +123,9 @@ public:
 	auto label_begin() { return insertionOrder.begin(); }
 	auto label_end() { return insertionOrder.end(); }
 	auto labels() { return std::views::all(insertionOrder); }
+
+	auto rlabels() const { return std::views::reverse(labels()); }
+	auto rlabels() { return std::views::reverse(labels()); }
 
 	auto thr_ids() const { return std::views::iota(0, (int)getNumThreads()); }
 
@@ -317,6 +322,22 @@ public:
 			       : (*co_pred_begin(wLab)).readers_end();
 	}
 
+	auto samelocs(const EventLabel *lab) const
+	{
+		auto isSameLabel = [lab](const EventLabel *oLab) { return lab != oLab; };
+		auto cIndirect = [](auto *lab) -> EventLabel & { return *lab; };
+		static const std::vector<EventLabel *> accessSentinelVector;
+
+		if (llvm::isa<MemAccessLabel>(lab))
+			return accessMap_.at(llvm::cast<MemAccessLabel>(lab)->getAddr()) |
+			       std::views::filter(isSameLabel) | std::views::transform(cIndirect);
+		if (llvm::isa<FreeLabel>(lab))
+			return accessMap_.at(llvm::cast<FreeLabel>(lab)->getFreedAddr()) |
+			       std::views::filter(isSameLabel) | std::views::transform(cIndirect);
+		return accessSentinelVector | std::views::filter(isSameLabel) |
+		       std::views::transform(cIndirect);
+	}
+
 	/* Thread-related methods */
 
 	/* Creates a new thread in the execution graph */
@@ -443,6 +464,8 @@ public:
 
 	void setInitValGetter(InitValGetter f) { initValGetter_ = std::move(f); }
 
+	auto containsLoc(SAddr addr) const -> bool { return coherence.contains(addr); }
+
 	auto isLocEmpty(SAddr addr) const -> bool { return co_begin(addr) == co_end(addr); }
 
 	/* Whether a location has more than one store */
@@ -566,6 +589,9 @@ protected:
 	IoList insertionOrder;
 
 	PoLists poLists{};
+
+	/* XXX: Temporary map; eventually remove */
+	AccessMap accessMap_;
 
 	/* Pers: The ID of the recovery routine.
 	 * It should be -1 if not in recovery mode, or have the
