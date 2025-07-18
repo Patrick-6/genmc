@@ -547,7 +547,7 @@ void GenMCDriver::addLabelsToGraph(const std::vector<std::unique_ptr<EventLabel>
 
 		dispatcher.visit(vlab);
 
-		if (llvm::isa<BlockLabel>(g.getLastThreadLabel(vlab->getThread())))
+		if (isMoot() || llvm::isa<BlockLabel>(g.getLastThreadLabel(vlab->getThread())))
 			break;
 	}
 
