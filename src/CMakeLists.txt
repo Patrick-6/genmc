@@ -89,7 +89,7 @@ if (BUILD_MODEL_CHECKER)
     # FIXME(cmake): make this more precise (don't export everything?)
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}
-            FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.tcc" PATTERN "*.def"
+            FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.def"
             PATTERN "CMakeFiles" EXCLUDE
             PATTERN "*.cpp" EXCLUDE)
   endif()
