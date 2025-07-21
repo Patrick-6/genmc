@@ -1908,6 +1908,25 @@ private:
 };
 
 /*******************************************************************************
+ **                           OutputLabel Class
+ ******************************************************************************/
+
+/** Prints a string in the execution graph **/
+class OutputLabel : public EventLabel {
+
+public:
+	OutputLabel(Event pos, std::string msg)
+		: EventLabel(Output, pos, MemOrdering::NotAtomic), msg_(std::move(msg))
+	{}
+
+	[[nodiscard]] auto getMsg() const -> const std::string & { return msg_; }
+
+	DEFINE_STANDARD_MEMBERS(Output)
+private:
+	std::string msg_;
+};
+
+/*******************************************************************************
  **                         HelpingCasLabel class
  ******************************************************************************/
 

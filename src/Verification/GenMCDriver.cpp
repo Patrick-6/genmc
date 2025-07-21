@@ -2516,10 +2516,17 @@ void GenMCDriver::handleMethodBegin(Event pos, std::string methodName, int32_t a
 	if (!isExecutionDrivenByGraph(pos))
 		handleDummy(MethodBeginLabel::create(pos, methodName, argVal));
 }
+
 void GenMCDriver::handleMethodEnd(Event pos, std::string methodName, int32_t retVal)
 {
 	if (!isExecutionDrivenByGraph(pos))
 		handleDummy(MethodEndLabel::create(pos, methodName, retVal));
+}
+
+void GenMCDriver::handleOutput(Event pos, std::string msg)
+{
+	if (!isExecutionDrivenByGraph(pos))
+		handleDummy(OutputLabel::create(pos, std::move(msg)));
 }
 
 /************************************************************

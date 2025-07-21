@@ -10,6 +10,12 @@ extern "C"
 #endif
 
 /*
+ * printf() replacement that adds a string node to the execution graph
+ */
+__attribute__((__nothrow__)) extern
+void __VERIFIER_output(const char *msg);
+
+/*
  * Blocks the current execution if the argument is false
  */
 #define __VERIFIER_assume(cond) __VERIFIER_assume_internal(cond, GENMC_ASSUME_USER)

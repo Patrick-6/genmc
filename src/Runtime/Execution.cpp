@@ -3460,6 +3460,14 @@ void Interpreter::callAnnotateEnd(Function *F, const std::vector<GenericValue> &
 				  const std::unique_ptr<EventDeps> &specialDeps)
 {}
 
+void Interpreter::callOutput(Function *F, const std::vector<GenericValue> &ArgVals,
+			     const std::unique_ptr<EventDeps> &specialDeps)
+{
+	const char *msg = static_cast<const char *>(getStaticAddr(GVTOP(ArgVals[0])));
+
+	CALL_DRIVER(handleOutput, currPos(), msg);
+}
+
 bool isInternalCall(Function *F) { return internalFunNames.count(F->getName().str()); }
 
 void Interpreter::callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals,
