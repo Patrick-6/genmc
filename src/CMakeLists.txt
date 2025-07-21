@@ -1,4 +1,4 @@
-set(LIB_SOURCES
+set(SOURCES
   ADT/DepView.cpp
   ADT/VectorClock.cpp
   ADT/View.cpp
@@ -74,49 +74,39 @@ set(LIB_SOURCES
   Verification/Relinche/Specification.cpp
   Verification/Scheduler.cpp
 )
-set(SOURCES
-  main.cpp
-)
 
-### GenMC library:
-if (BUILD_MODEL_CHECKER)
-  find_package(Threads REQUIRED)
-  find_library(HWLOC hwloc)
+### Interface library for includes and compile features
+add_library(genmc_config_includes INTERFACE)
+configure_file(${CMAKE_SOURCE_DIR}/config.h.in ${CMAKE_BINARY_DIR}/include/config.h)
+install(FILES ${CMAKE_BINARY_DIR}/include/config.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/genmc)
 
-  add_library(genmc_lib ${GENMC_LIB_TYPE} ${LIB_SOURCES})
-  if (INSTALL_MODEL_CHECKER)
-    install(TARGETS genmc_lib ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME})
-    # FIXME(cmake): make this more precise (don't export everything?)
-    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}
-            FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.def"
-            PATTERN "CMakeFiles" EXCLUDE
-            PATTERN "*.cpp" EXCLUDE)
-  endif()
+target_compile_features(genmc_config_includes INTERFACE cxx_std_23)
+target_include_directories(genmc_config_includes INTERFACE ${CMAKE_BINARY_DIR}/include)
 
-  target_compile_features(genmc_lib PRIVATE cxx_std_23)
-  target_link_libraries(genmc_lib PUBLIC ffi dl Threads::Threads LLVM)
-  if(HWLOC)
-    target_link_libraries(genmc_lib PRIVATE hwloc)
-  else()
-    message(STATUS "hwloc not found. Thread pinning disabled.")
-  endif()
-  target_link_libraries(genmc_lib PRIVATE genmc_config_includes)
+### GenMC library
+find_package(Threads REQUIRED)
+find_library(HWLOC hwloc)
 
-  # Includes and definitions, which will be inherited by dependencies: 
-  target_compile_definitions(genmc_lib PUBLIC ${LLVM_DEFINITIONS})
-  target_include_directories(genmc_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${LLVM_INCLUDE_DIRS})
+add_library(genmc_lib ${GENMC_LIB_TYPE} ${SOURCES})
+install(TARGETS genmc_lib ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME})
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.def")
+
+target_compile_definitions(genmc_lib PUBLIC ${LLVM_DEFINITIONS})
+target_include_directories(genmc_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${LLVM_INCLUDE_DIRS})
+target_link_libraries(genmc_lib PUBLIC ffi dl Threads::Threads LLVM genmc_config_includes)
+if(HWLOC)
+  target_link_libraries(genmc_lib PRIVATE hwloc)
+else()
+  message(STATUS "hwloc not found. Thread pinning disabled.")
 endif()
 
+### GenMC executable
+add_executable(${PROJECT_NAME} main.cpp)
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/${PROJECT_NAME})
 
-### GenMC executable:
-if (BUILD_LLI)
-  add_executable(${PROJECT_NAME} ${SOURCES})
-  if (INSTALL_LLI)
-    install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/${PROJECT_NAME})
-  endif()
+target_link_libraries(${PROJECT_NAME} PRIVATE genmc_config_includes genmc_lib)
 
-  target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
-  target_link_libraries(${PROJECT_NAME} PRIVATE genmc_config_includes)
-  target_link_libraries(${PROJECT_NAME} PRIVATE genmc_lib)
-endif()
+option(GENMC_DEBUG "Enable GenMC debugging infrastructure (ON for Debug)" OFF)
+add_compile_definitions($<$<OR:$<CONFIG:Debug>,$<BOOL:${GENMC_DEBUG}>>:ENABLE_GENMC_DEBUG>)

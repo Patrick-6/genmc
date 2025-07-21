@@ -4,11 +4,10 @@ project(genmc VERSION 0.11.0 LANGUAGES CXX C)
 enable_testing()
 include(CTest)
 
-### Package information
 include(GNUInstallDirs)
-set(PKG_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/runtime")
 
-# Set information for `config.h.in`:
+### Package information
+set(PKG_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/runtime")
 set(PACKAGE_NAME "GenMC")
 set(PACKAGE_BUGREPORT "michalis.kokologiannakis@inf.ethz.ch")
 set(PACKAGE_URL "https://plv.mpi-sws.org/genmc")
@@ -45,7 +44,7 @@ find_program(RUSTC_PATH rustc PATHS ${RUST_BIN_PATH} NO_CACHE NO_DEFAULT_PATH)
 find_program(CARGO_PATH cargo PATHS ${RUST_BIN_PATH} NO_CACHE NO_DEFAULT_PATH)
 if(NOT RUSTC_PATH)
   message(STATUS "Could NOT find Rust, skipping...")
-else()  
+else()
   # Determine the LLVM-version used by Rust, reject if it's a different major version
   execute_process(COMMAND "${RUSTC_PATH}" -vV OUTPUT_VARIABLE RUSTC_VERSION)
   string(REGEX MATCH "LLVM version: (([0-9]+)\\.[0-9]+\\.[0-9]+)" _ ${RUSTC_VERSION})
@@ -55,8 +54,8 @@ else()
   message(STATUS "Found rustc ${RUSTC_PATH} (LLVM-version: ${RUSTC_LLVM_VERSION})")
   message(STATUS "Found cargo ${CARGO_PATH}")
   if(LLVM_PACKAGE_VERSION MATCHES "${RUSTC_LLVM_VERSION_MAJOR}\\.[0-9]+\\.[0-9]+")
-    set(RUSTC_PATH "${RUSTC_PATH}")
-    set(CARGO_PATH "${CARGO_PATH}")
+    set(CONFIG_RUSTC_PATH "${RUSTC_PATH}")
+    set(CONFIG_CARGO_PATH "${CARGO_PATH}")
   else()
     message(STATUS "Rust using different major LLVM-version, skipping...")
   endif()
@@ -76,24 +75,6 @@ if(NOT GIT_RESULT EQUAL 0)
   set(GIT_COMMIT "unknown")
 endif()
 
-### Handle debug settings
-option(GENMC_DEBUG "Enable GenMC debugging infrastructure (ON for Debug)" OFF)
-if (GENMC_DEBUG)
-  set(ENABLE_GENMC_DEBUG ON)
-endif()
-
-### Generate the `config.h` file
-# Note: Each build configuration (Release, Debug, ...) has a separate `config.h`.
-configure_file(
-  ${CMAKE_SOURCE_DIR}/config.h.in
-  ${CMAKE_BINARY_DIR}/include/config.h
-)
-
-# Create an interface library for global includes
-add_library(genmc_config_includes INTERFACE)
-target_include_directories(genmc_config_includes INTERFACE ${CMAKE_BINARY_DIR}/include)
-install(FILES ${CMAKE_BINARY_DIR}/include/config.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/genmc)
-
 ### Coverage/linting
 option(ENABLE_COVERAGE "Enable coverage reporting" OFF)
 if(ENABLE_COVERAGE)
@@ -108,27 +89,6 @@ if(ENABLE_LINT)
     "-header-filter='^(?!llvm/).+'"
     "-config-file=${CMAKE_SOURCE_DIR}/.clang-tidy"
   )
-endif()
-
-
-### Component selection
-option(BUILD_LLI "Build the GenMC executable with the LLI interpreter (default: ON)" ON)
-option(BUILD_MODEL_CHECKER "Build the GenMC model checker as a library (default: ON)" ON)
-
-option(INSTALL_LLI "Install the GenMC executable if built (default: ON)" ON)
-option(INSTALL_MODEL_CHECKER "Install the model checking library (default: OFF)" OFF)
-
-option(SHARED_LIB "Build the GenMC model checker as a shared library (instead of a static library) (default: OFF)" OFF)
-
-# Ensure dependencies are built
-if (BUILD_LLI)
-  set(BUILD_MODEL_CHECKER ON)
-endif()
-
-if (SHARED_LIB)
-  set(GENMC_LIB_TYPE, "SHARED")
-else()
-  set(GENMC_LIB_TYPE, "STATIC")
 endif()
 
 add_subdirectory(src)
