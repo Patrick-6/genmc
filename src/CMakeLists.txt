@@ -51,6 +51,7 @@ set(SOURCES
   Static/Transforms/MMDetectorPass.cpp
   Static/Transforms/PromoteMemIntrinsicPass.cpp
   Static/Transforms/PropagateAssumesPass.cpp
+  Static/Transforms/RustPrepPass.cpp
   Static/Transforms/SpinAssumePass.cpp
   Static/Transforms/BarrierResultCheckerPass.cpp
   Support/ASize.cpp

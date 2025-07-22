@@ -25,6 +25,8 @@
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <filesystem>
+
 /*** Command-line argument categories ***/
 
 static llvm::cl::OptionCategory clGeneral("Exploration Options");
@@ -34,7 +36,7 @@ static llvm::cl::OptionCategory clDebugging("Debugging Options");
 /*** General syntax ***/
 
 static llvm::cl::list<std::string> clCFLAGS(llvm::cl::Positional, llvm::cl::ZeroOrMore,
-					    llvm::cl::desc("-- [CFLAGS]"));
+					    llvm::cl::desc("-- [compiler flags]"));
 
 static llvm::cl::opt<std::string> clInputFile(llvm::cl::Positional, llvm::cl::Required,
 					      llvm::cl::desc("<input file>"));
@@ -202,14 +204,25 @@ static llvm::cl::opt<std::string> clProgramEntryFunction(
 	llvm::cl::cat(clDebugging),
 	llvm::cl::desc("Function used as program entrypoint (default: main())"));
 
-static llvm::cl::opt<bool>
-	clInputFromBitcodeFile("input-from-bitcode-file", llvm::cl::cat(clDebugging),
-			       llvm::cl::desc("The input file contains LLVM bitcode"));
+static llvm::cl::opt<std::string> clOutputLlvmBefore(
+	"output-llvm-before", llvm::cl::init(""), llvm::cl::value_desc("file"),
+	llvm::cl::cat(clDebugging),
+	llvm::cl::desc("Output the LLVM code to file before applying transformations"));
+static llvm::cl::opt<std::string> clOutputLlvmAfter(
+	"output-llvm-after", llvm::cl::init(""), llvm::cl::value_desc("file"),
+	llvm::cl::cat(clDebugging),
+	llvm::cl::desc("Output the LLVM code to file after applying transformations"));
+
+static llvm::cl::opt<bool> clDisableGenmcStdRebuild(
+	"disable-genmc-std-rebuild", llvm::cl::cat(clDebugging),
+	llvm::cl::desc("Don't rebuild the genmc-std-crate while verifying .rs files "
+		       "if a build is already present"));
 
 static llvm::cl::opt<std::string>
-	clTransformFile("transform-output", llvm::cl::init(""), llvm::cl::value_desc("file"),
-			llvm::cl::cat(clDebugging),
-			llvm::cl::desc("Output the transformed LLVM code to file"));
+	clLinkWith("link-with", llvm::cl::init(""), llvm::cl::value_desc("file"),
+		   llvm::cl::cat(clDebugging),
+		   llvm::cl::desc("Build this file seperately and link the result into the build"));
+
 static llvm::cl::opt<unsigned int>
 	clWarnOnGraphSize("warn-on-graph-size", llvm::cl::init(1024), llvm::cl::value_desc("N"),
 			  llvm::cl::cat(clDebugging),
@@ -353,8 +366,32 @@ static void checkConfigOptions()
 	}
 
 	/* Make sure filename is a regular file */
-	if (!llvm::sys::fs::is_regular_file(clInputFile))
-		ERROR("Input file is not a regular file!\n");
+	if (!llvm::sys::fs::is_regular_file(clInputFile) &&
+	    !llvm::sys::fs::is_directory(clInputFile))
+		ERROR("Input file is neither a regular file, nor a directory!\n");
+
+	/* Make sure -disable-genmc-std-rebuild is used only on Rust builds */
+	InputType langInput = determineLang(clInputFile);
+	InputType langLink = determineLang(clLinkWith);
+	if (langInput != InputType::rust && langInput != InputType::cargo &&
+	    langLink != InputType::rust && langLink != InputType::cargo &&
+	    clDisableGenmcStdRebuild) {
+		ERROR("-disable-genmc-std-rebuild used on a non-Rust input file.\n");
+	}
+}
+
+InputType determineLang(std::string inputFile)
+{
+	std::filesystem::path inputFilePath(inputFile);
+	if (inputFilePath.extension() == ".toml") { /* Cargo.toml file */
+		return InputType::cargo;
+	} else if (inputFilePath.extension() == ".rs") { /* Single .rs file */
+		return InputType::rust;
+	} else if (inputFilePath.extension() == ".ll") { /* LLVM-IR direct input */
+		return InputType::llvmir;
+	} else { /* Default: C/C++ */
+		return InputType::clang;
+	}
 }
 
 static void saveConfigOptions(Config &conf)
@@ -362,6 +399,9 @@ static void saveConfigOptions(Config &conf)
 	/* General syntax */
 	conf.cflags.insert(conf.cflags.end(), clCFLAGS.begin(), clCFLAGS.end());
 	conf.inputFile = std::move(clInputFile);
+
+	/* Input language (LLVM-IR, Rust, C/C++) */
+	conf.lang = determineLang(conf.inputFile);
 
 	/* Save exploration options */
 	conf.dotFile = std::move(clDotGraphFile);
@@ -414,8 +454,10 @@ static void saveConfigOptions(Config &conf)
 	conf.randomScheduleSeed = std::move(clArbitraryScheduleSeed);
 	conf.printExecGraphs = clPrintExecGraphs;
 	conf.printBlockedExecs = clPrintBlockedExecs;
-	conf.inputFromBitcodeFile = clInputFromBitcodeFile;
-	conf.transformFile = std::move(clTransformFile);
+	conf.outputLlvmBefore = std::move(clOutputLlvmBefore);
+	conf.outputLlvmAfter = std::move(clOutputLlvmAfter);
+	conf.disableGenmcStdRebuild = clDisableGenmcStdRebuild;
+	conf.linkWith = std::move(clLinkWith);
 	conf.vLevel = clVLevel;
 #ifdef ENABLE_GENMC_DEBUG
 	conf.printStamps = clPrintStamps;

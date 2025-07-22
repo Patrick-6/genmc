@@ -29,8 +29,9 @@
 
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
-#include <future>
+#include <filesystem>
 #include <memory>
 #include <unistd.h>
 
@@ -68,7 +69,8 @@ static auto buildCompilationArgs(const std::shared_ptr<const Config> &conf) -> s
 	args += " -fno-discard-value-names";
 	args += " -Xclang";
 	args += " -disable-O0-optnone";
-	args += " -g"; /* Compile with -g to get debugging mdata */
+	/* We may be linking with Rust which uses dwarf-4 */
+	args += !conf->linkWith.empty() ? " -gdwarf-4" : " -g";
 	for (const auto &f : conf->cflags)
 		args += " " + f;
 	args += " -I" SRC_INCLUDE_DIR;
@@ -93,12 +95,152 @@ static auto compileInput(const std::shared_ptr<const Config> &conf,
 	return true;
 }
 
+/**
+ * Clean + build a given Cargo crate
+ */
+static auto buildCargoProject(std::string &cargoPath, std::filesystem::path projectPath,
+			      bool skipBuild = false) -> bool
+{
+	if (skipBuild)
+		return true;
+
+	/* Save current working directory */
+	const std::filesystem::path origWD = std::filesystem::current_path();
+
+	/* Clean + build the cargo project */
+	std::filesystem::current_path(projectPath);
+	std::string cleanCommand = cargoPath + std::string(" clean");
+	if (std::system(cleanCommand.c_str()) != 0)
+		WARN("'cargo clean' failed");
+
+	std::string buildCommand =
+		std::string("RUSTFLAGS=\"--emit=llvm-bc\" ") + cargoPath + std::string(" build");
+	if (std::system(buildCommand.c_str()) != 0) {
+		WARN("'cargo build' failed \n");
+		return false;
+	}
+
+	/* Restore original working directory to allow relative pathnames */
+	std::filesystem::current_path(origWD);
+	return true;
+}
+
+/**
+ * Compilation for *.rs input types.
+ * Strategy: Build genmc-std as library cargo project separately, then include the produced .rlib
+ * file as a prelude (--extern) when building our .rs file with rustc. Link the llvm-ir output files
+ * produced by genmc-std into it seperately.
+ */
+static auto compileRustInput(const std::shared_ptr<const Config> &conf,
+			     const std::unique_ptr<llvm::LLVMContext> &ctx,
+			     std::unique_ptr<llvm::Module> &module) -> bool
+{
+#ifndef RUSTC_PATH
+	ERROR("Rust not linked, use cmake with '-DRUST_BIN_PATH=...' and rebuild GenMC to use "
+	      "Rust.");
+#define RUSTC_PATH ""
+#define CARGO_PATH ""
+#endif
+	auto rustcPath = std::string(RUSTC_PATH);
+	auto cargoPath = std::string(CARGO_PATH);
+
+	std::filesystem::path pathGenmcStd(std::string(RUST_DIR) + "/genmc-std");
+	std::filesystem::path pathDebug = pathGenmcStd / "target" / "debug";
+	std::filesystem::path pathRlib = pathDebug / "libgenmc_std.rlib";
+
+	/* Build genmc-std, skip if a build exists that we're allowed to use */
+	bool skipBuild = conf->disableGenmcStdRebuild && std::filesystem::exists(pathRlib);
+	bool buildSuccessful =
+		buildCargoProject(cargoPath, RUST_DIR + std::string("/genmc-std"), skipBuild);
+	if (!buildSuccessful)
+		return false;
+
+	/* Build args for rustc */
+	std::string args;
+	args += " --emit=llvm-bc";
+	args += " -Copt-level=0";
+	for (const auto &f : conf->cflags)
+		args += " " + f;
+	args += " --extern std=" + pathRlib.string();
+	args += " -o rustc_out.bc";
+	args += " " + conf->inputFile;
+
+	/* Build the rustc file */
+	std::string rustcCommand = rustcPath + args;
+	if (std::system(rustcCommand.c_str()) != 0) {
+		WARN("'rustc' failed \n");
+		return false;
+	}
+
+	/* Link genmc-std's llvm-ir output into it (otherwise unused functions like
+	 * genmc__rust_alloc are not present in the module for use in later LLVM-Passes) */
+	std::string mvCommand = std::string("mv -f rustc_out.bc ") + (pathDebug / "deps").string();
+	if (std::system(mvCommand.c_str()) != 0) {
+		WARN("Copying the LLVM-IR output failed \n");
+		return false;
+	}
+	module = LLVMModule::parseLinkAllLLVMModules(pathGenmcStd, ctx);
+
+	return true;
+}
+
+/**
+ * Compilation for Cargo-crate input types.
+ */
+static auto compileCargoInput(const std::shared_ptr<const Config> &conf,
+			      const std::unique_ptr<llvm::LLVMContext> &ctx,
+			      std::unique_ptr<llvm::Module> &module) -> bool
+{
+#ifndef RUSTC_PATH
+	ERROR("Rust not linked, use cmake with '-DRUST_BIN_PATH=...' and rebuild GenMC to use "
+	      "Rust.");
+#define CARGO_PATH ""
+#endif
+	std::string cargoPath = std::string(CARGO_PATH);
+	std::filesystem::path inputFilePath(conf->inputFile);
+
+	/* Save current working directory */
+	const std::filesystem::path origWD = std::filesystem::current_path();
+
+	/* Clean + build the cargo project */
+	bool buildSuccessful = buildCargoProject(cargoPath, inputFilePath.parent_path());
+	if (!buildSuccessful)
+		return false;
+
+	/* Restore original working directory to allow relative pathnames */
+	std::filesystem::current_path(origWD);
+
+	/* Parse & Link all the LLVM-BC output files */
+	module = LLVMModule::parseLinkAllLLVMModules(inputFilePath.parent_path(), ctx);
+	return true;
+}
+
+static auto compileToModule(const std::shared_ptr<const Config> &conf,
+			    const std::unique_ptr<llvm::LLVMContext> &ctx)
+	-> std::unique_ptr<llvm::Module>
+{
+	std::unique_ptr<llvm::Module> module;
+	if (conf->lang == InputType::llvmir) {
+		module = LLVMModule::parseLLVMModule(conf->inputFile, ctx);
+	} else if (conf->lang == InputType::clang && !compileInput(conf, ctx, module)) {
+		std::exit(ECOMPILE);
+	} else if (conf->lang == InputType::cargo && !compileCargoInput(conf, ctx, module)) {
+		std::exit(ECOMPILE);
+	} else if (conf->lang == InputType::rust && !compileRustInput(conf, ctx, module)) {
+		std::exit(ECOMPILE);
+	}
+	return std::move(module);
+}
+
 static void transformInput(const std::shared_ptr<Config> &conf, llvm::Module &module,
 			   ModuleInfo &modInfo)
 {
+	if (!conf->outputLlvmBefore.empty())
+		LLVMModule::printLLVMModule(module, conf->outputLlvmBefore);
+
 	LLVMModule::transformLLVMModule(module, modInfo, conf);
-	if (!conf->transformFile.empty())
-		LLVMModule::printLLVMModule(module, conf->transformFile);
+	if (!conf->outputLlvmAfter.empty())
+		LLVMModule::printLLVMModule(module, conf->outputLlvmAfter);
 
 	/* Warn if BAM is enabled and barrier results might be used */
 	if (!conf->disableBAM && modInfo.barrierResultsUsed.has_value() &&
@@ -292,12 +434,23 @@ auto main(int argc, char **argv) -> int
 		<< "Copyright (C) 2024 MPI-SWS. All rights reserved.\n\n";
 
 	auto ctx = std::make_unique<llvm::LLVMContext>(); // *dtor after module's*
-	std::unique_ptr<llvm::Module> module;
-	if (conf->inputFromBitcodeFile) {
-		module = LLVMModule::parseLLVMModule(conf->inputFile, ctx);
-	} else if (!compileInput(conf, ctx, module)) {
-		return ECOMPILE;
+	std::unique_ptr<llvm::Module> module = compileToModule(conf, ctx);
+
+	/* Handle option "-link-with" */
+	if (!conf->linkWith.empty()) {
+		auto confNew = std::make_shared<Config>(*conf);
+
+		confNew->inputFile = conf->linkWith;
+		confNew->lang = determineLang(confNew->inputFile);
+		confNew->cflags = {};
+		std::unique_ptr<llvm::Module> linkModule = compileToModule(confNew, ctx);
+
+		std::vector<std::unique_ptr<llvm::Module>> modules;
+		modules.push_back(std::move(module));
+		modules.push_back(std::move(linkModule));
+		module = LLVMModule::linkAllModules(std::move(modules));
 	}
+
 	PRINT(VerbosityLevel::Error) << "*** Compilation complete.\n";
 
 	/* Perform the necessary transformations */

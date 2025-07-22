@@ -142,7 +142,6 @@ static auto runOnBasicBlock(BasicBlock &BB, IntrinsicLowering *IL) -> bool
 				F->setDoesNotThrow();
 				llvm::CallInst::Create(F, llvm::Twine(), I);
 			}
-			new llvm::UnreachableInst(M.getContext(), I);
 			I->eraseFromParent();
 			modified = true;
 			break;
