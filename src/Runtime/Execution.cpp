@@ -3019,12 +3019,14 @@ void Interpreter::callKillThread(Function *F, const std::vector<GenericValue> &A
 void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVals,
 			     const std::unique_ptr<EventDeps> &specialDeps)
 {
-	if (ArgVals[0].IntVal.getBoolValue())
-		return;
+	if (!ArgVals[0].IntVal.getBoolValue()) {
+		CALL_DRIVER(handleBlock,
+			    BlockLabel::createAssumeBlock(
+				    currPos(), AssumeType(ArgVals[1].IntVal.getLimitedValue())));
+	}
 
-	CALL_DRIVER(handleBlock,
-		    BlockLabel::createAssumeBlock(currPos(),
-						  AssumeType(ArgVals[1].IntVal.getLimitedValue())));
+	/* Handle invoke-instruction */
+	returnValueToCaller(F->getReturnType() /* void */, PTOGV(nullptr));
 }
 
 void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals,
@@ -3429,6 +3431,9 @@ void Interpreter::callHazptrProtect(Function *F, const std::vector<GenericValue>
 	auto *ptr = GVTOP(ArgVals[1]);
 
 	CALL_DRIVER(handleDummy, HpProtectLabel::create(currPos(), hp, ptr));
+
+	/* Handle invoke-instruction */
+	returnValueToCaller(F->getReturnType() /* void */, PTOGV(nullptr));
 }
 
 void Interpreter::callHazptrClear(Function *F, const std::vector<GenericValue> &ArgVals,
@@ -3442,7 +3447,9 @@ void Interpreter::callHazptrClear(Function *F, const std::vector<GenericValue> &
 	/* FIXME: Should this be an internal null? */
 	CALL_DRIVER(handleStore,
 		    WriteLabel::create(currPos(), MemOrdering::Release, hp, asize, atyp, SVal()));
-	return;
+
+	/* Handle invoke-instruction */
+	returnValueToCaller(F->getReturnType() /* void */, PTOGV(nullptr));
 }
 
 void Interpreter::callHazptrFree(Function *F, const std::vector<GenericValue> &ArgVals,
@@ -3451,6 +3458,9 @@ void Interpreter::callHazptrFree(Function *F, const std::vector<GenericValue> &A
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
 	CALL_DRIVER(handleFree, FreeLabel::create(currPos(), GVTOP(ArgVals[0]), GET_DEPS(deps)));
+
+	/* Handle invoke-instruction */
+	returnValueToCaller(F->getReturnType() /* void */, PTOGV(nullptr));
 }
 
 void Interpreter::callHazptrRetire(Function *F, const std::vector<GenericValue> &ArgVals,
@@ -3460,6 +3470,9 @@ void Interpreter::callHazptrRetire(Function *F, const std::vector<GenericValue> 
 				  getAddrPoDeps(getCurThr().id), nullptr);
 	CALL_DRIVER(handleFree,
 		    HpRetireLabel::create(currPos(), GVTOP(ArgVals[0]), GET_DEPS(deps)));
+
+	/* Handle invoke-instruction */
+	returnValueToCaller(F->getReturnType() /* void */, PTOGV(nullptr));
 }
 
 void Interpreter::callMethodBegin(Function * /*F*/, const std::vector<GenericValue> &ArgVals,

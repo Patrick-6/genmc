@@ -139,7 +139,6 @@ static auto findMatchingEnd(CallInst *begin, const std::vector<CallInst *> &ends
 	auto it = std::find_if(ends.begin(), ends.end(), [&](auto *ei) {
 		return getAnnotationValue(begin) == getAnnotationValue(ei) &&
 		       DT.dominates(begin, ei) &&
-		       PDT.dominates(ei->getParent(), begin->getParent()) &&
 		       std::none_of(ends.begin(), ends.end(), [&](auto *ei2) {
 			       return ei != ei2 && DT.dominates(begin, ei2) &&
 				      PDT.dominates(ei2->getParent(), begin->getParent()) &&

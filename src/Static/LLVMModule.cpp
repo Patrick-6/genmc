@@ -42,6 +42,7 @@
 #include "Static/Transforms/MMDetectorPass.hpp"
 #include "Static/Transforms/PromoteMemIntrinsicPass.hpp"
 #include "Static/Transforms/PropagateAssumesPass.hpp"
+#include "Static/Transforms/RustPrepPass.hpp"
 #include "Static/Transforms/SpinAssumePass.hpp"
 #include "Support/Error.hpp"
 #include "Support/SExprVisitor.hpp"
@@ -53,6 +54,7 @@
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/IRReader/IRReader.h>
+#include <llvm/Linker/Linker.h>
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Passes/PassPlugin.h>
 #include <llvm/Support/Debug.h>
@@ -62,7 +64,11 @@
 #include <llvm/Transforms/IPO/DeadArgumentElimination.h>
 #include <llvm/Transforms/InstCombine/InstCombine.h>
 #include <llvm/Transforms/Scalar/JumpThreading.h>
+#include <llvm/Transforms/Scalar/SROA.h>
 #include <llvm/Transforms/Utils/Mem2Reg.h>
+
+#include <filesystem>
+namespace fs = std::filesystem;
 
 namespace LLVMModule {
 
@@ -77,6 +83,65 @@ auto parseLLVMModule(const std::string &filename, const std::unique_ptr<llvm::LL
 		ERROR("Could not parse LLVM IR!\n");
 	}
 	return std::move(mod);
+}
+
+/**
+ * Used to link a collection of modules into a single module
+ */
+auto linkAllModules(std::vector<std::unique_ptr<llvm::Module>> modules) -> std::unique_ptr<Module>
+{
+	Linker linker(*modules[0]);
+	for (size_t i = 1; i < modules.size(); ++i) {
+		if (linker.linkInModule(std::move(modules[i]))) {
+			ERROR("Could not link the LLVM IR!\n");
+		}
+	}
+
+	return std::move(modules[0]);
+}
+
+/**
+ * Used for Rust-builds. We link all produced llvm-ir files in the target-directory together.
+ */
+auto parseLinkAllLLVMModules(const fs::path &dirname, const std::unique_ptr<llvm::LLVMContext> &ctx)
+	-> std::unique_ptr<llvm::Module>
+{
+	llvm::SMDiagnostic err;
+
+	/* Search for all *.bc files under "dir / target / * / deps /" */
+	std::vector<fs::path> bc_files;
+	for (const auto &dir : fs::directory_iterator(dirname / "target")) {
+		if (!fs::is_directory(dir)) {
+			continue;
+		}
+
+		auto deps_dir = dir.path() / "deps";
+		if (!fs::exists(deps_dir)) {
+			continue;
+		}
+
+		for (const auto &file : fs::directory_iterator(deps_dir)) {
+			if (file.path().extension() != ".bc") {
+				continue;
+			}
+
+			bc_files.push_back(file.path());
+		}
+	}
+
+	/* Parse all modules */
+	std::vector<std::unique_ptr<Module>> modules;
+	for (auto bc_file : bc_files) {
+		std::unique_ptr<Module> module = parseIRFile(bc_file.string(), err, *ctx);
+		if (!module) {
+			err.print(bc_file.c_str(), llvm::dbgs());
+			ERROR("Could not parse LLVM IR!\n");
+		}
+		modules.push_back(std::move(module));
+	}
+
+	/* Link them all together */
+	return linkAllModules(std::move(modules));
 }
 
 auto cloneModule(const std::unique_ptr<llvm::Module> &mod,
@@ -163,6 +228,10 @@ auto transformLLVMModule(llvm::Module &mod, ModuleInfo &MI,
 	basicOptsMGR.addPass(DeclareInternalsPass());
 	basicOptsMGR.addPass(DefineLibcFunsPass());
 	basicOptsMGR.addPass(MDataCollectionPass(PI));
+	if (conf->lang == InputType::rust || conf->lang == InputType::cargo ||
+	    !conf->linkWith.empty()) {
+		basicOptsMGR.addPass(RustPrepPass());
+	}
 	if (conf->inlineFunctions)
 		basicOptsMGR.addPass(FunctionInlinerPass());
 	{
@@ -172,7 +241,14 @@ auto transformLLVMModule(llvm::Module &mod, ModuleInfo &MI,
 		fpm.addPass(IntrinsicLoweringPass());
 		if (conf->castElimination)
 			fpm.addPass(EliminateCastsPass());
-		fpm.addPass(PromotePass());
+#if LLVM_VERSION_MAJOR < 14
+		fpm.addPass(SROA());
+#elif LLVM_VERSION_MAJOR < 16
+		fpm.addPass(SROAPass());
+#else
+		fpm.addPass(SROAPass(SROAOptions::PreserveCFG));
+#endif
+		fpm.addPass(PromotePass()); // Mem2Reg
 		basicOptsMGR.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(fpm)));
 	}
 	basicOptsMGR.addPass(DeadArgumentEliminationPass());

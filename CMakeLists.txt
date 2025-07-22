@@ -13,6 +13,7 @@ add_compile_definitions(PACKAGE_URL="https://plv.mpi-sws.org/genmc")
 add_compile_definitions("PACKAGE_VERSION=\"${CMAKE_PROJECT_VERSION}\"")
 add_compile_definitions(INCLUDE_DIR="${CMAKE_INSTALL_PREFIX}/${PKG_INCLUDE_DIR}")
 add_compile_definitions(SRC_INCLUDE_DIR="${CMAKE_SOURCE_DIR}/include")
+add_compile_definitions(RUST_DIR="${CMAKE_SOURCE_DIR}/rust")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 install(DIRECTORY include/ DESTINATION "${PKG_INCLUDE_DIR}" FILES_MATCHING PATTERN "*.h")
@@ -39,6 +40,28 @@ execute_process(COMMAND "${LLVM_CONFIG_PATH}" --build-mode OUTPUT_VARIABLE LLVM_
 
 add_compile_definitions(LLVM_BUILDMODE="${LLVM_BUILDMODE}")
 add_compile_definitions(LLVM_VERSION="${LLVM_PACKAGE_VERSION}")
+
+# Find Rust-installations in path given by the user
+find_program(RUSTC_PATH rustc PATHS ${RUST_BIN_PATH} NO_CACHE NO_DEFAULT_PATH)
+find_program(CARGO_PATH cargo PATHS ${RUST_BIN_PATH} NO_CACHE NO_DEFAULT_PATH)
+if(NOT RUSTC_PATH)
+  message(STATUS "Could NOT find Rust, skipping...")
+else()  
+  # Determine the LLVM-version used by Rust, reject if it's a different major version
+  execute_process(COMMAND "${RUSTC_PATH}" -vV OUTPUT_VARIABLE RUSTC_VERSION)
+  string(REGEX MATCH "LLVM version: (([0-9]+)\\.[0-9]+\\.[0-9]+)" _ ${RUSTC_VERSION})
+  set(RUSTC_LLVM_VERSION "${CMAKE_MATCH_1}")
+  set(RUSTC_LLVM_VERSION_MAJOR "${CMAKE_MATCH_2}")
+
+  message(STATUS "Found rustc ${RUSTC_PATH} (LLVM-version: ${RUSTC_LLVM_VERSION})")
+  message(STATUS "Found cargo ${CARGO_PATH}")
+  if(LLVM_PACKAGE_VERSION MATCHES "${RUSTC_LLVM_VERSION_MAJOR}\\.[0-9]+\\.[0-9]+")
+    add_compile_definitions(RUSTC_PATH="${RUSTC_PATH}")
+    add_compile_definitions(CARGO_PATH="${CARGO_PATH}")
+  else()
+    message(STATUS "Rust using different major LLVM-version, skipping...")
+  endif()
+endif()
 
 execute_process(
   COMMAND git rev-parse --short HEAD
