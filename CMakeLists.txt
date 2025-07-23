@@ -4,16 +4,17 @@ project(genmc VERSION 0.11.0 LANGUAGES CXX C)
 enable_testing()
 include(CTest)
 
-### Package information
 include(GNUInstallDirs)
+
+### Package information
 set(PKG_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/runtime")
-add_compile_definitions(PACKAGE_NAME="GenMC")
-add_compile_definitions(PACKAGE_BUGREPORT="michalis.kokologiannakis@inf.ethz.ch")
-add_compile_definitions(PACKAGE_URL="https://plv.mpi-sws.org/genmc")
-add_compile_definitions("PACKAGE_VERSION=\"${CMAKE_PROJECT_VERSION}\"")
-add_compile_definitions(INCLUDE_DIR="${CMAKE_INSTALL_PREFIX}/${PKG_INCLUDE_DIR}")
-add_compile_definitions(SRC_INCLUDE_DIR="${CMAKE_SOURCE_DIR}/include")
-add_compile_definitions(RUST_DIR="${CMAKE_SOURCE_DIR}/rust")
+set(PACKAGE_NAME "GenMC")
+set(PACKAGE_BUGREPORT "michalis.kokologiannakis@inf.ethz.ch")
+set(PACKAGE_URL "https://plv.mpi-sws.org/genmc")
+set(PACKAGE_VERSION "${CMAKE_PROJECT_VERSION}")
+set(INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/${PKG_INCLUDE_DIR}")
+set(SRC_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
+set(RUST_DIR "${CMAKE_SOURCE_DIR}/rust")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 install(DIRECTORY include/ DESTINATION "${PKG_INCLUDE_DIR}" FILES_MATCHING PATTERN "*.h")
@@ -30,7 +31,6 @@ find_package(LLVM REQUIRED CONFIG)
 
 find_program(CLANGPATH clang PATHS ${LLVM_TOOLS_BINARY_DIR} NO_CACHE NO_DEFAULT_PATH REQUIRED)
 find_program(LLVM_CONFIG_PATH llvm-config PATHS ${LLVM_TOOLS_BINARY_DIR} NO_CACHE NO_DEFAULT_PATH REQUIRED)
-add_compile_definitions(CLANGPATH="${CLANGPATH}")
 message(STATUS "Using LLVM ${LLVM_PACKAGE_VERSION} (${LLVM_CONFIG_PATH})")
 message(STATUS "Using clang ${CLANGPATH}")
 
@@ -38,15 +38,13 @@ separate_arguments(LLVM_DEFINITIONS)
 execute_process(COMMAND "${LLVM_CONFIG_PATH}" --build-mode OUTPUT_VARIABLE LLVM_BUILDMODE
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-add_compile_definitions(LLVM_BUILDMODE="${LLVM_BUILDMODE}")
-add_compile_definitions(LLVM_VERSION="${LLVM_PACKAGE_VERSION}")
 
 # Find Rust-installations in path given by the user
 find_program(RUSTC_PATH rustc PATHS ${RUST_BIN_PATH} NO_CACHE NO_DEFAULT_PATH)
 find_program(CARGO_PATH cargo PATHS ${RUST_BIN_PATH} NO_CACHE NO_DEFAULT_PATH)
 if(NOT RUSTC_PATH)
   message(STATUS "Could NOT find Rust, skipping...")
-else()  
+else()
   # Determine the LLVM-version used by Rust, reject if it's a different major version
   execute_process(COMMAND "${RUSTC_PATH}" -vV OUTPUT_VARIABLE RUSTC_VERSION)
   string(REGEX MATCH "LLVM version: (([0-9]+)\\.[0-9]+\\.[0-9]+)" _ ${RUSTC_VERSION})
@@ -56,8 +54,8 @@ else()
   message(STATUS "Found rustc ${RUSTC_PATH} (LLVM-version: ${RUSTC_LLVM_VERSION})")
   message(STATUS "Found cargo ${CARGO_PATH}")
   if(LLVM_PACKAGE_VERSION MATCHES "${RUSTC_LLVM_VERSION_MAJOR}\\.[0-9]+\\.[0-9]+")
-    add_compile_definitions(RUSTC_PATH="${RUSTC_PATH}")
-    add_compile_definitions(CARGO_PATH="${CARGO_PATH}")
+    set(CONFIG_RUSTC_PATH "${RUSTC_PATH}")
+    set(CONFIG_CARGO_PATH "${CARGO_PATH}")
   else()
     message(STATUS "Rust using different major LLVM-version, skipping...")
   endif()
@@ -74,9 +72,8 @@ execute_process(
 )
 if(NOT GIT_RESULT EQUAL 0)
   message(STATUS "Unable to determine git commit hash: ${GIT_ERROR}")
-  set(GIT_COMMIT "uknown")
+  set(GIT_COMMIT "unknown")
 endif()
-add_compile_definitions(GIT_COMMIT="${GIT_COMMIT}")
 
 ### Coverage/linting
 option(ENABLE_COVERAGE "Enable coverage reporting" OFF)

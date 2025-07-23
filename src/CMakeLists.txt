@@ -73,27 +73,40 @@ set(SOURCES
   Verification/Relinche/Observation.cpp
   Verification/Relinche/Specification.cpp
   Verification/Scheduler.cpp
-  main.cpp
 )
 
+### Interface library for includes and compile features
+add_library(genmc_config_includes INTERFACE)
+configure_file(${CMAKE_SOURCE_DIR}/config.h.in ${CMAKE_BINARY_DIR}/include/config.h)
+install(FILES ${CMAKE_BINARY_DIR}/include/config.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/genmc)
+
+target_compile_features(genmc_config_includes INTERFACE cxx_std_23)
+target_include_directories(genmc_config_includes INTERFACE ${CMAKE_BINARY_DIR}/include)
+
+### GenMC library
 find_package(Threads REQUIRED)
 find_library(HWLOC hwloc)
 
-add_executable(${PROJECT_NAME} ${SOURCES})
-install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+add_library(genmc_lib ${GENMC_LIB_TYPE} ${SOURCES})
+install(TARGETS genmc_lib ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME})
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.def")
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE ${LLVM_DEFINITIONS})
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${LLVM_INCLUDE_DIRS})
-target_link_libraries(genmc PRIVATE ffi dl Threads::Threads LLVM)
+target_compile_definitions(genmc_lib PUBLIC ${LLVM_DEFINITIONS})
+target_include_directories(genmc_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${LLVM_INCLUDE_DIRS})
+target_link_libraries(genmc_lib PUBLIC ffi dl Threads::Threads LLVM genmc_config_includes)
 if(HWLOC)
-  target_link_libraries(${PROJECT_NAME} PRIVATE hwloc)
+  target_link_libraries(genmc_lib PRIVATE hwloc)
 else()
-   message(STATUS "hwloc not found. Thread pinning disabled.")
+  message(STATUS "hwloc not found. Thread pinning disabled.")
 endif()
 
+### GenMC executable
+add_executable(${PROJECT_NAME} main.cpp)
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/${PROJECT_NAME})
+
+target_link_libraries(${PROJECT_NAME} PRIVATE genmc_config_includes genmc_lib)
+
 option(GENMC_DEBUG "Enable GenMC debugging infrastructure (ON for Debug)" OFF)
-target_compile_definitions(${PROJECT_NAME}
-  PRIVATE
-   $<$<OR:$<CONFIG:Debug>,$<BOOL:${GENMC_DEBUG}>>:ENABLE_GENMC_DEBUG>
-)
+add_compile_definitions($<$<OR:$<CONFIG:Debug>,$<BOOL:${GENMC_DEBUG}>>:ENABLE_GENMC_DEBUG>)

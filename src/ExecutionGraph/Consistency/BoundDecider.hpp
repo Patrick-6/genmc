@@ -21,6 +21,8 @@
 #ifndef GENMC_BOUND_DECIDER_HPP
 #define GENMC_BOUND_DECIDER_HPP
 
+#include "config.h"
+
 #include <memory>
 
 class ExecutionGraph;
