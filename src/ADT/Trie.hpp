@@ -80,7 +80,7 @@ public:
 			return fNode;
 		}
 
-#if ENABLE_GENMC_DEBUG
+#ifdef ENABLE_GENMC_DEBUG
 		void dump()
 		{
 			llvm::dbgs() << "Node: " << this << "\n"
@@ -90,7 +90,7 @@ public:
 			for (auto i = begin(), e = end(); i != e; ++i)
 				llvm::dbgs() << *i << " -> " << format((*i)->label()) << "\n";
 		}
-#endif
+#endif /* ifdef ENABLE_GENMC_DEBUG */
 
 	private:
 		enum class QueryResult : std::int8_t {
@@ -314,13 +314,13 @@ public:
 		return true;
 	}
 
-#if ENABLE_GENMC_DEBUG
+#ifdef ENABLE_GENMC_DEBUG
 	void dump()
 	{
 		for (auto &n : nodes)
 			n->dump();
 	}
-#endif
+#endif /* ifdef ENABLE_GENMC_DEBUG */
 
 private:
 	auto getRoot() const -> Node * { return &*nodes[0]; }
