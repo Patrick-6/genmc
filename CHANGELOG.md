@@ -8,6 +8,23 @@ released.
 ## [Unreleased]
 
 - Merge of MIXER [POPL'25] into mainline GenMC
+- Documentation for LLVM-based Rust frontend
+
+## [0.12.0] - 2025.07.24
+### Added
+
+- Support for LLVM overflow intrinsics
+- Experimental LLVM-based Rust frontend
+
+### Changes
+
+- Switched to cmake
+- GenMC builds as a library as well by default
+
+### Fixes
+
+- Various bug fixes
+
 
 ## [0.11.0] - 2025.04.05
 ### Added
@@ -23,6 +40,7 @@ released.
 
 - Test suite no longer depends on `getopt`
 - Support for LLVM-{10,11,12}
+
 
 ## [0.10.3] - 2025.02.26
 ### Added
