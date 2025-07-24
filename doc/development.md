@@ -9,6 +9,10 @@
 
 # Modifying GenMC
 
+## Pull requests
+
+Please submit PRs as series of atomic, easily reversible commits.
+
 ## Code conventions
 
 ### Classes
