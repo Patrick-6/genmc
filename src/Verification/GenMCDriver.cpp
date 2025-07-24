@@ -1446,7 +1446,6 @@ EventLabel *GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *
 	 * (during estimation, reads read from arbitrary places anyway).
 	 * If that is the case, we have to ensure that estimation won't stop. */
 	if (cos.empty()) {
-		// TODO: Check if this is actually reachable. if not, propagate it outwards
 		getExec().getWorkqueue().add(std::make_unique<RerunForwardRevisit>());
 		return nullptr;
 	}
@@ -1474,6 +1473,9 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 
+	/* Stores cannot cause atomicity violation:
+	 * - In normal mode, non-maximal RMW are completed elsewhere
+	 * - In estimation mode, we have already filtered violations on the read part */
 	if (checkAccessValidity(lab) != VerificationError::VE_OK ||
 	    checkInitializedMem(lab) != VerificationError::VE_OK ||
 	    checkFinalAnnotations(lab) != VerificationError::VE_OK ||
