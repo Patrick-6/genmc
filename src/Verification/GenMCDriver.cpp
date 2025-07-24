@@ -980,7 +980,13 @@ EventLabel *GenMCDriver::findConsistentRf(ReadLabel *rLab, std::vector<EventLabe
 			return back;
 	}
 
-	/* If none is found, tough luck */
+	/* Extensibility is guaranteed with bounding because
+	 * - the consistent choice might lead to a settled atomicity violation and has already been
+	 * filtered-out
+	 * - context bounding's slack might have changed due to an optimization */
+	BUG_ON(!(getConf()->bound.has_value() &&
+		 ((llvm::isa<CasReadLabel>(rLab) || llvm::isa<FaiReadLabel>(rLab)) ||
+		  getConf()->boundType == BoundType::context)));
 	return nullptr;
 }
 
@@ -1306,11 +1312,8 @@ EventLabel *GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *>
 				    }),
 		     stores.end());
 
-	/* Not always extensible */
-	if (stores.empty()) {
-		BUG_ON(!getConf()->bound.has_value());
-		return nullptr;
-	}
+	/* There is no bounding during estimation; reads are always extensible */
+	BUG_ON(stores.empty());
 
 	MyDist dist(0, stores.size() - 1);
 	auto random = dist(estRng);
@@ -1446,6 +1449,7 @@ EventLabel *GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *
 	 * (during estimation, reads read from arbitrary places anyway).
 	 * If that is the case, we have to ensure that estimation won't stop. */
 	if (cos.empty()) {
+		BUG_ON(!sLab->isRMW());
 		getExec().getWorkqueue().add(std::make_unique<RerunForwardRevisit>());
 		return nullptr;
 	}
