@@ -20,7 +20,6 @@
 
 #include "EliminateCastsPass.hpp"
 #include "Static/LLVMUtils.hpp"
-#include "config.h"
 
 #include <llvm/Analysis/ValueTracking.h>
 #include <llvm/IR/DerivedTypes.h>

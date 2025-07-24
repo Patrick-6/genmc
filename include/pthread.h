@@ -27,6 +27,8 @@ extern "C"
 //#include <endian.h>
 /* #include <sched.h> */
 /* #include <time.h> */
+#include <stdio.h>
+#include <assert.h>
 #include <genmc_internal.h>
 
 typedef __VERIFIER_attr_t pthread_attr_t;
@@ -626,21 +628,62 @@ int pthread_barrier_init(pthread_barrier_t *__restrict __barrier,
 			 const pthread_barrierattr_t *__restrict __attr,
 			 unsigned int __count)
 {
-	return __VERIFIER_barrier_init(__barrier, __attr, __count);
+	static bool printed = false;
+	if (__attr && !printed) {
+		printed = true;
+		printf("WARNING: pthread-barrier-init attribute, "
+		       "Ignoring non-null argument given to pthread_barrier_init.\n");
+	}
+
+	assert(__count > 0 &&
+	       "pthread_barrier_init() called with an invalid value!");
+	assert(__barrier->__count == 0 &&
+	       "pthread_barrier_init() called on an already initialized barrier!");
+
+	__barrier->__count = __count;
+
+	__VERIFIER_annotate_begin(GENMC_KIND_BARRIER);
+	__barrier->__private = 0;
+	__VERIFIER_annotate_end(GENMC_KIND_BARRIER);
+
+	return 0;
 }
 
 /* Wait on barrier BARRIER.  */
 __attribute__ ((always_inline)) static inline
 int pthread_barrier_wait(pthread_barrier_t *__barrier)
 {
-	return __VERIFIER_barrier_wait(__barrier);
+	int iVal = __barrier->__count;
+
+	assert(iVal != 0 &&
+	       "pthread_barrier_wait() called on uninitialized/destroyed barrier!");
+
+	__VERIFIER_annotate_begin(GENMC_KIND_BARRIER);
+	int b_old = __atomic_fetch_add(&__barrier->__private, 1, __ATOMIC_ACQ_REL);
+	__VERIFIER_annotate_end(GENMC_KIND_BARRIER);
+
+	__VERIFIER_annotate_begin(GENMC_KIND_BARRIER);
+	int b_new = __atomic_load_n(&__barrier->__private, __ATOMIC_ACQUIRE);
+	__VERIFIER_annotate_end(GENMC_KIND_BARRIER);
+
+	__VERIFIER_assume_internal((b_old / iVal) < (b_new / iVal), GENMC_ASSUME_BARRIER);
+
+	/* ***NOTE*** implementation structure used in result checker pass! */
+	return (b_old % iVal != 0) ? 0 : PTHREAD_BARRIER_SERIAL_THREAD;
 }
 
 /* Destroy a previously dynamically initialized barrier BARRIER.  */
 __attribute__ ((always_inline)) static inline
 int pthread_barrier_destroy(pthread_barrier_t *__barrier)
 {
-	return __VERIFIER_barrier_destroy(__barrier);
+	assert(__barrier->__count != 0 &&
+	       "pthread_barrier_destroy() called on uninitialized/destroyed barrier!");
+
+	__VERIFIER_annotate_begin(GENMC_KIND_BARRIER);
+	__barrier->__count = 0;
+	__VERIFIER_annotate_end(GENMC_KIND_BARRIER);
+
+	return 0;
 }
 
 #ifdef __cplusplus

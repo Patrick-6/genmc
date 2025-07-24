@@ -21,8 +21,8 @@
 #include "MDataCollectionPass.hpp"
 #include "Static/LLVMUtils.hpp"
 #include "Support/Error.hpp"
-#include "config.h"
 #include <llvm/ADT/Twine.h>
+#include <llvm/BinaryFormat/Dwarf.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/DebugInfo.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -90,6 +90,23 @@ void collectVarName(Module &M, unsigned int ptr, Type *typ, DIType *dit, std::st
 		for (auto it = ST->element_begin(); i < minSize; ++it, ++i) {
 			auto elemSize = M.getDataLayout().getTypeAllocSize(*it);
 			auto didt = dictElems[i];
+
+			/* Skip any C-level const class members: these don't make it in the LLVM
+			 * type but do appear in the debug data */
+			while (i < dictElems.size()) {
+				/* const class members have variable tag */
+				auto *dit = dyn_cast<DIDerivedType>(didt);
+				if (!dit || dit->getTag() != llvm::dwarf::Tag::DW_TAG_variable)
+					break;
+
+				/* they also have base type with const tag */
+				if (dit->getBaseType()->getTag() !=
+				    llvm::dwarf::Tag::DW_TAG_const_type)
+					break;
+
+				didt = dictElems[++i];
+			}
+
 			if (auto *dit = dyn_cast<DIDerivedType>(didt)) {
 				if (auto ditb = dyn_cast<DIType>(dit->getBaseType()))
 					collectVarName(M, ptr + offset, *it, ditb,

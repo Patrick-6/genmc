@@ -21,7 +21,6 @@
 #ifndef GENMC_THREAD_PINNER_HPP
 #define GENMC_THREAD_PINNER_HPP
 
-#include "config.h"
 #include <thread>
 #include <vector>
 #ifdef HAVE_LIBHWLOC

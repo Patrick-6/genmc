@@ -23,7 +23,6 @@
 
 #include "Support/Error.hpp"
 
-#include <config.h>
 #include <string>
 #include <unordered_map>
 
@@ -51,6 +50,7 @@ enum class VerificationError {
 	VE_WWRace,
 	VE_UnfreedMemory,
 	VE_NonErrorLast,
+
 	VE_Safety,
 	VE_Recovery,
 	VE_Liveness,
@@ -70,8 +70,7 @@ enum class VerificationError {
 	VE_InvalidJoin,
 	VE_InvalidUnlock,
 	VE_InvalidBInit,
-	VE_InvalidRecoveryCall,
-	VE_InvalidTruncate,
+	VE_BarrierWellFormedness,
 	VE_Annotation,
 	VE_MixedSize,
 	VE_LinearizabilityError,

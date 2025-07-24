@@ -21,8 +21,9 @@
 #ifndef GENMC_S_EXPR_HPP
 #define GENMC_S_EXPR_HPP
 
-#include "Error.hpp"
-#include "SVal.hpp"
+#include "Support/Error.hpp"
+#include "Support/SExpr.hpp"
+#include "Support/SVal.hpp"
 
 #include <memory>
 
@@ -677,6 +678,6 @@ COMPARISON_EXPR_CLASS(Sgt)
 
 COMPARISON_EXPR_CLASS(Sge)
 
-#include "SExpr.tcc"
+template <typename T> unsigned RegisterExpr<T>::regCount = 0;
 
 #endif /* GENMC_S_EXPR_HPP */

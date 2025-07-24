@@ -19,6 +19,7 @@
  */
 
 #include "config.h"
+
 #include "Config/Config.hpp"
 #include "Support/Error.hpp"
 #include "Support/Logger.hpp"
@@ -26,17 +27,18 @@
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <filesystem>
+
 /*** Command-line argument categories ***/
 
 static llvm::cl::OptionCategory clGeneral("Exploration Options");
-static llvm::cl::OptionCategory clPersistency("Persistency Options");
 static llvm::cl::OptionCategory clTransformation("Transformation Options");
 static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
 /*** General syntax ***/
 
 static llvm::cl::list<std::string> clCFLAGS(llvm::cl::Positional, llvm::cl::ZeroOrMore,
-					    llvm::cl::desc("-- [CFLAGS]"));
+					    llvm::cl::desc("-- [compiler flags]"));
 
 static llvm::cl::opt<std::string> clInputFile(llvm::cl::Positional, llvm::cl::Required,
 					      llvm::cl::desc("<input file>"));
@@ -82,8 +84,15 @@ static llvm::cl::opt<bool>
 static llvm::cl::opt<bool> clDisableSymmetryReduction("disable-sr", llvm::cl::cat(clGeneral),
 						      llvm::cl::desc("Disable symmetry reduction"));
 
-static llvm::cl::opt<bool> clHelper("helper", llvm::cl::cat(clGeneral),
-				    llvm::cl::desc("Enable Helper for CDs verification"));
+static llvm::cl::opt<bool> clDisableHelper("disable-helper", llvm::cl::cat(clGeneral),
+					   llvm::cl::desc("Disable helping pattern optimization"));
+
+static llvm::cl::opt<bool>
+	clConfirmation("confirmation", llvm::cl::cat(clGeneral),
+		       llvm::cl::desc("Enable confirmation pattern optimization"));
+
+static llvm::cl::opt<bool> clDisableFinalWrite("disable-final-write", llvm::cl::cat(clGeneral),
+					       llvm::cl::desc("Disable final write optimization"));
 
 static llvm::cl::opt<bool> clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
 					     llvm::cl::desc("Print error trace"));
@@ -134,30 +143,6 @@ static llvm::cl::opt<unsigned int> clMaxExtSize(
 	llvm::cl::cat(clDebugging),
 	llvm::cl::desc("Limit the number of edges in hints to be considered (for debugging)"));
 
-/*** Persistency options ***/
-
-static llvm::cl::opt<bool> clPersevere("persevere", llvm::cl::cat(clPersistency),
-				       llvm::cl::desc("Enable persistency checks (Persevere)"));
-
-static llvm::cl::opt<unsigned int> clBlockSize("block-size", llvm::cl::cat(clPersistency),
-					       llvm::cl::init(2),
-					       llvm::cl::desc("Block size (in bytes)"));
-
-static llvm::cl::opt<unsigned int> clMaxFileSize("max-file-size", llvm::cl::cat(clPersistency),
-						 llvm::cl::init(64),
-						 llvm::cl::desc("Maximum file size (in bytes)"));
-
-static llvm::cl::opt<JournalDataFS> clJournalData(
-	"journal-data", llvm::cl::cat(clPersistency), llvm::cl::init(JournalDataFS::ordered),
-	llvm::cl::desc("Specify the journaling mode for file data:"),
-	llvm::cl::values(clEnumValN(JournalDataFS::writeback, "writeback",
-				    "Data ordering not preserved"),
-			 clEnumValN(JournalDataFS::ordered, "ordered", "Data before metadata"),
-			 clEnumValN(JournalDataFS::journal, "journal", "Journal data")));
-
-static llvm::cl::opt<bool> clDisableDelalloc("disable-delalloc", llvm::cl::cat(clPersistency),
-					     llvm::cl::desc("Do not model delayed allocation"));
-
 /*** Transformation options ***/
 
 static llvm::cl::opt<int> clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
@@ -196,10 +181,6 @@ static llvm::cl::opt<bool>
 	clDisableAssumePropagation("disable-assume-propagation", llvm::cl::cat(clTransformation),
 				   llvm::cl::desc("Disable assume-propagation transformation"));
 
-static llvm::cl::opt<bool>
-	clDisableConfirmAnnot("disable-confirmation-annotation", llvm::cl::cat(clTransformation),
-			      llvm::cl::desc("Disable confirmation-annotation transformation"));
-
 static llvm::cl::opt<bool> clDisableMMDetector("disable-mm-detector",
 					       llvm::cl::cat(clTransformation),
 					       llvm::cl::desc("Disable MM detector pass"));
@@ -225,25 +206,36 @@ static llvm::cl::opt<std::string> clProgramEntryFunction(
 	llvm::cl::cat(clDebugging),
 	llvm::cl::desc("Function used as program entrypoint (default: main())"));
 
-static llvm::cl::opt<bool>
-	clInputFromBitcodeFile("input-from-bitcode-file", llvm::cl::cat(clDebugging),
-			       llvm::cl::desc("The input file contains LLVM bitcode"));
+static llvm::cl::opt<std::string> clOutputLlvmBefore(
+	"output-llvm-before", llvm::cl::init(""), llvm::cl::value_desc("file"),
+	llvm::cl::cat(clDebugging),
+	llvm::cl::desc("Output the LLVM code to file before applying transformations"));
+static llvm::cl::opt<std::string> clOutputLlvmAfter(
+	"output-llvm-after", llvm::cl::init(""), llvm::cl::value_desc("file"),
+	llvm::cl::cat(clDebugging),
+	llvm::cl::desc("Output the LLVM code to file after applying transformations"));
+
+static llvm::cl::opt<bool> clDisableGenmcStdRebuild(
+	"disable-genmc-std-rebuild", llvm::cl::cat(clDebugging),
+	llvm::cl::desc("Don't rebuild the genmc-std-crate while verifying .rs files "
+		       "if a build is already present"));
 
 static llvm::cl::opt<std::string>
-	clTransformFile("transform-output", llvm::cl::init(""), llvm::cl::value_desc("file"),
-			llvm::cl::cat(clDebugging),
-			llvm::cl::desc("Output the transformed LLVM code to file"));
+	clLinkWith("link-with", llvm::cl::init(""), llvm::cl::value_desc("file"),
+		   llvm::cl::cat(clDebugging),
+		   llvm::cl::desc("Build this file seperately and link the result into the build"));
+
 static llvm::cl::opt<unsigned int>
 	clWarnOnGraphSize("warn-on-graph-size", llvm::cl::init(1024), llvm::cl::value_desc("N"),
 			  llvm::cl::cat(clDebugging),
 			  llvm::cl::desc("Warn about graphs larger than N"));
 llvm::cl::opt<SchedulePolicy> clSchedulePolicy(
-	"schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(SchedulePolicy::wf),
+	"schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(SchedulePolicy::WF),
 	llvm::cl::desc("Choose the scheduling policy:"),
-	llvm::cl::values(clEnumValN(SchedulePolicy::ltr, "ltr", "Left-to-right"),
-			 clEnumValN(SchedulePolicy::wf, "wf", "Writes-first (default)"),
-			 clEnumValN(SchedulePolicy::wfr, "wfr", "Writes-first-random"),
-			 clEnumValN(SchedulePolicy::arbitrary, "arbitrary", "Arbitrary")));
+	llvm::cl::values(clEnumValN(SchedulePolicy::LTR, "ltr", "Left-to-right"),
+			 clEnumValN(SchedulePolicy::WF, "wf", "Writes-first (default)"),
+			 clEnumValN(SchedulePolicy::WFR, "wfr", "Writes-first-random"),
+			 clEnumValN(SchedulePolicy::Arbitrary, "arbitrary", "Arbitrary")));
 
 static llvm::cl::opt<bool> clPrintArbitraryScheduleSeed(
 	"print-schedule-seed", llvm::cl::cat(clDebugging),
@@ -313,14 +305,27 @@ static void printVersion(llvm::raw_ostream &s)
 	  << "\n  Built with LLVM " LLVM_VERSION " (" LLVM_BUILDMODE ")\n";
 }
 
+static auto doesPolicySupportSeed(const SchedulePolicy policy) -> bool
+{
+	switch (policy) {
+	case SchedulePolicy::Arbitrary:
+	case SchedulePolicy::WFR:
+		return true;
+	case SchedulePolicy::LTR:
+	case SchedulePolicy::WF:
+		return false;
+	}
+	BUG(); /* Unknown SchedulePolicy */
+}
+
 static void checkConfigOptions()
 {
 	/* Check exploration options */
 	if (clLAPOR) {
 		ERROR("LAPOR is temporarily disabled.\n");
 	}
-	if (clHelper && clSchedulePolicy == SchedulePolicy::arbitrary) {
-		ERROR("Helper cannot be used with -schedule-policy=arbitrary.\n");
+	if (clConfirmation) {
+		ERROR("Confirmation is temporarily disabled.\n");
 	}
 	if (clModelType == ModelType::IMM && (!clDisableIPR || !clDisableSymmetryReduction)) {
 		WARN("In-place revisiting and symmetry reduction have no effect under IMM\n");
@@ -329,12 +334,10 @@ static void checkConfigOptions()
 	}
 
 	/* Check debugging options */
-	if (clSchedulePolicy != SchedulePolicy::arbitrary && clPrintArbitraryScheduleSeed) {
-		WARN("--print-schedule-seed used without -schedule-policy=arbitrary.\n");
-	}
-	if (clSchedulePolicy != SchedulePolicy::arbitrary && !clArbitraryScheduleSeed.empty()) {
-		WARN("--schedule-seed used without -schedule-policy=arbitrary.\n");
-	}
+	if (!doesPolicySupportSeed(clSchedulePolicy) && clPrintArbitraryScheduleSeed)
+		WARN("--print-schedule-seed used without --schedule-policy={arbitrary,wfr}.\n");
+	if (!doesPolicySupportSeed(clSchedulePolicy) && !clArbitraryScheduleSeed.empty())
+		WARN("--schedule-seed used without --schedule-policy={arbitrary,wfr}.\n");
 
 	/* Check bounding options */
 	if (clBound != -1 && clModelType != ModelType::SC) {
@@ -349,13 +352,13 @@ static void checkConfigOptions()
 	/* Sanitize bounding options */
 	bool bounding = (clBound != -1);
 	GENMC_DEBUG(bounding |= clBoundsHistogram;);
-	if (bounding && (clLAPOR || clHelper || !clDisableBAM || !clDisableSymmetryReduction ||
-			 !clDisableIPR || clSchedulePolicy != SchedulePolicy::ltr)) {
-		WARN("LAPOR/Helper/BAM/SR/IPR have no effect when --bound is used. Scheduling "
+	if (bounding && (clLAPOR || !clDisableBAM || !clDisableSymmetryReduction || !clDisableIPR ||
+			 clSchedulePolicy != SchedulePolicy::LTR)) {
+		WARN("LAPOR/BAM/SR/IPR have no effect when --bound is used. Scheduling "
 		     "defaults to LTR.\n");
-		clLAPOR = clHelper = false;
+		clLAPOR = false;
 		clDisableBAM = clDisableSymmetryReduction = clDisableIPR = true;
-		clSchedulePolicy = SchedulePolicy::ltr;
+		clSchedulePolicy = SchedulePolicy::LTR;
 	}
 
 	/* Check Relinche options */
@@ -365,8 +368,32 @@ static void checkConfigOptions()
 	}
 
 	/* Make sure filename is a regular file */
-	if (!llvm::sys::fs::is_regular_file(clInputFile))
-		ERROR("Input file is not a regular file!\n");
+	if (!llvm::sys::fs::is_regular_file(clInputFile) &&
+	    !llvm::sys::fs::is_directory(clInputFile))
+		ERROR("Input file is neither a regular file, nor a directory!\n");
+
+	/* Make sure -disable-genmc-std-rebuild is used only on Rust builds */
+	InputType langInput = determineLang(clInputFile);
+	InputType langLink = determineLang(clLinkWith);
+	if (langInput != InputType::rust && langInput != InputType::cargo &&
+	    langLink != InputType::rust && langLink != InputType::cargo &&
+	    clDisableGenmcStdRebuild) {
+		ERROR("-disable-genmc-std-rebuild used on a non-Rust input file.\n");
+	}
+}
+
+InputType determineLang(std::string inputFile)
+{
+	std::filesystem::path inputFilePath(inputFile);
+	if (inputFilePath.extension() == ".toml") { /* Cargo.toml file */
+		return InputType::cargo;
+	} else if (inputFilePath.extension() == ".rs") { /* Single .rs file */
+		return InputType::rust;
+	} else if (inputFilePath.extension() == ".ll") { /* LLVM-IR direct input */
+		return InputType::llvmir;
+	} else { /* Default: C/C++ */
+		return InputType::clang;
+	}
 }
 
 static void saveConfigOptions(Config &conf)
@@ -374,6 +401,9 @@ static void saveConfigOptions(Config &conf)
 	/* General syntax */
 	conf.cflags.insert(conf.cflags.end(), clCFLAGS.begin(), clCFLAGS.end());
 	conf.inputFile = std::move(clInputFile);
+
+	/* Input language (LLVM-IR, Rust, C/C++) */
+	conf.lang = determineLang(conf.inputFile);
 
 	/* Save exploration options */
 	conf.dotFile = std::move(clDotGraphFile);
@@ -388,7 +418,9 @@ static void saveConfigOptions(Config &conf)
 	conf.boundType = clBoundType;
 	conf.LAPOR = clLAPOR;
 	conf.symmetryReduction = !clDisableSymmetryReduction;
-	conf.helper = clHelper;
+	conf.helper = !clDisableHelper;
+	conf.confirmation = clConfirmation;
+	conf.finalWrite = !clDisableFinalWrite;
 	conf.printErrorTrace = clPrintErrorTrace;
 	conf.checkLiveness = clCheckLiveness;
 	conf.instructionCaching = !clDisableInstructionCaching;
@@ -404,13 +436,6 @@ static void saveConfigOptions(Config &conf)
 	conf.dotPrintOnlyClientEvents = clDotPrintOnlyClientEvents;
 	conf.maxExtSize = clMaxExtSize;
 
-	/* Save persistency options */
-	conf.persevere = clPersevere;
-	conf.blockSize = clBlockSize;
-	conf.maxFileSize = clMaxFileSize;
-	conf.journalData = clJournalData;
-	conf.disableDelalloc = clDisableDelalloc;
-
 	/* Save transformation options */
 	conf.unroll = clLoopUnroll >= 0 ? std::optional(clLoopUnroll.getValue()) : std::nullopt;
 	conf.noUnrollFuns.insert(clNoUnrollFuns.begin(), clNoUnrollFuns.end());
@@ -421,7 +446,6 @@ static void saveConfigOptions(Config &conf)
 	conf.codeCondenser = !clDisableCodeCondenser;
 	conf.loadAnnot = !clDisableLoadAnnot;
 	conf.assumePropagation = !clDisableAssumePropagation;
-	conf.confirmAnnot = !clDisableConfirmAnnot;
 	conf.mmDetector = !clDisableMMDetector;
 
 	/* Save debugging options */
@@ -432,8 +456,10 @@ static void saveConfigOptions(Config &conf)
 	conf.randomScheduleSeed = std::move(clArbitraryScheduleSeed);
 	conf.printExecGraphs = clPrintExecGraphs;
 	conf.printBlockedExecs = clPrintBlockedExecs;
-	conf.inputFromBitcodeFile = clInputFromBitcodeFile;
-	conf.transformFile = std::move(clTransformFile);
+	conf.outputLlvmBefore = std::move(clOutputLlvmBefore);
+	conf.outputLlvmAfter = std::move(clOutputLlvmAfter);
+	conf.disableGenmcStdRebuild = clDisableGenmcStdRebuild;
+	conf.linkWith = std::move(clLinkWith);
 	conf.vLevel = clVLevel;
 #ifdef ENABLE_GENMC_DEBUG
 	conf.printStamps = clPrintStamps;
@@ -450,8 +476,7 @@ static void saveConfigOptions(Config &conf)
 void parseConfig(int argc, char **argv, Config &conf)
 {
 	/* Option categories printed */
-	const llvm::cl::OptionCategory *cats[] = {&clGeneral, &clDebugging, &clTransformation,
-						  &clPersistency};
+	const llvm::cl::OptionCategory *cats[] = {&clGeneral, &clDebugging, &clTransformation};
 
 	llvm::cl::SetVersionPrinter(printVersion);
 

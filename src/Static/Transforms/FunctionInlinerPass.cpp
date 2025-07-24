@@ -20,7 +20,7 @@
 
 #include "FunctionInlinerPass.hpp"
 #include "Runtime/InterpreterEnumAPI.hpp"
-#include "config.h"
+#include <llvm/ADT/SCCIterator.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Analysis/CallGraph.h>
 #include <llvm/Analysis/PostDominators.h>
@@ -30,55 +30,52 @@
 
 using namespace llvm;
 
-static auto isInlinable(CallGraph &CG, CallGraphNode *node, SmallVector<CallGraphNode *, 4> &chain)
-	-> bool
+/**
+ * Do not inline any functions that are (mutually) recursive.
+ *
+ * Example transforms that are permitted (below only f1 will be inlined):
+ * f->f1->f2->f3->f4->f2->f3->f4... => f->f2->f3->f4->f2->f3->f4
+ * f->f1->f2->f2->f2->... => main->f2->f2->f2...
+ */
+static auto isRecursive(CallGraph &CG, Function &F) -> bool
 {
-	/* Base cases: indirect/empty/recursive calls */
-	auto *F = node->getFunction();
-	if (node == CG.getCallsExternalNode())
-		return false;
-	if (F->empty())
-		return isInternalFunction(F->getName().str());
-	if (std::find(chain.begin(), chain.end(), node) != chain.end())
-		return false;
-
-	chain.push_back(node);
-	for (auto &c : *node) {
-		if (!isInlinable(CG, c.second, chain))
-			return false;
+	for (auto sccIt = scc_begin(&CG); !sccIt.isAtEnd(); ++sccIt) {
+		if (std::ranges::find(*sccIt, CG[&F]) != sccIt->end() && sccIt.hasCycle())
+			return true;
 	}
-	chain.pop_back();
-	return true;
+	return false;
 }
 
 static auto isInlinable(CallGraph &CG, Function &F) -> bool
 {
-	SmallVector<CallGraphNode *, 4> chain;
-	return isInlinable(CG, CG[&F], chain);
+	return !F.isDeclaration() && !isInternalFunction(F.getName().str()) && !isRecursive(CG, F);
 }
 
-static auto inlineCall(CallInst *ci) -> bool
+static auto inlineCall(CallBase *cb) -> bool
 {
 	llvm::InlineFunctionInfo ifi;
 
 #if LLVM_VERSION_MAJOR >= 11
-	return InlineFunction(*ci, ifi).isSuccess();
+	return InlineFunction(*cb, ifi).isSuccess();
 #else
-	return InlineFunction(ci, ifi);
+	return InlineFunction(*cb, ifi);
 #endif
 }
 
 static auto inlineFunction(Module &M, Function *toInline) -> bool
 {
-	std::vector<CallInst *> calls;
+	std::vector<CallBase *> calls;
 	for (auto &F : M) {
+		if (&F == toInline) /* No need to inline calls to itself */
+			continue;
+
 		for (auto &iit : instructions(F)) {
-			auto *ci = dyn_cast<CallInst>(&iit);
-			if (!ci)
+			if (!isa<InvokeInst>(&iit) && !isa<CallInst>(&iit))
 				continue;
 
-			if (ci->getCalledFunction() == toInline)
-				calls.push_back(ci);
+			auto *cb = dyn_cast<CallBase>(&iit);
+			if (cb->getCalledFunction() == toInline)
+				calls.push_back(cb);
 		}
 	}
 
@@ -95,9 +92,10 @@ auto FunctionInlinerPass::run(Module &M, ModuleAnalysisManager &AM) -> Preserved
 
 	auto changed = false;
 	for (auto &F : M) {
-		if (!F.empty() && isInlinable(CG, F)) {
+		/* Don't try on functions with empty bodies, external declarations, GenMCs own
+		 * functions and (mutually) recursive functions */
+		if (!F.empty() && isInlinable(CG, F))
 			changed |= inlineFunction(M, &F);
-		}
 	}
 	return changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }

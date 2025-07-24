@@ -12,7 +12,7 @@ extern "C"
 /*
  * Blocks the current execution if the argument is false
  */
-void __VERIFIER_assume(bool) __attribute__ ((__nothrow__));
+#define __VERIFIER_assume(cond) __VERIFIER_assume_internal(cond, GENMC_ASSUME_USER)
 
 /*
  * Models a limited amount of non-determinism by returning
@@ -53,7 +53,7 @@ __VERIFIER_thread_t __VERIFIER_spawn_symmetric (void *(*__start_routine) (void *
 /*
  * Joins thread TH and returns its result.
  */
-__attribute__ ((always_inline, always_inline)) static inline
+__attribute__ ((__nothrow__, always_inline)) static inline
 void *__VERIFIER_join (__VERIFIER_thread_t __th)
 {
 	return __VERIFIER_thread_join(__th);
@@ -64,7 +64,7 @@ void *__VERIFIER_join (__VERIFIER_thread_t __th)
  * This function merely ensures that the result of the joined thread is
  * not going to be used.
  */
-__attribute__ ((always_inline, always_inline)) static inline
+__attribute__ ((__nothrow__, always_inline)) static inline
 void __VERIFIER_join_symmetric (__VERIFIER_thread_t __th)
 {
 	__VERIFIER_join(__th);
@@ -92,8 +92,12 @@ void __VERIFIER_join_symmetric (__VERIFIER_thread_t __th)
  * automatic spin-assume transformation.
  */
 void __VERIFIER_loop_begin(void) __attribute__ ((__nothrow__));
-void __VERIFIER_spin_start(void) __attribute__ ((__nothrow__));
-void __VERIFIER_spin_end(bool) __attribute__ ((__nothrow__));
+void __VERIFIER_spin_start(void) __attribute__((__nothrow__));
+__attribute__((__nothrow__, always_inline)) static inline
+void __VERIFIER_spin_end(bool cond)
+{
+	__VERIFIER_assume_internal(cond, GENMC_ASSUME_SPINLOOP);
+}
 
 /*
  * Marker function that denotes that a store is local.

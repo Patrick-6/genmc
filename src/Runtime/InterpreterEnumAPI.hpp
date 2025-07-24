@@ -21,25 +21,40 @@
 #ifndef GENMC_INTERPRETER_ENUM_API_HPP
 #define GENMC_INTERPRETER_ENUM_API_HPP
 
-#include <config.h>
 #include <llvm/Support/raw_ostream.h>
 #include <string>
 #include <unordered_map>
 
-/* Pers: Journaling mount options */
-enum class JournalDataFS { writeback, ordered, journal };
+#include "ExecutionGraph/Event.hpp"
+#include "ExecutionGraph/LoadAnnotation.hpp"
+
+enum class ActionKind : std::uint8_t { Load, NonLoad };
+
+struct Action {
+	Action(ActionKind kind, Event event) : kind(kind), event(event) {}
+	Action(Action &&) = default;
+	Action(const Action &other) = default;
+
+	auto operator=(const Action &) -> Action & = default;
+	auto operator=(Action &&) -> Action & = default;
+
+	~Action() = default;
+
+	ActionKind kind;
+	Event event;
+};
 
 /* Types of allocations in the interpreter */
-enum class AddressSpace { AS_User, AS_Internal };
+enum class AddressSpace : std::uint8_t { AS_User, AS_Internal };
 
 /* Storage duration */
-enum class StorageDuration { SD_Static, SD_Automatic, SD_Heap, SD_StorageLast };
+enum class StorageDuration : std::uint8_t { SD_Static, SD_Automatic, SD_Heap, SD_StorageLast };
 
 /* Storage types */
-enum class StorageType { ST_Volatile, ST_Durable, ST_StorageLast };
+enum class StorageType : std::uint8_t { ST_Volatile, ST_Durable, ST_StorageLast };
 
 /* Modeled functions */
-enum class InternalFunctions {
+enum class InternalFunctions : std::int8_t {
 #define HANDLE_FUNCTION(NUM, FUN, NAME) NAME = NUM,
 #include "Runtime/InternalFunction.def"
 };
@@ -67,22 +82,12 @@ inline bool isErrorFunction(const std::string &name)
 	       internalFunNames.at(name) == InternalFunctions::AssertFail;
 }
 
-inline bool isSpinEndFunction(const std::string &name)
-{
-	return isInternalFunction(name) && internalFunNames.at(name) == InternalFunctions::SpinEnd;
-}
-
 inline bool isAssumeFunction(const std::string &name)
 {
 	if (!isInternalFunction(name))
 		return false;
 
-	auto code =
-		static_cast<std::underlying_type_t<InternalFunctions>>(internalFunNames.at(name));
-	return
-#define FIRST_ASSUME_FUNCTION(NUM) code >= NUM &&
-#define LAST_ASSUME_FUNCTION(NUM) code <= NUM;
-#include "Runtime/InternalFunction.def"
+	return internalFunNames.at(name) == InternalFunctions::Assume;
 }
 
 inline bool isAllocFunction(const std::string &name)
@@ -107,15 +112,6 @@ inline bool isMutexCode(InternalFunctions code)
 #include "Runtime/InternalFunction.def"
 }
 
-inline bool isBarrierCode(InternalFunctions code)
-{
-	auto codeI = static_cast<std::underlying_type_t<InternalFunctions>>(code);
-	return
-#define FIRST_BARRIER_FUNCTION(NUM) codeI >= NUM &&
-#define LAST_BARRIER_FUNCTION(NUM) codeI <= NUM;
-#include "Runtime/InternalFunction.def"
-}
-
 inline bool isCondVarCode(InternalFunctions code)
 {
 	auto codeI = static_cast<std::underlying_type_t<InternalFunctions>>(code);
@@ -132,8 +128,7 @@ inline bool hasGlobalLoadSemantics(const std::string &name)
 
 	using IF = InternalFunctions;
 	auto code = internalFunNames.at(name);
-	return code == IF::MutexLock || code == IF::MutexTrylock || code == IF::BarrierWait ||
-	       code == IF::CondVarWait;
+	return code == IF::MutexLock || code == IF::MutexTrylock || code == IF::CondVarWait;
 }
 
 /* Should match our internal definitions */
@@ -147,6 +142,7 @@ inline bool hasGlobalLoadSemantics(const std::string &name)
 #define GENMC_KIND_SPECUL 0x00080000
 #define GENMC_KIND_CONFIRM 0x00100000
 #define GENMC_KIND_PLOCK 0x00200000
+#define GENMC_KIND_BARRIER 0x00400000
 
 #define GENMC_ATTR(flags) ((flags) & (0x0000ffff))
 #define GENMC_KIND(flags) ((flags) & (0xffff0000))

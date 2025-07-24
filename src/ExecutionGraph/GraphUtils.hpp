@@ -21,6 +21,7 @@
 #ifndef GENMC_GRAPH_UTILS_HPP
 #define GENMC_GRAPH_UTILS_HPP
 
+#include "EventLabel.hpp"
 #include "Support/MemAccess.hpp"
 #include "Support/SVal.hpp"
 
@@ -68,6 +69,24 @@ auto findMatchingSpeculativeRead(const ReadLabel *cLab, const EventLabel *&scLab
 
 /** Returns the initializing value for a barrier event.
  * Assumes there is exactly one such event */
-auto findBarrierInitValue(const ExecutionGraph &g, const AAccess &access) -> SVal;
+auto findBarrierInitValue(const BIncFaiWriteLabel *wLab) -> SVal;
+
+/** Retuns whether WLAB is the final write in a barrier round */
+auto isLastInBarrierRound(const BIncFaiWriteLabel *wLab) -> bool;
+
+/** Retuns whether RLAB reads a barrier-unblocking value */
+auto readsBarrierUnblockingValue(const BWaitReadLabel *rLab) -> bool;
+
+/** Blocks thread with BLAB. BLAB needs to either replace the last label or be maximal */
+void blockThread(ExecutionGraph &g, std::unique_ptr<BlockLabel> bLab);
+
+/** Unblocks thread at Event `pos`. The given thread must be blocked. */
+void unblockThread(ExecutionGraph &g, Event pos);
+
+/** If rLab is the read part of a successful RMW operation, this function creates the corresponding
+ * write label, but does NOT add it to the graph. Returns an empty `unique_ptr` if the event was not
+ * an RMW, or was an unsuccessful one. */
+auto createRMWWriteLabel(const ExecutionGraph &g, const ReadLabel *rLab)
+	-> std::unique_ptr<WriteLabel>;
 
 #endif /* GENMC_GRAPH_UTILS_HPP */

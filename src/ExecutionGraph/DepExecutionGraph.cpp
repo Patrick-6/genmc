@@ -19,7 +19,6 @@
  */
 
 #include "DepExecutionGraph.hpp"
-#include "config.h"
 
 std::unique_ptr<VectorClock> DepExecutionGraph::getViewFromStamp(Stamp stamp) const
 {
@@ -108,6 +107,26 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		auto &thr = events[i];
 		thr.erase(thr.begin() + preds->getMax(i) + 1, thr.end());
+	}
+
+	/* Remove begins as well */
+	for (auto i : std::views::reverse(thr_ids()) | std::views::take_while([this](auto i) {
+			      return getThreadSize(i) == 1 &&
+				     !llvm::isa<InitLabel>(getFirstThreadLabel(i));
+		      })) {
+		auto *bLab = getFirstThreadLabel(i);
+		BUG_ON(!bLab);
+		if (!bLab->getCreate()) {
+			if (bLab->getSymmPredTid() != -1) {
+				auto *symmLab = getFirstThreadLabel(bLab->getSymmPredTid());
+				symmLab->setSymmSuccTid(-1);
+			}
+			insertionOrder.remove(*bLab);
+			poLists[i].remove(*bLab);
+			events.erase(events.begin() + i);
+			poLists.erase(poLists.begin() + i);
+			BUG_ON(i < getNumThreads() - 1 && getThreadSize(i + 1) > 0);
+		}
 	}
 
 	/* Fix stamps */

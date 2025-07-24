@@ -75,10 +75,8 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const VerificationError &st)
 		return s << "Invalid unlock() operation";
 	case VerificationError::VE_InvalidBInit:
 		return s << "Invalid barrier_init() operation";
-	case VerificationError::VE_InvalidRecoveryCall:
-		return s << "Invalid function call during recovery";
-	case VerificationError::VE_InvalidTruncate:
-		return s << "Invalid file truncation";
+	case VerificationError::VE_BarrierWellFormedness:
+		return s << "Execution not barrier-well-formed";
 	case VerificationError::VE_Annotation:
 		return s << "Annotation error";
 	case VerificationError::VE_MixedSize:

@@ -21,12 +21,12 @@
 #ifndef GENMC_THREAD_POOL_HPP
 #define GENMC_THREAD_POOL_HPP
 
-#include "ExecutionGraph/ExecutionGraph.hpp"
+#include "ExecutionGraph/DepExecutionGraph.hpp"
+#include "Runtime/Interpreter.h"
 #include "Static/LLVMModule.hpp"
-#include "Support/Error.hpp"
 #include "Support/ThreadPinner.hpp"
 #include "Verification/GenMCDriver.hpp"
-#include "config.h"
+#include "Verification/VerificationResult.hpp"
 #include <llvm/IR/Module.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
@@ -48,13 +48,19 @@ public:
 
 	/*** Constructors ***/
 
-	GlobalWorkQueue() {}
+	GlobalWorkQueue() = default;
 	GlobalWorkQueue(const GlobalWorkQueue &) = delete;
+	GlobalWorkQueue(GlobalWorkQueue &&) = delete;
+
+	auto operator=(const GlobalWorkQueue &) -> GlobalWorkQueue & = delete;
+	auto operator=(GlobalWorkQueue &&) -> GlobalWorkQueue & = delete;
+
+	~GlobalWorkQueue() = default;
 
 	/*** Queue operations ***/
 
 	/** Returns true if the queue is empty */
-	bool empty()
+	auto empty() -> bool
 	{
 		std::lock_guard<std::mutex> lock(qMutex);
 		return queue.empty();
@@ -68,7 +74,7 @@ public:
 	}
 
 	/** Tries to pop an item from the queue */
-	ItemT tryPop()
+	auto tryPop() -> ItemT
 	{
 		std::lock_guard<std::mutex> lock(qMutex);
 		if (queue.empty())
@@ -94,17 +100,21 @@ private:
 class ThreadJoiner {
 
 public:
-	/*** Constructor ***/
-	explicit ThreadJoiner(std::vector<std::thread> &ts) : threads(ts) {}
+	/*** Constructors ***/
 	ThreadJoiner() = delete;
+	explicit ThreadJoiner(std::vector<std::thread> &ts) : threads(ts) {}
+	ThreadJoiner(ThreadJoiner &&) = delete;
 	ThreadJoiner(const ThreadJoiner &) = delete;
+
+	auto operator=(const ThreadJoiner &) -> ThreadJoiner & = delete;
+	auto operator=(ThreadJoiner &&) -> ThreadJoiner & = delete;
 
 	/*** Destructor ***/
 	~ThreadJoiner()
 	{
-		for (auto i = 0u; i < threads.size(); i++) {
-			if (threads[i].joinable())
-				threads[i].join();
+		for (auto &thread : threads) {
+			if (thread.joinable())
+				thread.join();
 		}
 	}
 
@@ -128,46 +138,63 @@ class ThreadPool {
 public:
 	using GlobalQueueT = GlobalWorkQueue;
 	using TaskT = GlobalQueueT::ItemT;
+	using TFunT = void (*)(GenMCDriver *, llvm::Interpreter *);
 
 	/*** Constructors ***/
 
-	ThreadPool(const std::shared_ptr<const Config> conf,
-		   const std::unique_ptr<llvm::Module> &mod, const std::unique_ptr<ModuleInfo> &MI)
+	ThreadPool() = delete;
+	ThreadPool(const ThreadPool &) = delete; /* non-copyable to avoid rcs for now */
+	ThreadPool(ThreadPool &&) = delete;
+	ThreadPool(const std::shared_ptr<const Config> &conf,
+		   const std::unique_ptr<llvm::Module> &mod, const std::unique_ptr<ModuleInfo> &MI,
+		   TFunT threadFun)
 		: numWorkers_(conf->threads), pinner_(numWorkers_), joiner_(workers_)
 	{
-		numWorkers_ = conf->threads;
 
-		/** Set global variables before spawning the threads */
+		/* Set global variables before spawning the threads */
 		shouldHalt_.store(false);
 		remainingTasks_.store(0);
 
-		for (auto i = 0u; i < numWorkers_; i++) {
+		/* Have a non-empty queue before spawning workers */
+		auto dummyGetter = [](auto &addr) { return SVal(0); };
+		auto execGraph = conf->isDepTrackingModel
+					 ? std::make_unique<DepExecutionGraph>(dummyGetter)
+					 : std::make_unique<ExecutionGraph>(dummyGetter);
+		auto exec = std::make_unique<GenMCDriver::Execution>(
+			std::move(execGraph), std::move(WorkList()), std::move(ChoiceMap()),
+			std::move(SAddrAllocator()), Event::getInit());
+		submit(std::move(exec));
+
+		/* Spawn workers */
+		for (auto i = 0U; i < numWorkers_; i++) {
 			contexts_.push_back(std::make_unique<llvm::LLVMContext>());
 			auto newmod = LLVMModule::cloneModule(mod, contexts_.back());
 			auto newMI = MI->clone(*newmod);
 
-			auto dw = GenMCDriver::create(conf, std::move(newmod), std::move(newMI),
-						      this);
-			if (i == 0)
-				submit(dw->extractState());
-			addWorker(i, std::move(dw));
+			auto dw = GenMCDriver::create(conf, this);
+			std::string buf;
+			auto EE = llvm::Interpreter::create(std::move(newmod), std::move(newMI),
+							    &*dw, dw->getConf(),
+							    dw->getExec().getAllocator(), &buf);
+			dw->setEE(&*EE);
+			addWorker(i, std::move(dw), std::move(EE), threadFun);
 		}
 	}
 
-	ThreadPool() = delete;
-	ThreadPool(const ThreadPool &) = delete; /* non-copyable to avoid rcs for now */
+	auto operator=(const ThreadPool &) -> ThreadPool & = delete;
+	auto operator=(ThreadPool &&) -> ThreadPool & = delete;
 
 	/*** Getters/setters ***/
 
 	/** Returns the (current) number of threads in the pool
 	 * (may be called before all threads have been added) */
-	size_t size() const { return workers_.size(); }
+	[[nodiscard]] auto size() const -> size_t { return workers_.size(); }
 
 	/** Returnst the number of workers that will be added in the pool */
-	unsigned int getNumWorkers() const { return numWorkers_; }
+	[[nodiscard]] auto getNumWorkers() const -> unsigned int { return numWorkers_; }
 
 	/** Returns the index of the calling thread */
-	unsigned int getIndex() const { return index_; }
+	[[nodiscard]] auto getIndex() const -> unsigned int { return index_; }
 
 	/** Sets the index of the calling thread */
 	void setIndex(unsigned int i) { index_ = i; }
@@ -178,11 +205,11 @@ public:
 	void submit(TaskT task);
 
 	/** Notify the pool about the addition/completion of a task */
-	unsigned incRemainingTasks() { return ++remainingTasks_; }
-	unsigned decRemainingTasks() { return --remainingTasks_; }
-	unsigned getRemainingTasks() { return remainingTasks_.load(); }
+	auto incRemainingTasks() -> unsigned { return ++remainingTasks_; }
+	auto decRemainingTasks() -> unsigned { return --remainingTasks_; }
+	auto getRemainingTasks() -> unsigned { return remainingTasks_.load(); }
 
-	bool shouldHalt() const { return shouldHalt_.load(); }
+	[[nodiscard]] auto shouldHalt() const -> bool { return shouldHalt_.load(); }
 
 	/** Stops all threads */
 	void halt()
@@ -193,7 +220,7 @@ public:
 	}
 
 	/** Waits for all tasks to complete */
-	std::vector<std::future<GenMCDriver::Result>> waitForTasks();
+	auto waitForTasks() -> std::vector<std::future<VerificationResult>>;
 
 	/*** Destructor ***/
 
@@ -201,21 +228,22 @@ public:
 
 private:
 	/** Adds a worker thread to the pool */
-	void addWorker(unsigned int index, std::unique_ptr<GenMCDriver> driver);
+	void addWorker(unsigned int index, std::unique_ptr<GenMCDriver> driver,
+		       std::unique_ptr<llvm::Interpreter> EE, TFunT threadFun);
 
 	/** Tries to pop a task from the global queue */
-	TaskT tryPopPoolQueue();
+	auto tryPopPoolQueue() -> TaskT;
 
 	/** Tries to steal a task from another thread */
-	TaskT tryStealOtherQueue();
+	auto tryStealOtherQueue() -> TaskT;
 
 	/** Pops the next task to be executed by a thread */
-	TaskT popTask();
+	auto popTask() -> TaskT;
 
 	std::vector<std::unique_ptr<llvm::LLVMContext>> contexts_;
 
 	/** Result of each thread */
-	std::vector<std::future<GenMCDriver::Result>> results_;
+	std::vector<std::future<VerificationResult>> results_;
 
 	/** Whether the pool is active (i.e., accepting more jobs) or not */
 	std::atomic<bool> shouldHalt_;

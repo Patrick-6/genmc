@@ -36,10 +36,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "config.h"
-
-#include "Config/Config.hpp"
 #include "Interpreter.h"
+#include "Config/Config.hpp"
 #include "Static/LLVMUtils.hpp"
 #include "Support/Error.hpp"
 #include <cstring>
@@ -72,9 +70,6 @@ std::unique_ptr<Interpreter> Interpreter::create(std::unique_ptr<Module> M,
 					     alloctor);
 }
 
-/* Thread::seed is ODR-used -- we need to provide a definition (C++14) */
-constexpr int Thread::seed;
-
 llvm::raw_ostream &llvm::operator<<(llvm::raw_ostream &s, const Thread &thr)
 {
 	return s << "<" << thr.parentId << ", " << thr.id << ">"
@@ -83,7 +78,15 @@ llvm::raw_ostream &llvm::operator<<(llvm::raw_ostream &s, const Thread &thr)
 
 std::unique_ptr<InterpreterState> Interpreter::saveState()
 {
-	return std::make_unique<InterpreterState>(dynState);
+	/* This function may be called during `GenMCDriver::scheduleNext` during the optimized
+	 * scheduling part, when we hold a reference to the memory of `globalInstructions`. If a
+	 * warning is triggered during this, we will save the state with this function, then later
+	 * restore it. We need to ensure that the reference to `globalInstructions` stays valid, so
+	 * we swap the copy and the original here.
+	 */
+	auto tmp = std::make_unique<InterpreterState>(dynState);
+	std::swap(tmp->globalInstructions, dynState.globalInstructions);
+	return std::move(tmp);
 }
 
 void Interpreter::restoreState(std::unique_ptr<InterpreterState> s) { dynState = std::move(*s); }
@@ -94,9 +97,17 @@ void Interpreter::resetThread(unsigned int id)
 	thr.ECStack = {};
 	thr.tls = threadLocalVars;
 	thr.blocked = BlockageType::NotBlocked;
-	thr.globalInstructions = 0;
 	thr.rng.seed(Thread::seed);
+
 	clearDeps(id);
+
+	/* We don't _have to_ figure out the initial action for each thread here (since this is
+	 * done by addNewThread() which is called at the beginning of each execution), but
+	 * we can do it just in case this is not the case in the future */
+	BUG_ON(thr.initEC.empty() && thr.id != 0);
+	auto kind = thr.initEC.empty() ? ActionKind::Load
+				       : getInstKind(&*thr.initEC.back().CurInst);
+	dynState.globalInstructions[thr.id] = {kind, Event(thr.id, 0)};
 }
 
 void Interpreter::reset()
@@ -111,38 +122,26 @@ void Interpreter::reset()
 	std::for_each(threads_begin(), threads_end(), [this](Thread &thr) { resetThread(thr.id); });
 }
 
-void Interpreter::setupRecoveryRoutine(int tid)
-{
-	BUG_ON(tid >= getNumThreads());
-	dynState.currentThread = tid;
-
-	/* Only fill the stack if a recovery routine actually exists... */
-	ERROR_ON(!recoveryRoutine, "No recovery routine specified!\n");
-	callFunction(recoveryRoutine, {}, nullptr);
-
-	/* Also set up initSF, if it is the first invocation */
-	if (getThrById(tid).initEC.empty())
-		getThrById(tid).initEC = ECStack();
-	return;
-}
-
-void Interpreter::cleanupRecoveryRoutine(int tid)
-{
-	/* Nothing to do -- yet */
-	dynState.currentThread = 0;
-	return;
-}
-
 Thread &Interpreter::addNewThread(Thread &&thread)
 {
-	if (thread.id == getNumThreads()) {
-		dynState.threads.push_back(std::move(thread));
-		return dynState.threads.back();
+	/* In case of a replay, do nothing (so that we don't have to replay in porf) */
+	if (thread.id < getNumThreads()) {
+		auto &exstThr = dynState.threads[thread.id];
+		BUG_ON(exstThr.id != thread.id);
+		BUG_ON(exstThr.parentId != thread.parentId);
+		BUG_ON(exstThr.threadFun != thread.threadFun);
+		return exstThr;
 	}
 
-	BUG_ON(dynState.threads[thread.id].threadFun != thread.threadFun ||
-	       dynState.threads[thread.id].id != thread.id);
-	return dynState.threads[thread.id] = std::move(thread);
+	BUG_ON(thread.id != getNumThreads());
+	dynState.threads.push_back(std::move(thread));
+
+	auto &thr = dynState.threads.back();
+	BUG_ON(thr.initEC.empty() && thr.id != 0);
+	auto kind = thr.initEC.empty() ? ActionKind::Load
+				       : getInstKind(&*thr.initEC.back().CurInst);
+	dynState.globalInstructions.emplace_back(kind, Event(thr.id, 0));
+	return thr;
 }
 
 /* Creates an entry for the main() function */
@@ -151,6 +150,7 @@ Thread &Interpreter::createAddMainThread()
 	Thread main(mainFun, 0);
 	main.tls = threadLocalVars;
 	dynState.threads.clear(); /* make sure its empty */
+	dynState.globalInstructions.clear();
 	return addNewThread(std::move(main));
 }
 
@@ -162,13 +162,6 @@ Thread &Interpreter::createAddNewThread(llvm::Function *F, SVal arg, int tid, in
 	thr.ECStack.push_back(SF);
 	thr.tls = threadLocalVars;
 	return addNewThread(std::move(thr));
-}
-
-Thread &Interpreter::createAddRecoveryThread(int tid)
-{
-	Thread rec(recoveryRoutine, tid);
-	rec.tls = threadLocalVars;
-	return addNewThread(std::move(rec));
 }
 
 void Interpreter::collectStaticAddresses(SAddrAllocator &alloctor)
@@ -228,47 +221,6 @@ void Interpreter::setupErrorPolicy(Module *M, const Config *userConf)
 	return;
 }
 
-void Interpreter::setupFsInfo(Module *M, const Config *userConf)
-{
-	recoveryRoutine = M->getFunction("__VERIFIER_recovery_routine");
-
-	/* Setup config options first */
-	auto &FI = MI->fsInfo;
-	FI.blockSize = userConf->blockSize;
-	FI.maxFileSize = userConf->maxFileSize;
-	FI.journalData = userConf->journalData;
-	FI.delalloc = FI.journalData == JournalDataFS::ordered && !userConf->disableDelalloc;
-
-	auto *inodeVar = M->getGlobalVariable("__genmc_dir_inode");
-	auto *fileVar = M->getGlobalVariable("__genmc_dummy_file");
-
-	/* unistd.h not included -- not dealing with fs stuff */
-	if (!inodeVar || !fileVar)
-		return;
-
-	FI.inodeTyp = dyn_cast<StructType>(inodeVar->getValueType());
-	FI.fileTyp = dyn_cast<StructType>(fileVar->getValueType());
-	BUG_ON(!FI.inodeTyp || !FI.fileTyp);
-
-	/* Initialize the directory's inode -- assume that the first field is int
-	 * We track this here to have custom naming info */
-	unsigned int inodeSize = getTypeSize(FI.inodeTyp);
-	FI.dirInode = static_cast<char *>(GVTOP(getConstantValue(inodeVar)));
-
-	Type *intTyp = FI.inodeTyp->getElementType(0);
-	unsigned int intSize = getTypeSize(intTyp);
-
-	unsigned int count = 0;
-	unsigned int intPtrSize = getTypeSize(intTyp->getPointerTo());
-	auto *SL = getDataLayout().getStructLayout(FI.inodeTyp);
-	for (auto &fname : FI.filenames) {
-		auto *addr = (char *)FI.dirInode + SL->getElementOffset(4) + count * intPtrSize;
-		dynState.nameToInodeAddr[fname] = addr;
-		++count;
-	}
-	return;
-}
-
 std::unique_ptr<EventDeps> Interpreter::makeEventDeps(const DepInfo *addr, const DepInfo *data,
 						      const DepInfo *ctrl, const DepInfo *addrPo,
 						      const DepInfo *cas)
@@ -321,7 +273,7 @@ std::unique_ptr<EventDeps> Interpreter::updateFunArgDeps(unsigned int tid, Funct
 	}
 	/* We have addr dependency on the argument of mutex/barrier/condvar calls */
 	auto iFunCode = internalFunNames.at(name);
-	if (isMutexCode(iFunCode) || isBarrierCode(iFunCode) || isCondVarCode(iFunCode)) {
+	if (isMutexCode(iFunCode) || isCondVarCode(iFunCode)) {
 		return makeEventDeps(getDataDeps(tid, *SF.Caller.arg_begin()), nullptr,
 				     getCtrlDeps(tid), getAddrPoDeps(tid), nullptr);
 	}
@@ -336,8 +288,7 @@ void Interpreter::updateInternalFunRetDeps(unsigned int tid, Function *F, Instru
 
 	auto iFunCode = internalFunNames.at(name);
 	if (isAllocFunction(name))
-		updateDataDeps(tid, CS, Event(tid, getThrById(tid).globalInstructions));
-	return;
+		updateDataDeps(tid, CS, threadPos(tid));
 }
 
 //===----------------------------------------------------------------------===//
@@ -367,9 +318,6 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
 
 	/* Set up the system error policy */
 	setupErrorPolicy(mod, userConf);
-
-	/* Also run a recovery routine if it is required to do so */
-	setupFsInfo(mod, userConf);
 
 	/* Setup the interpreter for the exploration */
 	mainFun = mod->getFunction(userConf->programEntryFun);

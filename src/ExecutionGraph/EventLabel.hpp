@@ -27,15 +27,14 @@
 #include "ExecutionGraph/DepInfo.hpp"
 #include "ExecutionGraph/Event.hpp"
 #include "ExecutionGraph/EventAttr.hpp"
+#include "ExecutionGraph/LoadAnnotation.hpp"
 #include "ExecutionGraph/Stamp.hpp"
 #include "Runtime/InterpreterEnumAPI.hpp"
-#include "Static/ModuleID.hpp"
 #include "Support/MemAccess.hpp"
 #include "Support/MemOrdering.hpp"
 #include "Support/NameInfo.hpp"
 #include "Support/RMWOps.hpp"
 #include "Support/SAddr.hpp"
-#include "Support/SExpr.hpp"
 #include "Support/SVal.hpp"
 #include "Support/ThreadInfo.hpp"
 
@@ -73,6 +72,7 @@ public:
  ******************************************************************************/
 
 struct po_tag {};
+struct io_tag {};
 
 /**
  * An abstract class for modeling event labels. Contains the bare minimum
@@ -81,14 +81,17 @@ struct po_tag {};
  * getter methods are private. One can obtain information about such relations
  * by querying the execution graph.
  */
-class EventLabel : public llvm::ilist_node<EventLabel>,
+class EventLabel : public llvm::ilist_node<EventLabel, llvm::ilist_tag<io_tag>>,
 		   public llvm::ilist_node<EventLabel, llvm::ilist_tag<po_tag>> {
 
 public:
 	/* Discriminator for LLVM-style RTTI (dyn_cast<> et al).
 	 * It is public to allow clients perform a switch() on it */
 	enum EventLabelKind {
-#define HANDLE_LABEL(NUM, NAME) NAME = NUM,
+#define HANDLE_LABEL(NAME) NAME,
+#include "ExecutionGraph/EventLabel.def"
+#define FIRST_LABEL(NAME, ARG) FIRST_##NAME = ARG,
+#define LAST_LABEL(NAME, ARG) LAST_##NAME = ARG,
 #include "ExecutionGraph/EventLabel.def"
 	};
 
@@ -313,6 +316,14 @@ private:
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }         \
 	static bool classofKind(EventLabelKind k) { return k == name; }
 
+#define DEFINE_CLASSOF_RANGE(name)                                                                 \
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }         \
+	static bool classofKind(EventLabelKind k) { return k >= FIRST_##name && k <= LAST_##name; }
+
+#define DEFINE_STANDARD_MEMBERS_RANGE(name)                                                        \
+	DEFINE_CREATE_CLONE(name)                                                                  \
+	DEFINE_CLASSOF_RANGE(name)
+
 /*******************************************************************************
  **                     ThreadStartLabel Class
  ******************************************************************************/
@@ -363,16 +374,7 @@ public:
 		createLab_ = nullptr;
 	}
 
-	DEFINE_CREATE_CLONE(ThreadStart)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_BEGIN_LABEL(NUM) k >= NUM &&
-#define LAST_BEGIN_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(ThreadStart)
 
 private:
 	/** The position of the corresponding create opeartion */
@@ -450,14 +452,7 @@ protected:
 	{}
 
 public:
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_TERM_LABEL(NUM) k >= NUM &&
-#define LAST_TERM_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_CLASSOF_RANGE(Terminator)
 };
 
 /*******************************************************************************
@@ -471,14 +466,9 @@ protected:
 	BlockLabel(EventLabelKind k, Event pos) : TerminatorLabel(k, MemOrdering::NotAtomic, pos) {}
 
 public:
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_BLOCK_LABEL(NUM) k >= NUM &&
-#define LAST_BLOCK_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	static auto createAssumeBlock(Event pos, AssumeType type) -> std::unique_ptr<BlockLabel>;
+
+	DEFINE_CLASSOF_RANGE(Block)
 };
 
 #define BLOCK_PURE_SUBCLASS(name)                                                                  \
@@ -649,14 +639,7 @@ public:
 		allocLab = nullptr;
 	}
 
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_MEMORY_LABEL(NUM) k >= NUM &&
-#define LAST_MEMORY_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_CLASSOF_RANGE(MemAccess)
 
 private:
 	/** The access performed */
@@ -677,30 +660,26 @@ private:
  * from this class */
 class ReadLabel : public MemAccessLabel, public llvm::ilist_node<ReadLabel> {
 
-public:
-	using AnnotT = SExpr<ModuleID::ID>;
-	using AnnotVP = value_ptr<AnnotT, SExprCloner<ModuleID::ID>>;
-
 protected:
 	ReadLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,
-		  EventLabel *rfLab = nullptr, AnnotVP annot = nullptr,
+		  EventLabel *rfLab = nullptr, std::optional<Annotation> annot = {},
 		  const EventDeps &deps = EventDeps())
 		: MemAccessLabel(k, pos, ord, loc, size, type, deps), readsFrom(rfLab),
-		  annotExpr(std::move(annot))
+		  annot_(std::move(annot))
 	{}
 
 public:
 	ReadLabel(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type, EventLabel *rfLab,
-		  AnnotVP annot, const EventDeps &deps = EventDeps())
-		: ReadLabel(Read, pos, ord, loc, size, type, rfLab, annot, deps)
+		  std::optional<Annotation> annot, const EventDeps &deps = EventDeps())
+		: ReadLabel(Read, pos, ord, loc, size, type, rfLab, std::move(annot), deps)
 	{}
 	ReadLabel(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type, EventLabel *rfLab,
 		  const EventDeps &deps = EventDeps())
-		: ReadLabel(pos, ord, loc, size, type, rfLab, nullptr, deps)
+		: ReadLabel(pos, ord, loc, size, type, rfLab, std::nullopt, deps)
 	{}
 	ReadLabel(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,
 		  const EventDeps &deps = EventDeps())
-		: ReadLabel(pos, ord, loc, size, type, nullptr, nullptr, deps)
+		: ReadLabel(pos, ord, loc, size, type, nullptr, std::nullopt, deps)
 	{}
 
 	/** Returns the position of the write this read is reading-from */
@@ -728,9 +707,6 @@ public:
 	/** Whether the read is part of an RMW operation (needs to be part of a graph) */
 	bool isRMW() const;
 
-	/** Returns true if the read was revisited in-place */
-	bool isIPR() const { return ipr; }
-
 	/** Convenience function that returns whether reading a value will create an RMW */
 	bool valueMakesRMWSucceed(const SVal &val) const;
 
@@ -738,35 +714,19 @@ public:
 	 * succeed */
 	bool valueMakesAssumeSucceed(const SVal &val) const;
 
-	/** Sets the IPR status for this read */
-	void setIPRStatus(bool status) { ipr = status; }
-
 	/** Helper: Whether this is a confirmation read */
 	bool isConfirming() const { return isConfirming(getKind()); }
 
 	/** SAVer: Getter for the annotation expression */
-	const AnnotT *getAnnot() const { return annotExpr.get(); }
-
-	/** SAVer: Setter for the annotation expression */
-	void setAnnot(std::unique_ptr<AnnotT> annot) { annotExpr = std::move(annot); }
+	const std::optional<Annotation> &getAnnot() const { return annot_; }
 
 	virtual void reset() override
 	{
 		MemAccessLabel::reset();
 		setRfNoCascade(nullptr);
-		ipr = false;
 	}
 
-	DEFINE_CREATE_CLONE(Read)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_READ_LABEL(NUM) k >= NUM &&
-#define LAST_READ_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(Read)
 
 private:
 	static inline bool isConfirming(EventLabelKind k);
@@ -779,12 +739,9 @@ private:
 	/** Position of the write it is reading from in the graph */
 	EventLabel *readsFrom = nullptr;
 
-	/** Whether the read has been revisited in place */
-	bool ipr = false;
-
 	/** SAVer: Expression for annotatable loads. This needs to have
 	 * heap-value semantics so that it does not create concurrency issues */
-	AnnotVP annotExpr = nullptr;
+	std::optional<Annotation> annot_;
 };
 
 #define READ_PURE_SUBCLASS(name)                                                                   \
@@ -792,17 +749,18 @@ private:
                                                                                                    \
 	public:                                                                                    \
 		name##Label(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,         \
-			    EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps()) \
+			    EventLabel *rfLab, std::optional<Annotation> annot,                    \
+			    const EventDeps &deps = EventDeps())                                   \
 			: ReadLabel(name, pos, ord, loc, size, type, rfLab, std::move(annot),      \
 				    deps)                                                          \
 		{}                                                                                 \
 		name##Label(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,         \
 			    EventLabel *rfLab, const EventDeps &deps = EventDeps())                \
-			: name##Label(pos, ord, loc, size, type, rfLab, nullptr, deps)             \
+			: name##Label(pos, ord, loc, size, type, rfLab, std::nullopt, deps)        \
 		{}                                                                                 \
 		name##Label(Event pos, MemOrdering ord, SAddr loc, ASize size, AType type,         \
 			    const EventDeps &deps = EventDeps())                                   \
-			: name##Label(pos, ord, loc, size, type, nullptr, nullptr, deps)           \
+			: name##Label(pos, ord, loc, size, type, nullptr, std::nullopt, deps)      \
 		{}                                                                                 \
                                                                                                    \
 		DEFINE_STANDARD_MEMBERS(name)                                                      \
@@ -824,14 +782,14 @@ class FaiReadLabel : public ReadLabel {
 protected:
 	FaiReadLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
 		     AType type, RMWBinOp op, SVal val, WriteAttr wattr, EventLabel *rfLab,
-		     AnnotVP annot, const EventDeps &deps = EventDeps())
+		     std::optional<Annotation> annot, const EventDeps &deps = EventDeps())
 		: ReadLabel(k, pos, ord, addr, size, type, rfLab, std::move(annot), deps),
 		  binOp(op), opValue(val), wattr(wattr)
 	{}
 
 public:
 	FaiReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, RMWBinOp op,
-		     SVal val, WriteAttr wattr, EventLabel *rfLab, AnnotVP annot,
+		     SVal val, WriteAttr wattr, EventLabel *rfLab, std::optional<Annotation> annot,
 		     const EventDeps &deps = EventDeps())
 		: FaiReadLabel(FaiRead, pos, ord, addr, size, type, op, val, wattr, rfLab,
 			       std::move(annot), deps)
@@ -839,7 +797,8 @@ public:
 	FaiReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, RMWBinOp op,
 		     SVal val, WriteAttr wattr, EventLabel *rfLab,
 		     const EventDeps &deps = EventDeps())
-		: FaiReadLabel(pos, ord, addr, size, type, op, val, wattr, rfLab, nullptr, deps)
+		: FaiReadLabel(pos, ord, addr, size, type, op, val, wattr, rfLab, std::nullopt,
+			       deps)
 	{}
 	FaiReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, RMWBinOp op,
 		     SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
@@ -865,16 +824,7 @@ public:
 
 	virtual void reset() override { ReadLabel::reset(); }
 
-	DEFINE_CREATE_CLONE(FaiRead)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_FAI_READ_LABEL(NUM) k >= NUM &&
-#define LAST_FAI_READ_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(FaiRead)
 
 private:
 	/** The binary operator for this RMW operation */
@@ -893,15 +843,15 @@ private:
 	public:                                                                                    \
 		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
 			    RMWBinOp op, SVal val, WriteAttr wattr, EventLabel *rfLab,             \
-			    AnnotVP annot, const EventDeps &deps = EventDeps())                    \
+			    std::optional<Annotation> annot, const EventDeps &deps = EventDeps())  \
 			: FaiReadLabel(name, pos, ord, addr, size, type, op, val, wattr, rfLab,    \
 				       std::move(annot), deps)                                     \
 		{}                                                                                 \
 		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
 			    RMWBinOp op, SVal val, WriteAttr wattr, EventLabel *rfLab,             \
 			    const EventDeps &deps = EventDeps())                                   \
-			: name##Label(pos, ord, addr, size, type, op, val, wattr, rfLab, nullptr,  \
-				      deps)                                                        \
+			: name##Label(pos, ord, addr, size, type, op, val, wattr, rfLab,           \
+				      std::nullopt, deps)                                          \
 		{}                                                                                 \
 		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
 			    RMWBinOp op, SVal val, WriteAttr wattr,                                \
@@ -929,14 +879,14 @@ class CasReadLabel : public ReadLabel {
 protected:
 	CasReadLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
 		     AType type, SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
-		     AnnotVP annot, const EventDeps &deps = EventDeps())
+		     std::optional<Annotation> annot, const EventDeps &deps = EventDeps())
 		: ReadLabel(k, pos, ord, addr, size, type, rfLab, std::move(annot), deps),
 		  expected(exp), swapValue(swap), wattr(wattr)
 	{}
 
 public:
 	CasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
-		     SVal swap, WriteAttr wattr, EventLabel *rfLab, AnnotVP annot,
+		     SVal swap, WriteAttr wattr, EventLabel *rfLab, std::optional<Annotation> annot,
 		     const EventDeps &deps = EventDeps())
 		: CasReadLabel(CasRead, pos, ord, addr, size, type, exp, swap, wattr, rfLab,
 			       std::move(annot), deps)
@@ -944,7 +894,8 @@ public:
 	CasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
 		     SVal swap, WriteAttr wattr, EventLabel *rfLab,
 		     const EventDeps &deps = EventDeps())
-		: CasReadLabel(pos, ord, addr, size, type, exp, swap, wattr, rfLab, nullptr, deps)
+		: CasReadLabel(pos, ord, addr, size, type, exp, swap, wattr, rfLab, std::nullopt,
+			       deps)
 	{}
 	CasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
 		     SVal swap, WriteAttr wattr, const EventDeps &deps = EventDeps())
@@ -970,16 +921,7 @@ public:
 
 	virtual void reset() override { ReadLabel::reset(); }
 
-	DEFINE_CREATE_CLONE(CasRead)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_CAS_READ_LABEL(NUM) k >= NUM &&
-#define LAST_CAS_READ_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(CasRead)
 
 private:
 	/** The value that will make this CAS succeed */
@@ -998,7 +940,7 @@ private:
 	public:                                                                                    \
 		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
 			    SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,               \
-			    AnnotVP annot, const EventDeps &deps = EventDeps())                    \
+			    std::optional<Annotation> annot, const EventDeps &deps = EventDeps())  \
 			: CasReadLabel(name, pos, ord, addr, size, type, exp, swap, wattr, rfLab,  \
 				       std::move(annot), deps)                                     \
 		{}                                                                                 \
@@ -1006,7 +948,7 @@ private:
 			    SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,               \
 			    const EventDeps &deps = EventDeps())                                   \
 			: name##Label(pos, ord, addr, size, type, exp, swap, wattr, rfLab,         \
-				      nullptr, deps)                                               \
+				      std::nullopt, deps)                                          \
 		{}                                                                                 \
 		name##Label(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,        \
 			    SVal exp, SVal swap, WriteAttr wattr,                                  \
@@ -1035,42 +977,33 @@ class LockCasReadLabel : public CasReadLabel {
 protected:
 	LockCasReadLabel(EventLabelKind k, Event pos, MemOrdering ord, SAddr addr, ASize size,
 			 AType type, SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
-			 AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+			 std::optional<Annotation> annot = {}, const EventDeps &deps = EventDeps())
 		: CasReadLabel(k, pos, ord, addr, size, type, exp, swap, wattr, rfLab,
 			       std::move(annot), deps)
 	{}
 
 public:
 	LockCasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type, SVal exp,
-			 SVal swap, WriteAttr wattr, EventLabel *rfLab, AnnotVP annot = nullptr,
-			 const EventDeps &deps = EventDeps())
+			 SVal swap, WriteAttr wattr, EventLabel *rfLab,
+			 std::optional<Annotation> annot = {}, const EventDeps &deps = EventDeps())
 		: CasReadLabel(LockCasRead, pos, ord, addr, size, type, exp, swap, wattr, rfLab,
 			       std::move(annot), deps)
 	{}
 	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, EventLabel *rfLab,
-			 AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+			 std::optional<Annotation> annot = {}, const EventDeps &deps = EventDeps())
 		: LockCasReadLabel(pos, MemOrdering::Acquire, addr, size, AType::Signed, SVal(0),
 				   SVal(1), wattr, rfLab, std::move(annot), deps)
 	{}
 	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr,
-			 AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+			 std::optional<Annotation> annot = {}, const EventDeps &deps = EventDeps())
 		: LockCasReadLabel(pos, addr, size, wattr, nullptr, std::move(annot), deps)
 	{}
-	LockCasReadLabel(Event pos, SAddr addr, ASize size, AnnotVP annot = nullptr,
+	LockCasReadLabel(Event pos, SAddr addr, ASize size, std::optional<Annotation> annot = {},
 			 const EventDeps &deps = EventDeps())
 		: LockCasReadLabel(pos, addr, size, WriteAttr::None, std::move(annot), deps)
 	{}
 
-	DEFINE_CREATE_CLONE(LockCasRead)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_LOCK_CAS_READ_LABEL(NUM) k >= NUM &&
-#define LAST_LOCK_CAS_READ_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(LockCasRead)
 };
 
 /*******************************************************************************
@@ -1083,20 +1016,23 @@ class TrylockCasReadLabel : public CasReadLabel {
 public:
 	TrylockCasReadLabel(Event pos, MemOrdering ord, SAddr addr, ASize size, AType type,
 			    SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
-			    AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+			    std::optional<Annotation> annot = {},
+			    const EventDeps &deps = EventDeps())
 		: CasReadLabel(TrylockCasRead, pos, ord, addr, size, type, exp, swap, wattr, rfLab,
 			       std::move(annot), deps)
 	{}
 	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, EventLabel *rfLab,
-			    AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+			    std::optional<Annotation> annot = {},
+			    const EventDeps &deps = EventDeps())
 		: TrylockCasReadLabel(pos, MemOrdering::Acquire, addr, size, AType::Signed, SVal(0),
 				      SVal(1), wattr, rfLab, std::move(annot), deps)
 	{}
 	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr,
-			    AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+			    std::optional<Annotation> annot = {},
+			    const EventDeps &deps = EventDeps())
 		: TrylockCasReadLabel(pos, addr, size, wattr, nullptr, std::move(annot), deps)
 	{}
-	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, AnnotVP annot = nullptr,
+	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, std::optional<Annotation> annot = {},
 			    const EventDeps &deps = EventDeps())
 		: TrylockCasReadLabel(pos, addr, size, WriteAttr::None, std::move(annot), deps)
 	{}
@@ -1111,7 +1047,8 @@ public:
 /** Special lock to enforce atomicity in the abstract specification */
 class AbstractLockCasReadLabel : public LockCasReadLabel {
 public:
-	AbstractLockCasReadLabel(Event pos, SAddr addr, ASize size, AnnotVP annot = nullptr,
+	AbstractLockCasReadLabel(Event pos, SAddr addr, ASize size,
+				 std::optional<Annotation> annot = {},
 				 const EventDeps &deps = EventDeps(), EventLabel *rfLab = nullptr)
 		: LockCasReadLabel(AbstractLockCasRead, pos, MemOrdering::Acquire, addr, size,
 				   AType::Signed, SVal(0), SVal(1), WriteAttr::None, rfLab, annot,
@@ -1201,16 +1138,7 @@ public:
 		readerList.clear();
 	}
 
-	DEFINE_CREATE_CLONE(Write)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_WRITE_LABEL(NUM) k >= NUM &&
-#define LAST_WRITE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(Write)
 
 private:
 	friend class ExecutionGraph;
@@ -1264,8 +1192,6 @@ private:
 		DEFINE_STANDARD_MEMBERS(_class_kind)                                               \
 	};
 
-WRITE_PURE_SUBCLASS(BInitWrite);
-WRITE_PURE_SUBCLASS(BDestroyWrite);
 WRITE_PURE_SUBCLASS(CondVarInitWrite);
 WRITE_PURE_SUBCLASS(CondVarSignalWrite);
 WRITE_PURE_SUBCLASS(CondVarBcastWrite);
@@ -1290,16 +1216,7 @@ public:
 		: UnlockWriteLabel(pos, ord, loc, size, type, val, WriteAttr::None, deps)
 	{}
 
-	DEFINE_CREATE_CLONE(UnlockWrite)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_UNLOCK_WRITE_LABEL(NUM) k >= NUM &&
-#define LAST_UNLOCK_WRITE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(UnlockWrite)
 };
 
 /*******************************************************************************
@@ -1344,16 +1261,7 @@ public:
 		: FaiWriteLabel(pos, ord, addr, size, type, val, WriteAttr::None, deps)
 	{}
 
-	DEFINE_CREATE_CLONE(FaiWrite)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_FAI_WRITE_LABEL(NUM) k >= NUM &&
-#define LAST_FAI_WRITE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(FaiWrite)
 };
 
 /*******************************************************************************
@@ -1413,16 +1321,7 @@ public:
 		: CasWriteLabel(CasWrite, pos, ord, addr, size, type, val, wattr, deps)
 	{}
 
-	DEFINE_CREATE_CLONE(CasWrite)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_CAS_WRITE_LABEL(NUM) k >= NUM &&
-#define LAST_CAS_WRITE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(CasWrite)
 };
 
 #define CASWRITE_PURE_SUBCLASS(_class_kind)                                                        \
@@ -1469,15 +1368,7 @@ public:
 				    deps)
 	{}
 
-	DEFINE_CREATE_CLONE(LockCasWrite)
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_LOCK_CAS_WRITE_LABEL(NUM) k >= NUM &&
-#define LAST_LOCK_CAS_WRITE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(LockCasWrite)
 };
 
 /*******************************************************************************
@@ -1545,16 +1436,7 @@ public:
 		: FenceLabel(Fence, pos, ord, deps)
 	{}
 
-	DEFINE_CREATE_CLONE(Fence)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_FENCE_LABEL(NUM) k >= NUM &&
-#define LAST_FENCE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(Fence)
 };
 
 /*******************************************************************************
@@ -1653,16 +1535,7 @@ public:
 		accessList.clear();
 	}
 
-	DEFINE_CREATE_CLONE(Malloc)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_ALLOC_LABEL(NUM) k >= NUM &&
-#define LAST_ALLOC_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(Malloc)
 
 private:
 	friend class ExecutionGraph;
@@ -1774,16 +1647,7 @@ public:
 		aLab = nullptr;
 	}
 
-	DEFINE_CREATE_CLONE(Free)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k)
-	{
-		return
-#define FIRST_FREE_LABEL(NUM) k >= NUM &&
-#define LAST_FREE_LABEL(NUM) k <= NUM;
-#include "ExecutionGraph/EventLabel.def"
-	}
+	DEFINE_STANDARD_MEMBERS_RANGE(Free)
 
 private:
 	/** The address of the memory freed */

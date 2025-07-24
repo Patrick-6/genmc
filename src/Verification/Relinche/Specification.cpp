@@ -18,6 +18,8 @@
  * Author: Pavel Golovin <pgolovin@mpi-sws.org>
  */
 
+#include "config.h"
+
 #include "Verification/Relinche/Specification.hpp"
 #include "ADT/Matrix2D.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"

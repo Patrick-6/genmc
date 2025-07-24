@@ -34,20 +34,6 @@
 #define LAST_PURE_FUNCTION(num)
 #endif
 
-#ifndef FIRST_ASSUME_FUNCTION
-#define FIRST_ASSUME_FUNCTION(num)
-#endif
-#ifndef HANDLE_ASSUME_FUNCTION
-#ifndef HANDLE_PURE_FUNCTION
-#define HANDLE_ASSUME_FUNCTION(num, fun, name)
-#else
-#define HANDLE_ASSUME_FUNCTION(num, fun, name) HANDLE_PURE_FUNCTION(num, fun, name)
-#endif
-#endif
-#ifndef LAST_ASSUME_FUNCTION
-#define LAST_ASSUME_FUNCTION(num)
-#endif
-
 #ifndef FIRST_MUTEX_FUNCTION
 #define FIRST_MUTEX_FUNCTION(num)
 #endif
@@ -60,20 +46,6 @@
 #endif
 #ifndef LAST_MUTEX_FUNCTION
 #define LAST_MUTEX_FUNCTION(num)
-#endif
-
-#ifndef FIRST_BARRIER_FUNCTION
-#define FIRST_BARRIER_FUNCTION(num)
-#endif
-#ifndef HANDLE_BARRIER_FUNCTION
-#ifndef HANDLE_FUNCTION
-#define HANDLE_BARRIER_FUNCTION(num, fun, name)
-#else
-#define HANDLE_BARRIER_FUNCTION(num, fun, name) HANDLE_FUNCTION(num, fun, name)
-#endif
-#endif
-#ifndef LAST_BARRIER_FUNCTION
-#define LAST_BARRIER_FUNCTION(num)
 #endif
 
 #ifndef FIRST_CONDVAR_FUNCTION
@@ -140,12 +112,7 @@ HANDLE_PURE_FUNCTION(1, "__VERIFIER_assert_fail", AssertFail) // unique error fu
 HANDLE_PURE_FUNCTION(2, "__VERIFIER_opt_begin", OptBegin)
 HANDLE_PURE_FUNCTION(3, "__VERIFIER_loop_begin", LoopBegin)
 HANDLE_PURE_FUNCTION(4, "__VERIFIER_spin_start", SpinStart)
-
-FIRST_ASSUME_FUNCTION(5)
-HANDLE_PURE_FUNCTION(5, "__VERIFIER_spin_end", SpinEnd)
-HANDLE_PURE_FUNCTION(8, "__VERIFIER_assume", Assume)
-LAST_ASSUME_FUNCTION(8)
-
+HANDLE_PURE_FUNCTION(5, "__VERIFIER_assume_internal", Assume)
 HANDLE_PURE_FUNCTION(6, "__VERIFIER_faiZNE_spin_end", FaiZNESpinEnd)
 HANDLE_PURE_FUNCTION(7, "__VERIFIER_lockZNE_spin_end", LockZNESpinEnd)
 HANDLE_PURE_FUNCTION(9, "__VERIFIER_kill_thread", KillThread)
@@ -170,15 +137,6 @@ HANDLE_MUTEX_FUNCTION(20, "__VERIFIER_mutex_unlock", MutexUnlock)
 HANDLE_MUTEX_FUNCTION(21, "__VERIFIER_mutex_trylock", MutexTrylock)
 HANDLE_MUTEX_FUNCTION(22, "__VERIFIER_mutex_destroy", MutexDestroy)
 LAST_MUTEX_FUNCTION(22)
-
-/*
- * Barrier functions - for barrier operations
- */
-FIRST_BARRIER_FUNCTION(23)
-HANDLE_BARRIER_FUNCTION(23, "__VERIFIER_barrier_init", BarrierInit)
-HANDLE_BARRIER_FUNCTION(24, "__VERIFIER_barrier_wait", BarrierWait)
-HANDLE_BARRIER_FUNCTION(25, "__VERIFIER_barrier_destroy", BarrierDes)
-LAST_BARRIER_FUNCTION(25)
 
 /*
  * Condvar functions - for condition variables.
@@ -226,17 +184,9 @@ LAST_OTHER_FUNCTION(42)
 #undef HANDLE_PURE_FUNCTION
 #undef LAST_PURE_FUNCTION
 
-#undef FIRST_ASSUME_FUNCTION
-#undef HANDLE_ASSUME_FUNCTION
-#undef LAST_ASSUME_FUNCTION
-
 #undef FIRST_MUTEX_FUNCTION
 #undef HANDLE_MUTEX_FUNCTION
 #undef LAST_MUTEX_FUNCTION
-
-#undef FIRST_BARRIER_FUNCTION
-#undef HANDLE_BARRIER_FUNCTION
-#undef LAST_BARRIER_FUNCTION
 
 #undef FIRST_CONDVAR_FUNCTION
 #undef HANDLE_CONDVAR_FUNCTION

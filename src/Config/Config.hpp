@@ -30,13 +30,15 @@
 #include <optional>
 #include <string>
 
-enum class SchedulePolicy : std::uint8_t { ltr, wf, wfr, arbitrary };
+enum class SchedulePolicy : std::uint8_t { LTR, WF, WFR, Arbitrary };
 enum class BoundType : std::uint8_t { context, round };
+enum class InputType : std::uint8_t { clang, cargo, rust, llvmir };
 
 struct Config {
 	/*** General syntax ***/
 	std::vector<std::string> cflags;
 	std::string inputFile;
+	InputType lang;
 
 	/*** Exploration options ***/
 	ModelType model{};
@@ -48,6 +50,8 @@ struct Config {
 	bool LAPOR{};
 	bool symmetryReduction{};
 	bool helper{};
+	bool confirmation{};
+	bool finalWrite{};
 	bool checkLiveness{};
 	bool printErrorTrace{};
 	std::string dotFile;
@@ -61,13 +65,7 @@ struct Config {
 	std::optional<std::string> checkLinSpec;
 	unsigned int maxExtSize{};
 	bool dotPrintOnlyClientEvents{};
-
-	/*** Persistency options ***/
-	bool persevere{};
-	unsigned int blockSize{};
-	unsigned int maxFileSize{};
-	JournalDataFS journalData{};
-	bool disableDelalloc{};
+	bool replayCompletedThreads{};
 
 	/*** Transformation options ***/
 	std::optional<unsigned> unroll;
@@ -79,20 +77,21 @@ struct Config {
 	bool codeCondenser{};
 	bool loadAnnot{};
 	bool assumePropagation{};
-	bool confirmAnnot{};
 	bool mmDetector{};
 
 	/*** Debugging options ***/
 	unsigned int estimationMax{};
 	unsigned int estimationMin{};
 	unsigned int sdThreshold{};
-	bool inputFromBitcodeFile{};
 	bool printExecGraphs{};
 	bool printBlockedExecs{};
 	SchedulePolicy schedulePolicy{};
 	std::string randomScheduleSeed;
 	bool printRandomScheduleSeed{};
-	std::string transformFile;
+	std::string outputLlvmBefore;
+	std::string outputLlvmAfter;
+	bool disableGenmcStdRebuild{};
+	std::string linkWith;
 	std::string programEntryFun;
 	unsigned int warnOnGraphSize{};
 	VerbosityLevel vLevel{};
@@ -110,5 +109,8 @@ struct Config {
 
 /* Parses CLI options and initializes a Config object */
 void parseConfig(int argc, char **argv, Config &conf);
+
+/* Returns the language of the input file */
+InputType determineLang(std::string inputFile);
 
 #endif /* GENMC_CONFIG_HPP */

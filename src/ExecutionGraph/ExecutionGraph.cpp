@@ -27,6 +27,28 @@
  ** Basic getter methods
  ***********************************************************/
 
+/*
+ * In the case where the events are not added out-of-order in the graph
+ * (i.e., an event has a larger timestamp than all its po-predecessors)
+ * we can obtain a view of the graph, given a timestamp. This function
+ * returns such a view.
+ */
+auto ExecutionGraph::getViewFromStamp(Stamp stamp) const -> std::unique_ptr<VectorClock>
+{
+	auto preds = std::make_unique<View>();
+
+	for (auto i = 0U; i < getNumThreads(); i++) {
+		for (auto j = (int)getThreadSize(i) - 1; j >= 0; j--) {
+			const auto *lab = getEventLabel(Event(i, j));
+			if (lab->getStamp() <= stamp) {
+				preds->setMax(Event(i, j));
+				break;
+			}
+		}
+	}
+	return preds;
+}
+
 /*******************************************************************************
  **                       Label addition methods
  ******************************************************************************/
@@ -40,8 +62,15 @@ auto ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab) -> EventLa
 		lab->setStamp(nextStamp());
 
 	/* Track coherence if necessary */
-	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(&*lab))
+	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(&*lab)) {
 		trackCoherenceAtLoc(mLab->getAddr());
+		accessMap_[mLab->getAddr()].push_back(&*lab);
+	}
+	/* XXX: Track accesses to each location (no allocs; temp fix) */
+	if (auto *dLab = llvm::dyn_cast<FreeLabel>(&*lab)) {
+		trackCoherenceAtLoc(dLab->getFreedAddr());
+		accessMap_[dLab->getFreedAddr()].push_back(&*lab);
+	}
 
 	auto pos = lab->getPos();
 	auto *lastLab = getLastThreadLabel(pos.thread);
@@ -69,10 +98,19 @@ void ExecutionGraph::trackCoherenceAtLoc(SAddr addr)
 {
 	coherence[addr];
 	getInitLabel()->initRfs.emplace(addr, CopyableIList<ReadLabel>());
+	accessMap_[addr];
+}
+
+void ExecutionGraph::addAlloc(MallocLabel *aLab, MemAccessLabel *mLab)
+{
+	if (aLab) {
+		mLab->setAlloc(aLab);
+		aLab->addAccess(mLab);
+	}
 }
 
 /************************************************************
- ** Calculation of writes a read can read from
+ ** Graph modification methods
  ***********************************************************/
 
 void ExecutionGraph::removeLast(unsigned int thread)
@@ -91,52 +129,32 @@ void ExecutionGraph::removeLast(unsigned int thread)
 	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
 		if (auto *aLab = llvm::dyn_cast_or_null<MallocLabel>(mLab->getAlloc()))
 			aLab->removeAccess([&](auto &oLab) { return &oLab == mLab; });
+		auto &accesses = accessMap_[mLab->getAddr()];
+		accesses.erase(std::remove(accesses.begin(), accesses.end(), mLab), accesses.end());
 	}
 	if (auto *dLab = llvm::dyn_cast<FreeLabel>(lab)) {
 		dLab->getAlloc()->setFree(nullptr);
+		auto &accesses = accessMap_[dLab->getFreedAddr()];
+		accesses.erase(std::remove(accesses.begin(), accesses.end(), dLab), accesses.end());
 	}
 	if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab)) {
 		if (auto *dLab = llvm::dyn_cast_or_null<FreeLabel>(aLab->getFree()))
 			dLab->setAlloc(nullptr);
 	}
-	/* Nothing to do for create/join: childId remains the same */
+	if (auto *cLab = llvm::dyn_cast<ThreadCreateLabel>(lab)) {
+		if (auto *tsLab = llvm::dyn_cast_or_null<ThreadStartLabel>(
+			    getFirstThreadLabel(lab->getThread())))
+			tsLab->setCreate(nullptr);
+	}
+	if (auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(lab)) {
+		if (auto *eLab = llvm::dyn_cast_or_null<ThreadFinishLabel>(
+			    getLastThreadLabel(tjLab->getChildId())))
+			eLab->setParentJoin(nullptr);
+	}
+	/* Nothing to do for start/finish: childId remains the same */
 	insertionOrder.remove(*lab);
 	poLists[lab->getThread()].remove(*lab);
 	events[thread].pop_back();
-}
-
-/************************************************************
- ** Graph modification methods
- ***********************************************************/
-
-void ExecutionGraph::addAlloc(MallocLabel *aLab, MemAccessLabel *mLab)
-{
-	if (aLab) {
-		mLab->setAlloc(aLab);
-		aLab->addAccess(mLab);
-	}
-}
-
-/*
- * In the case where the events are not added out-of-order in the graph
- * (i.e., an event has a larger timestamp than all its po-predecessors)
- * we can obtain a view of the graph, given a timestamp. This function
- * returns such a view.
- */
-auto ExecutionGraph::getViewFromStamp(Stamp stamp) const -> std::unique_ptr<VectorClock>
-{
-	auto preds = std::make_unique<View>();
-
-	for (auto i = 0U; i < getNumThreads(); i++) {
-		for (auto j = (int)getThreadSize(i) - 1; j >= 0; j--) {
-			const auto *lab = getEventLabel(Event(i, j));
-			if (lab->getStamp() <= stamp) {
-				preds->setMax(Event(i, j));
-				break;
-			}
-		}
-	}
-	return preds;
 }
 
 void ExecutionGraph::removeAfter(const VectorClock &preds)
@@ -156,6 +174,7 @@ void ExecutionGraph::removeAfter(const VectorClock &preds)
 		/* Should we keep this memory location lying around? */
 		if (!keep.count(lIt->first)) {
 			getInitLabel()->initRfs.erase(lIt->first);
+			accessMap_.erase(lIt->first);
 			lIt = coherence.erase(lIt);
 		} else {
 			for (auto sIt = lIt->second.begin(); sIt != lIt->second.end();) {
@@ -167,6 +186,12 @@ void ExecutionGraph::removeAfter(const VectorClock &preds)
 			getInitLabel()->removeReader(lIt->first, [&](auto &rLab) {
 				return !preds.contains(rLab.getPos());
 			});
+			auto &accesses = accessMap_[lIt->first];
+			accesses.erase(std::remove_if(accesses.begin(), accesses.end(),
+						      [&](auto *lab) {
+							      return !preds.contains(lab->getPos());
+						      }),
+				       accesses.end());
 			++lIt;
 		}
 	}
@@ -235,16 +260,32 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 					return !preds->contains(begLab->getPos());
 				});
 			}
-			/* No special action for CreateLabels; we can
-			 * keep the begin event of the child the since
-			 * it will not be deleted */
 		}
 	}
 
-	/* Restrict the graph according to the view (keep begins around) */
+	/* Restrict the graph according to the view (keeps begins around) */
 	for (auto i = 0U; i < getNumThreads(); i++) {
 		auto &thr = events[i];
 		thr.erase(thr.begin() + preds->getMax(i) + 1, thr.end());
+	}
+
+	/* Remove begins as well */
+	for (auto i : std::views::reverse(thr_ids()) | std::views::take_while([this](auto i) {
+			      return getThreadSize(i) == 1 &&
+				     !llvm::isa<InitLabel>(getFirstThreadLabel(i));
+		      })) {
+		auto *bLab = getFirstThreadLabel(i);
+		BUG_ON(!bLab);
+		if (!bLab->getCreate()) {
+			if (bLab->getSymmPredTid() != -1) {
+				auto *symmLab = getFirstThreadLabel(bLab->getSymmPredTid());
+				symmLab->setSymmSuccTid(-1);
+			}
+			insertionOrder.remove(*bLab);
+			poLists[i].remove(*bLab);
+			events.erase(events.begin() + i);
+			poLists.erase(poLists.begin() + i);
+		}
 	}
 
 	/* Fix stamps */
@@ -257,9 +298,9 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 {
 	other.recoveryTID = recoveryTID;
 
-	/* Then, copy the appropriate events */
-	// FIXME: The reason why we resize to num of threads instead of v.size() is
-	// to keep the same size as the interpreter threads.
+	/* We resize up to g.size() (instead of v.size()) because there might be a create
+	 * that is contained in v, but its respective begin is not.
+	 * Will clean up orphaned begins later. */
 	other.events.resize(getNumThreads());
 	other.poLists.resize(getNumThreads());
 	for (auto i = 0u; i < getNumThreads(); i++) {
@@ -284,15 +325,40 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 		}
 	}
 
+	/* Clean up begins */
+	for (auto i :
+	     std::views::reverse(other.thr_ids()) | std::views::take_while([&other](auto i) {
+		     return other.getThreadSize(i) == 1 &&
+			    !llvm::isa<InitLabel>(other.getFirstThreadLabel(i));
+	     })) {
+		auto *bLab = other.getFirstThreadLabel(i);
+		BUG_ON(!bLab);
+		/* Have to use containsPos() below due to trailing begins */
+		if (!bLab->getCreate() || !other.containsPos(bLab->getCreate()->getPos())) {
+			if (bLab->getSymmPredTid() != -1) {
+				auto *symmLab = other.getFirstThreadLabel(bLab->getSymmPredTid());
+				symmLab->setSymmSuccTid(-1);
+			}
+			other.insertionOrder.remove(*bLab);
+			other.poLists[i].remove(*bLab);
+			other.events.erase(other.events.begin() + i);
+			other.poLists.erase(other.poLists.begin() + i);
+			BUG_ON(i < other.getNumThreads() - 1 && other.getThreadSize(i + 1) > 0);
+		}
+	}
+
+	/* Fix insertion order */
 	other.insertionOrder.clear();
 	other.resetStamp(0);
-	for (auto &lab : insertionOrder) {
-		if (v.contains(lab.getPos()) || lab.getIndex() <= v.getMax(lab.getThread())) {
+	for (const auto &lab : insertionOrder) {
+		/* Do not use v here because of trailing begins */
+		if (other.containsPos(lab.getPos())) {
 			other.insertionOrder.push_back(*other.getEventLabel(lab.getPos()));
 			other.getEventLabel(lab.getPos())->setStamp(other.nextStamp());
 		}
 	}
 
+	/* Fix pointers */
 	for (auto &lab : other.labels()) {
 		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
 		if (rLab && rLab->getRf()) {
@@ -399,6 +465,15 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 		     ++rIt) {
 			if (v.contains(rIt->getPos())) {
 				other.addInitRfToLoc(other.getReadLabel(rIt->getPos()));
+			}
+		}
+	}
+	for (auto it = loc_begin(); it != loc_end(); ++it) {
+		auto &accesses = accessMap_.at(it->first);
+		for (auto rIt = accesses.begin(); rIt != accesses.end(); ++rIt) {
+			if (v.contains((*rIt)->getPos())) {
+				other.accessMap_[it->first].push_back(
+					other.getEventLabel((*rIt)->getPos()));
 			}
 		}
 	}

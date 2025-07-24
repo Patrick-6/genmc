@@ -32,8 +32,8 @@ using namespace std;
 
 class Parser {
 public:
-	string readFile(const string &fileName);
-	static std::string getFileLineByNumber(const std::string &absPath, int line);
+	auto readFile(const string &fileName) -> string;
+	static auto getFileLineByNumber(const std::string &absPath, int line) -> std::string;
 	static void stripWhitespace(std::string &s);
 	static void stripSlashes(std::string &absPath);
 	static void parseInstFromMData(std::pair<int, std::string> &locAndFile,

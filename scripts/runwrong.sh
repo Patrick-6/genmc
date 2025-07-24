@@ -19,7 +19,7 @@
 # Author: Michalis Kokologiannakis <mixaskok@gmail.com>
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-GenMC="${GenMC:-$DIR/../genmc}"
+GenMC="${GenMC:-$DIR/../RelWithDebInfo/genmc}"
 
 source "${DIR}/terminal.sh"
 
@@ -162,11 +162,12 @@ runvariants() {
 	vars=$((vars+1))
 	output=`"${GenMC}" "-${model}" -disable-estimation -disable-mm-detector "${unroll}" -print-error-trace $(echo ${checker_args[@]}) -- ${CFLAGS} ${test_args} ${t} 2>&1`
 	status="$?"
-	trace=`echo "${output}" | awk '!/status|Total wall-clock time/ {print $0 }' > tmp.trace`
 	diff_file="${t%.*}.${model}.${coherence}.trace" &&
 	    [[ -f "${t%.*}.${model}.${coherence}.trace-${LLVM_VERSION}" ]] &&
 	    diff_file="${t%.*}.${model}.${coherence}.trace-${LLVM_VERSION}"
-	diff=`diff tmp.trace "${diff_file}"`
+    # We use a "pseudo-file" (see https://stackoverflow.com/a/9847511)
+    # This is to prevent multiple instances of this script running in parallel from interfering with each other
+    diff=`diff <(echo "${output}" | awk '!/status|Total wall-clock time/ {print $0 }') "${diff_file}"`
 	if test -n "${diff}" -a -z "${suppress_diff}"
 	then
 	    if test "$status" -ne 42
@@ -190,7 +191,6 @@ runvariants() {
 	time="${time}" && [[ -z "${time}" ]] && time=0 # if pattern was NOT found
 	test_time=`echo "${test_time}+${time}" | bc -l`
 	runtime=`echo "scale=2; ${runtime}+${time}" | bc -l`
-	rm tmp.trace
     done
     average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
     print_variant_results

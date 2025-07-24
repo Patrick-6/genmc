@@ -21,7 +21,6 @@
 #ifndef GENMC_SADDR_ALLOCATOR_HPP
 #define GENMC_SADDR_ALLOCATOR_HPP
 
-#include "config.h"
 
 #include "Support/SAddr.hpp"
 

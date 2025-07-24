@@ -19,6 +19,7 @@
  */
 
 #include "LoadAnnotationPass.hpp"
+#include "Runtime/InterpreterEnumAPI.hpp"
 #include "Static/LLVMUtils.hpp"
 #include "Static/Transforms/InstAnnotator.hpp"
 #include "Support/Error.hpp"
@@ -138,17 +139,25 @@ auto getAnnotatableLoads(CallInst *assm) -> std::vector<Instruction *>
 	return filterAnnotatableFromSource(assm, sourceLoads);
 }
 
+static auto extractAssumeArgument(CallInst *assume) -> uint64_t
+{
+	auto *arg = dyn_cast<Constant>(assume->getArgOperand(1));
+	BUG_ON(!arg || !arg->getType()->isIntegerTy());
+
+	return arg->getUniqueInteger().getLimitedValue();
+}
+
 auto LoadAnnotationAnalysis::run(Function &F, FunctionAnalysisManager &FAM) -> Result
 {
 	InstAnnotator annotator;
 
 	for (auto &i : instructions(F)) {
-		if (auto *a = llvm::dyn_cast<llvm::CallInst>(&i)) {
-			if (isAssumeFunction(getCalledFunOrStripValName(*a))) {
-				auto loads = getAnnotatableLoads(a);
-				for (auto *l : loads) {
-					result_.annotMap[l] = annotator.annotate(l);
-				}
+		auto *call = llvm::dyn_cast<llvm::CallInst>(&i);
+		if (call && isAssumeFunction(getCalledFunOrStripValName(*call))) {
+			auto loads = getAnnotatableLoads(call);
+			for (auto *l : loads) {
+				auto type = AssumeType(extractAssumeArgument(call));
+				result_.annotMap[l] = std::make_pair(type, annotator.annotate(l));
 			}
 		}
 	}

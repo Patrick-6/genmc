@@ -21,11 +21,13 @@
 #ifndef GENMC_ERROR_HPP
 #define GENMC_ERROR_HPP
 
-#include "Logger.hpp"
 #include "config.h"
+
+#include "Support/Logger.hpp"
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/Format.h>
 #include <llvm/Support/raw_ostream.h>
+
 #include <string>
 
 #define ECOMPILE 5

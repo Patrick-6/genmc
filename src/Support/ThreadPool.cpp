@@ -19,13 +19,17 @@
  */
 
 #include "ThreadPool.hpp"
+#include "Verification/VerificationResult.hpp"
 
-void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
+void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> driver,
+			   std::unique_ptr<llvm::Interpreter> EE, TFunT threadFun)
 {
-	using ThreadT = std::packaged_task<GenMCDriver::Result(
-		unsigned int, std::unique_ptr<GenMCDriver> driver)>;
+	using ThreadT = std::packaged_task<VerificationResult(
+		unsigned int, std::unique_ptr<GenMCDriver> driver,
+		std::unique_ptr<llvm::Interpreter> EE, TFunT threadFun)>;
 
-	ThreadT t([this](unsigned int i, std::unique_ptr<GenMCDriver> driver) {
+	ThreadT thread([this](unsigned int /*i*/, std::unique_ptr<GenMCDriver> driver,
+			      std::unique_ptr<llvm::Interpreter> EE, TFunT threadFun) {
 		while (true) {
 			auto taskUP = popTask();
 
@@ -35,7 +39,7 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 
 			/* Prepare the driver and start the exploration */
 			driver->initFromState(std::move(taskUP));
-			driver->run();
+			threadFun(&*driver, &*EE);
 
 			/* If that was the last task, notify everyone */
 			std::lock_guard<std::mutex> lock(stateMtx_);
@@ -47,9 +51,10 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 		return std::move(driver->getResult());
 	});
 
-	results_.push_back(std::move(t.get_future()));
+	results_.push_back(std::move(thread.get_future()));
 
-	workers_.emplace_back(std::move(t), i, std::move(d));
+	workers_.emplace_back(std::move(thread), i, std::move(driver), std::move(EE),
+			      std::move(threadFun));
 	pinner_.pin(workers_.back(), i);
 }
 
@@ -61,15 +66,15 @@ void ThreadPool::submit(ThreadPool::TaskT t)
 	stateCV_.notify_one();
 }
 
-ThreadPool::TaskT ThreadPool::tryPopPoolQueue() { return queue_.tryPop(); }
+auto ThreadPool::tryPopPoolQueue() -> ThreadPool::TaskT { return queue_.tryPop(); }
 
-ThreadPool::TaskT ThreadPool::tryStealOtherQueue()
+auto ThreadPool::tryStealOtherQueue() -> ThreadPool::TaskT
 {
 	/* TODO: Implement work-stealing */
 	return nullptr;
 }
 
-ThreadPool::TaskT ThreadPool::popTask()
+auto ThreadPool::popTask() -> ThreadPool::TaskT
 {
 	while (true) {
 		if (auto t = tryPopPoolQueue())
@@ -85,7 +90,7 @@ ThreadPool::TaskT ThreadPool::popTask()
 	return nullptr;
 }
 
-std::vector<std::future<GenMCDriver::Result>> ThreadPool::waitForTasks()
+auto ThreadPool::waitForTasks() -> std::vector<std::future<VerificationResult>>
 {
 	while (!shouldHalt() && getRemainingTasks() > 0)
 		std::this_thread::yield();

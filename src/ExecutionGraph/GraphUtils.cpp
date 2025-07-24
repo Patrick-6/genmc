@@ -124,12 +124,17 @@ auto findMatchingSpeculativeRead(const ReadLabel *cLab, const EventLabel *&scLab
 
 auto findAllocatingLabel(const ExecutionGraph &g, const SAddr &addr) -> const MallocLabel *
 {
-	/* Don't iterate over the graph if you don't have to */
+	/* Don't bother for static addresses */
 	if (!addr.isDynamic())
 		return nullptr;
 
-	auto labels = g.labels();
-	auto labIt = std::ranges::find_if(g.labels(), [addr](auto &lab) {
+	/* Fastpath: location contains a store */
+	if (g.containsLoc(addr) && g.co_max(addr) != g.getInitLabel())
+		return llvm::cast<WriteLabel>(g.co_max(addr))->getAlloc();
+
+	/* Iterate over labels */
+	auto labels = g.rlabels();
+	auto labIt = std::ranges::find_if(labels, [addr](auto &lab) {
 		auto *mLab = llvm::dyn_cast<MallocLabel>(&lab);
 		return mLab && mLab->contains(addr);
 	});
@@ -182,21 +187,103 @@ auto findPendingRMW(WriteLabel *sLab) -> WriteLabel *
 	return const_cast<WriteLabel *>(findPendingRMW(static_cast<const WriteLabel *>(sLab)));
 }
 
-auto findBarrierInitValue(const ExecutionGraph &g, const AAccess &access) -> SVal
+auto findBarrierInitValue(const BIncFaiWriteLabel *wLab) -> SVal
 {
-	auto sIt = std::find_if(g.co_begin(access.getAddr()), g.co_end(access.getAddr()),
-				[&access, &g](auto &bLab) {
-					BUG_ON(!llvm::isa<WriteLabel>(bLab));
-					return bLab.getAddr() == access.getAddr() &&
-					       bLab.isNotAtomic();
-				});
+	const auto &g = *wLab->getParent();
+	const auto *irLab = llvm::dyn_cast<ReadLabel>(g.po_imm_pred(g.po_imm_pred(wLab)));
+	BUG_ON(!irLab || !irLab->isNotAtomic());
 
-	/* All errors pertinent to initialization should be captured elsewhere */
-	BUG_ON(sIt == g.co_end(access.getAddr()));
-	return sIt->getAccessValue(access);
+	return irLab->getReturnValue();
+}
+
+auto isLastInBarrierRound(const BIncFaiWriteLabel *wLab) -> bool
+{
+	return wLab->getVal() % findBarrierInitValue(wLab) == SVal(0);
+}
+
+auto readsBarrierUnblockingValue(const BWaitReadLabel *rLab) -> bool
+{
+	const auto &g = *rLab->getParent();
+	const auto *wLab = llvm::cast<BIncFaiWriteLabel>(g.po_imm_pred(rLab));
+	auto iVal = g.po_imm_pred(g.po_imm_pred(wLab))->getReturnValue();
+	auto val = rLab->getReturnValue();
+
+	return val.uge(wLab->getVal() / iVal * iVal +
+		       (isLastInBarrierRound(wLab) ? SVal(0) : iVal));
 }
 
 auto violatesAtomicity(const WriteLabel *sLab) -> bool
 {
 	return sLab->isRMW() && findPendingRMW(sLab);
+}
+
+void blockThread(ExecutionGraph &g, std::unique_ptr<BlockLabel> bLab)
+{
+	/* There are a couple of reasons we don't call Driver::addLabelToGraph() here:
+	 *   1) It's redundant to update the views of the block label
+	 *   2) If addLabelToGraph() does extra stuff (e.g., event caching) we absolutely
+	 *      don't want to do that here. blockThread() should be safe to call from
+	 *      anywhere in the code, with no unexpected side-effects */
+	if (bLab->getPos() == g.getLastThreadLabel(bLab->getThread())->getPos())
+		g.removeLast(bLab->getThread());
+	g.addLabelToGraph(std::move(bLab));
+}
+
+void unblockThread(ExecutionGraph &g, Event pos)
+{
+	auto *bLab = g.getLastThreadLabel(pos.thread);
+	BUG_ON(!llvm::isa<BlockLabel>(bLab));
+	g.removeLast(pos.thread);
+}
+
+auto createRMWWriteLabel(const ExecutionGraph &g, const ReadLabel *rLab)
+	-> std::unique_ptr<WriteLabel>
+{
+	/* Handle non-RMW cases first */
+	if (!llvm::isa<CasReadLabel>(rLab) && !llvm::isa<FaiReadLabel>(rLab))
+		return nullptr;
+	if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab))
+		if (rLab->getAccessValue(rLab->getAccess()) != casLab->getExpected())
+			return nullptr;
+
+	SVal result;
+	WriteAttr wattr = WriteAttr::None;
+	if (auto *faiLab = llvm::dyn_cast<FaiReadLabel>(rLab)) {
+		/* Need to get the rf value within the if, as rLab might be a disk op,
+		 * and we cannot get the value in that case (but it will also not be an RMW)
+		 */
+		auto rfVal = rLab->getAccessValue(rLab->getAccess());
+		result = executeRMWBinOp(rfVal, faiLab->getOpVal(), faiLab->getSize(),
+					 faiLab->getOp());
+		wattr = faiLab->getAttr();
+	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
+		result = casLab->getSwapVal();
+		wattr = casLab->getAttr();
+	} else
+		BUG();
+
+	std::unique_ptr<WriteLabel> wLab = nullptr;
+
+#define CREATE_COUNTERPART(name)                                                                   \
+	case EventLabel::name##Read:                                                               \
+		wLab = name##WriteLabel::create(rLab->getPos().next(), rLab->getOrdering(),        \
+						rLab->getAddr(), rLab->getSize(), rLab->getType(), \
+						result, wattr);                                    \
+		break;
+
+	switch (rLab->getKind()) {
+		CREATE_COUNTERPART(BIncFai);
+		CREATE_COUNTERPART(NoRetFai);
+		CREATE_COUNTERPART(Fai);
+		CREATE_COUNTERPART(LockCas);
+		CREATE_COUNTERPART(TrylockCas);
+		CREATE_COUNTERPART(AbstractLockCas);
+		CREATE_COUNTERPART(Cas);
+		CREATE_COUNTERPART(HelpedCas);
+		CREATE_COUNTERPART(ConfirmingCas);
+	default:
+		BUG();
+	}
+	BUG_ON(!wLab);
+	return std::move(wLab);
 }

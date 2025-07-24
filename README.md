@@ -38,57 +38,45 @@ The LLVM versions currently supported are:
 In order to use the tool on a Debian-based installation, you need the
 following packages:
 
-		autoconf  automake  clang  llvm  llvm-dev  libffi-dev
+		cmake clang  llvm  llvm-dev  libffi-dev
 		zlib1g-dev libedit-dev
+
+To run the default tests, `bc` is also necessary.
 
 ##### Max OS X
 
 Using `brew`, the following packages are necessary:
 
-		autoconf automake llvm libffi
+		cmake llvm libffi
 
 #### Installing
 
-##### GNU/Linux
+For a default build issue the command below. The usual `CMAKE_PREFIX_PATH` can be used
+to specify the paths of the libraries required.
 
-For a default build issue:
+		cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -B RelWithDebInfo -S .
+		cmake --build RelWithDebInfo
 
-		autoreconf --install
-		./configure
-		make
-
-This will leave the `genmc` executable in the build directory.
+This will leave the `genmc` executable in the `RelWithDebInfo` directory.
 You can either run it from there (as in the examples below), or issue
-`make install`.
+`cmake --install .`.
 
-Alternatively, the following following command will build the `genmc`
-executable in parallel and will also run a subset of all the tests
-that come with the system to see if the system was built correctly or
-not:
+To run a subset of all the tests that come with the system to see if the system was built correctly or not:
 
-		make -j check
-
-##### Mac OS X
-
-For a default build issue:
-
-		autoreconf --install
-		./configure AR=llvm-ar
-		make
+		cd RelWithDebInfo && ctest -R fast-driver
 
 <a name="usage">Usage</a>
 -------------------------
 
 * To see a list of available options run:
 
-		./genmc --help
+		./Release/genmc --help
 
 * To run a particular testcase run:
 
-		./genmc [options] <file>
+		./Release/genmc [options] <file>
 
 * For more detailed usage examples please refer to the [manual](doc/manual.md).
-
 
 <a name="troubleshooting">Troubleshooting</a>
 ---------------------------------------------

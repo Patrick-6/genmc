@@ -22,7 +22,6 @@
 #define GENMC_MAXIMAL_ITERATOR_HPP
 
 #include "ADT/View.hpp"
-#include "config.h"
 #include <iterator>
 #include <llvm/ADT/iterator_range.h>
 #include <type_traits>

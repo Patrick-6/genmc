@@ -23,10 +23,10 @@
 
 #include "ADT/VSet.hpp"
 #include "Config/Config.hpp"
+#include "ExecutionGraph/LoadAnnotation.hpp"
 #include "Static/ModuleID.hpp"
 #include "Support/NameInfo.hpp"
 #include "Support/SExpr.hpp"
-#include "config.h"
 #include <llvm/ADT/BitVector.h>
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -69,56 +69,15 @@ template <typename Key> struct VariableInfo {
 
 /** Annotations for loads used by assume()s for SAVer */
 template <typename K, typename V> struct AnnotationInfo {
-
-	using AnnotUM = std::unordered_map<K, value_ptr<SExpr<V>, SExprCloner<V>>>;
+	using Annot = std::pair<AssumeType, value_ptr<SExpr<V>, SExprCloner<V>>>;
+	using AnnotUM = std::unordered_map<K, Annot>;
 
 	void clear() { annotMap.clear(); }
 
 	AnnotUM annotMap;
 };
 
-/**
- * Pers: Maintains some information regarding the
- * filesystem (e.g., type of inodes, files, etc)
- */
-struct FsInfo {
-
-	/** Explicitly initialize PODs to be C++11-compatible */
-	FsInfo()
-		: inodeTyp(nullptr), fileTyp(nullptr), blockSize(0), maxFileSize(0),
-		  journalData(JournalDataFS::writeback), delalloc(false), dirInode(nullptr)
-	{}
-
-	/** Type information */
-	llvm::StructType *inodeTyp;
-	llvm::StructType *fileTyp;
-
-	/** Filesystem options*/
-	unsigned int blockSize;
-	unsigned int maxFileSize;
-
-	/** "Mount" options */
-	JournalDataFS journalData;
-	bool delalloc;
-
-	/** Filenames in the module. These must be known statically. */
-	VSet<std::string> filenames;
-
-	/** Should hold the address of the directory's inode */
-	void *dirInode;
-
-	void clear()
-	{
-		inodeTyp = nullptr;
-		fileTyp = nullptr;
-		blockSize = 0;
-		maxFileSize = 0;
-		journalData = JournalDataFS::writeback;
-		delalloc = false;
-		filenames.clear();
-		dirInode = nullptr;
-	}
-};
+enum class BarrierRetResult : std::uint8_t { Unused, Used };
 
 /** A struct to be used from LLVM passes where different kinds of data can be stored.
  * Different from ModuleInfo as it does not require the module to have assigned IDs.
@@ -129,8 +88,8 @@ struct PassModuleInfo {
 
 	VariableInfo<llvm::Value *> varInfo;
 	AnnotationInfo<llvm::Instruction *, llvm::Value *> annotInfo;
-	VSet<std::string> filenames;
 	std::optional<ModelType> determinedMM;
+	std::optional<BarrierRetResult> barrierResultsUsed;
 };
 
 /** Pack together all useful information like VariableInfo and FsInfo for a
@@ -153,8 +112,8 @@ struct ModuleInfo {
 	ModuleID idInfo;
 	VariableInfo<ModuleID::ID> varInfo;
 	AnnotationInfo<ModuleID::ID, ModuleID::ID> annotInfo;
-	FsInfo fsInfo;
 	std::optional<ModelType> determinedMM;
+	std::optional<BarrierRetResult> barrierResultsUsed;
 
 private:
 	const llvm::Module &mod;

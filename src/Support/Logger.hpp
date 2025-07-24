@@ -37,11 +37,11 @@ protected:
 public:
 	Logger(VerbosityLevel l = VerbosityLevel::Warning) : buffer_(str_)
 	{
-		if (std::is_same<U, err_tag>::value)
+		if (std::is_same_v<U, err_tag>)
 			buffer_ << l;
 	}
 
-	template <typename T> Logger &operator<<(const T &msg)
+	template <typename T> auto operator<<(const T &msg) -> Logger &
 	{
 		buffer_ << msg;
 		return *this;
@@ -54,7 +54,7 @@ public:
 		 * 2. Stream ops are atomic according to POSIX:
 		 *    http://www.gnu.org/s/libc/manual/html_node/Streams-and-Threads.html
 		 */
-		if (std::is_same<U, out_tag>::value)
+		if (std::is_same_v<U, out_tag>)
 			llvm::outs() << buffer_.str();
 		else
 			llvm::errs() << buffer_.str();
@@ -79,7 +79,7 @@ public:
 			this->buffer_ << l;
 	}
 
-	template <typename T> LoggerOnce &operator<<(const T &msg)
+	template <typename T> auto operator<<(const T &msg) -> LoggerOnce &
 	{
 		if (ids.count(id)) {
 			return *this;
