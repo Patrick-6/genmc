@@ -720,6 +720,10 @@ VerificationError GenMCDriver::checkInitializedMem(const ReadLabel *rLab)
 	if (getConf()->skipAccessValidityChecks)
 		return VerificationError::VE_OK;
 
+	/* Some interpreters check for access validity already, skip in that case. */
+	if (getConf()->skipAccessValidityChecks)
+		return VerificationError::VE_OK;
+
 	// FIXME: Have label for mutex-destroy and check type instead of val.
 	//        Also for barriers.
 
