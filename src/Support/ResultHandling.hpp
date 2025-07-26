@@ -17,21 +17,16 @@ using AccessValue = uint8_t[16];
 // TODO GENMC: maybe remove this type and just expose `SVal`
 struct GenmcScalar {
 	uint64_t value;
-	uint64_t extra;
 	bool is_init;
 
-	GenmcScalar() : value(0), extra(0), is_init(false) {}
-	GenmcScalar(uint64_t value, uint64_t extra) : value(value), extra(extra), is_init(true) {}
-	GenmcScalar(SVal val) : value(val.get()), extra(val.getExtra()), is_init(true) {}
+	GenmcScalar() : value(0), is_init(false) {}
+	GenmcScalar(uint64_t value) : value(value), is_init(true) {}
+	GenmcScalar(SVal val) : value(val.get()), is_init(true) {}
 
 	auto toSVal() const -> SVal
 	{
-		if (!is_init)
-			LOG(VerbosityLevel::Error)
-				<< "attempt to convert uninitialized memory to SVal: " << value
-				<< ", " << extra << "\n";
 		BUG_ON(!is_init);
-		return SVal(value, extra);
+		return SVal(value);
 	}
 
 	bool operator==(const GenmcScalar &other) const
@@ -45,7 +40,7 @@ struct GenmcScalar {
 			return false;
 
 		// Compare the actual values
-		return value == other.value && extra == other.extra;
+		return value == other.value;
 	}
 
 	friend auto operator<<(llvm::raw_ostream &rhs, const GenmcScalar &v) -> llvm::raw_ostream &;
@@ -94,8 +89,7 @@ public:
 	static LoadResult fromValue(SVal value)
 	{
 		uint64_t value_ = value.get();
-		uint64_t extra = value.getExtra();
-		auto scalar = GenmcScalar(value_, extra);
+		auto scalar = GenmcScalar(value_);
 		auto load_result = LoadResult{};
 		// TODO GENMC: handle u128, and possibly different endianness
 		load_result.is_read_opt = false;
@@ -119,7 +113,7 @@ public:
 	{
 		// TODO GENMC: u128 handling
 		BUG_ON(!has_value());
-		return SVal(scalar.value, scalar.extra);
+		return SVal(scalar.value);
 	}
 	void setValue(SVal val) { scalar = GenmcScalar(val); }
 	void setValue(GenmcScalar val) { scalar = val; }
