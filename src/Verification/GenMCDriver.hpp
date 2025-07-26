@@ -213,9 +213,6 @@ public:
 
 	virtual ~GenMCDriver();
 
-	// TODO GENMC: for debugging:
-	void debugPrintGraph() { printGraph(); }
-
 protected:
 	friend class Scheduler;
 	friend class ArbitraryScheduler;
