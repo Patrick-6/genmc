@@ -24,7 +24,7 @@
 #include <string>
 
 enum class SchedulePolicy : std::uint8_t { LTR, WF, WFR, Arbitrary };
-enum class BoundType : std::uint8_t { context, round };
+enum class BoundType : std::uint8_t { context, round, none };
 enum class InputType : std::uint8_t { clang, cargo, rust, llvmir };
 
 struct Config {
@@ -102,6 +102,9 @@ struct Config {
 
 /* Parses CLI options and initializes a Config object */
 void parseConfig(int argc, char **argv, Config &conf);
+
+/* Check validity of config options. */
+void checkConfigOptions(Config &conf);
 
 /* Returns the language of the input file */
 InputType determineLang(std::string inputFile);
