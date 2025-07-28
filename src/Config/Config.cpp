@@ -489,8 +489,8 @@ void parseConfig(int argc, char **argv, Config &conf)
 					  "Model Checking for C programs");
 
 	/* Sanity-check config options and then appropriately save them */
-	checkConfigOptions(conf);
 	saveConfigOptions(conf);
+	checkConfigOptions(conf);
 
 	/* Set (global) log state */
 	logLevel = conf.vLevel;
