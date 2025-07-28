@@ -87,7 +87,6 @@ struct Config {
 	std::string linkWith;
 	std::string programEntryFun;
 	unsigned int warnOnGraphSize{};
-	VerbosityLevel vLevel{};
 #ifdef ENABLE_GENMC_DEBUG
 	bool printStamps{};
 	bool colorAccesses{};

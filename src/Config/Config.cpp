@@ -457,7 +457,6 @@ static void saveConfigOptions(Config &conf)
 	conf.outputLlvmAfter = std::move(clOutputLlvmAfter);
 	conf.disableGenmcStdRebuild = clDisableGenmcStdRebuild;
 	conf.linkWith = std::move(clLinkWith);
-	conf.vLevel = clVLevel;
 #ifdef ENABLE_GENMC_DEBUG
 	conf.printStamps = clPrintStamps;
 	conf.colorAccesses = clColorAccesses;
@@ -489,7 +488,7 @@ void parseConfig(int argc, char **argv, Config &conf)
 	checkConfigFiles(conf);
 
 	/* Set (global) log state */
-	logLevel = conf.vLevel;
+	logLevel = clVLevel;
 
 	llvm::cl::ResetAllOptionOccurrences();
 	clInputFile.removeArgument();
