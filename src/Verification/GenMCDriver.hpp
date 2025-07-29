@@ -161,12 +161,10 @@ public:
 	void handleBlock(std::unique_ptr<BlockLabel> bLab);
 
 	/** Returns the value this load reads */
-	LoadResult handleLoad(std::unique_ptr<ReadLabel> rLab,
-			      std::function<void(SAddr)> oldValSetter = {});
+	LoadResult handleLoad(std::unique_ptr<ReadLabel> rLab);
 
 	/** A store has been interpreted, nothing for the interpreter */
-	StoreResult handleStore(std::unique_ptr<WriteLabel> wLab,
-				std::function<void(SAddr)> oldValSetter = {});
+	StoreResult handleStore(std::unique_ptr<WriteLabel> wLab);
 
 	/** A fence has been interpreted, nothing for the interpreter */
 	void handleFence(std::unique_ptr<FenceLabel> fLab);

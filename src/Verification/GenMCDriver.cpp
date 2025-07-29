@@ -1402,15 +1402,12 @@ EventLabel *GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *>
 	return stores[random];
 }
 
-LoadResult GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab,
-				   std::function<void(SAddr)> oldValSetter)
+LoadResult GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 {
 	VerificationError err;
 	auto &g = getExec().getGraph();
 
 	if (isExecutionDrivenByGraph(&*rLab)) {
-		if (oldValSetter)
-			oldValSetter(rLab->getAddr());
 		return getReadRetValue(llvm::dyn_cast<ReadLabel>(g.getEventLabel(rLab->getPos())));
 	}
 
@@ -1444,10 +1441,6 @@ LoadResult GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab,
 	/* Check whether the load forces us to reconsider some existing event */
 	checkReconsiderFaiSpinloop(lab);
 
-	if (oldValSetter) {
-		oldValSetter(lab->getAddr());
-	}
-
 	/* If a CAS read cannot be added maximally, reschedule */
 	if (!getScheduler().isRescheduledRead(lab->getPos()) &&
 	    removeCASReadIfBlocks(lab, g.co_max(lab->getAddr())))
@@ -1476,8 +1469,6 @@ LoadResult GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab,
 				lab->getPos(), sLab->getPos()));
 		}
 	}
-
-	// TODO GENMC: call oldValSetter here?
 
 	if (!rf)
 		moot();
@@ -1590,17 +1581,12 @@ void GenMCDriver::calcCoOrderings(WriteLabel *lab, const std::vector<EventLabel 
 	}
 }
 
-StoreResult GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab,
-				     std::function<void(SAddr)> oldValSetter)
+StoreResult GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 {
 	VerificationError err{};
 	auto &g = getExec().getGraph();
 
 	if (isExecutionDrivenByGraph(&*wLab)) {
-		// TODO GENMC: add a boolean to indicate whether write is
-		// maximal in the graph (and Miri should thus also do it)
-		if (oldValSetter)
-			oldValSetter(wLab->getAddr());
 		const bool isCoMaxWrite = g.co_max(wLab->getAddr())->getPos() == wLab->getPos();
 		return StoreResult::ok(isCoMaxWrite);
 	}
@@ -1637,9 +1623,6 @@ StoreResult GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab,
 	checkReconsiderFaiSpinloop(lab);
 	unblockWaitingHelping(lab);
 	checkReconsiderReadOpts(lab);
-
-	if (oldValSetter)
-		oldValSetter(lab->getAddr());
 
 	/* Find all possible placings in coherence for this store, and
 	 * print a WW-race warning if appropriate (if this moots,
