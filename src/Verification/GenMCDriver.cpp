@@ -984,9 +984,9 @@ EventLabel *GenMCDriver::findConsistentRf(ReadLabel *rLab, std::vector<EventLabe
 	 * - the consistent choice might lead to a settled atomicity violation and has already been
 	 * filtered-out
 	 * - context bounding's slack might have changed due to an optimization */
-	BUG_ON(!(getConf()->bound.has_value() &&
-		 ((llvm::isa<CasReadLabel>(rLab) || llvm::isa<FaiReadLabel>(rLab)) ||
-		  getConf()->boundType == BoundType::context)));
+	BUG_ON(!getConf()->bound.has_value() ||
+	       (getConf()->boundType != BoundType::context && !llvm::isa<CasReadLabel>(rLab) &&
+		!llvm::isa<FaiReadLabel>(rLab)));
 	return nullptr;
 }
 
