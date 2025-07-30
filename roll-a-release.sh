@@ -57,7 +57,7 @@ git push origin master && git push origin "v${VERSION}"
 # update github
 cd "${EXTERNAL_PATH}"
 git checkout master && git apply --whitespace=fix "${PATCH_PATH}"
-autoreconf --install && ./configure && make -j8 && ./scripts/fast-driver.sh
+cmake -DBUILD_DOC=ON -DGENMC_DEBUG=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo -B RelWithDebInfo -S . && cmake --build RelWithDebInfo -j8 && ./scripts/fast-driver.sh
 git add -A && git commit -s -m "Release GenMC v${VERSION}" && git tag "v${VERSION}"
 git push origin master && git push origin "v${VERSION}"
 git clean -dfX

@@ -15,4 +15,4 @@ RUN apt-get install -y -qq clang-18 llvm-18 llvm-18-dev
 
 # clone and build
 RUN git clone -v https://github.com/MPI-SWS/genmc.git
-RUN cd genmc && autoreconf --install && ./configure --with-llvm=/usr/lib/llvm-18 && make && make install
+RUN cd genmc && cmake -DCMAKE_PREFIX_PATH=/usr/lib/llvm-18 -DBUILD_DOC=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo -B RelWithDebInfo -S . && cmake --build RelWithDebInfo -j8 && cmake --install RelWithDebInfo
