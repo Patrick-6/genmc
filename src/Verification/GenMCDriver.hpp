@@ -367,7 +367,7 @@ private:
 	EventLabel *pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *> &stores);
 
 	/** Est: Picks (and sets) a random CO among some possible options */
-	void pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos);
+	EventLabel *pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos);
 
 	/** BAM: Reports an error if the executions is not barrier-well-formed.
 	 * Returns whether the execution is well-formed */
@@ -460,16 +460,10 @@ private:
 	bool isExecutionValid(const EventLabel *lab);
 
 	/** Removes rfs from RFS until a consistent option for RLAB is found */
-	std::optional<EventLabel *> findConsistentRf(ReadLabel *rLab,
-						     std::vector<EventLabel *> &rfs);
+	EventLabel *findConsistentRf(ReadLabel *rLab, std::vector<EventLabel *> &rfs);
 
 	/** Remove cos from COS until a consistent option for WLAB is found */
-	std::optional<EventLabel *> findConsistentCo(WriteLabel *wLab,
-						     std::vector<EventLabel *> &cos);
-
-	/** Checks whether the addition of WLAB creates an atomicity violation.
-	 * If so, returns false and moots the execution if possible. */
-	bool checkAtomicity(const WriteLabel *wLab);
+	EventLabel *findConsistentCo(WriteLabel *wLab, std::vector<EventLabel *> &cos);
 
 	/** SAVer: Checks whether the addition of an event changes our
 	 * perspective of a potential spinloop */
@@ -589,8 +583,6 @@ private:
 	const VectorClock &getPrefixView(const EventLabel *lab) const;
 
 	friend llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const VerificationError &r);
-
-	static constexpr unsigned int defaultFdNum = 20;
 
 	/** Random generator facilities used */
 	using MyRNG = std::mt19937;
