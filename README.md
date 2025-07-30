@@ -70,11 +70,11 @@ To run a subset of all the tests that come with the system to see if the system 
 
 * To see a list of available options run:
 
-		./Release/genmc --help
+		./RelWithDebInfo/genmc --help
 
 * To run a particular testcase run:
 
-		./Release/genmc [options] <file>
+		./RelWithDebInfo/genmc [options] <file>
 
 * For more detailed usage examples please refer to the [manual](doc/manual.md).
 
@@ -100,16 +100,17 @@ To run a subset of all the tests that come with the system to see if the system 
 <a name="license">License</a>
 -----------------------------
 
-GenMC (with the exception of some files, see [Exceptions](#exceptions))
-is distributed under the GPL, version 3 or (at your option) later.
-Please see the COPYING file for details on GPLv3.
+GenMC (with the exception of some files, see
+[Exceptions](#exceptions)) is distributed under either the Apache
+License, Version 2.0 (see [LICENSE-APACHE](LICENSE-APACHE)) or the MIT
+license (see [LICENSE-MIT](LICENSE-MIT)).
 
 ### <a name="exceptions">Exceptions</a>
 
 Part of the code in the files listed below are originating from
 the [LLVM Compiler Framework](https://llvm.org), version 3.5.
 These parts are licensed under the University of Illinois/NCSA
-Open Source License as well as under GPLv3. Please see the LLVMLICENSE
+Open Source License as well as under Apache/MIT. Please see the LLVMLICENSE
 file for details on the University of Illinois/NCSA Open Source License.
 
 		src/Interpreter.h
@@ -117,11 +118,9 @@ file for details on the University of Illinois/NCSA Open Source License.
 		src/Execution.cpp
 		src/ExternalFunctions.cpp
 
-Additionally, the files within the `include` directory are licensed
-under their own licenses.
-
-Please see the respective header for more information on a specific
-file's license.
+Also note that the `include` and `tests` directories contain files
+that are copied from other codebases. Please inspect the source code for
+more information on the license of the respective files.
 
 
 <a name="contact">Contact</a>
