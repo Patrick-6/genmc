@@ -1,21 +1,14 @@
 /*
  * GenMC -- Generic Model Checking.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
- * (at your option) any later version.
+ * This project is dual-licensed under the Apache License 2.0 and the MIT License.
+ * You may choose to use, distribute, or modify this software under either license.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Apache License 2.0:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-3.0.html.
- *
- * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
+ * MIT License:
+ *     https://opensource.org/licenses/MIT
  */
 
 #ifndef GENMC_VERIFICATION_ERROR_HPP
@@ -85,6 +78,11 @@ inline auto isInvalidAccessError(VerificationError s) -> bool
 
 inline auto isHardError(VerificationError err) -> bool
 {
+	/* An invalid unlock *must* be a hard error:
+	 * the lock optimization depends on the absence of unordered
+	 * writes to the lock location, which is not guaranteed if
+	 * the lock is unlocked without being locked by the same thread first.
+	 */
 	return !(err >= VerificationError::VE_NonErrorBegin &&
 		 err <= VerificationError::VE_NonErrorLast);
 }

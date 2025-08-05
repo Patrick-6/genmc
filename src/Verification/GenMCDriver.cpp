@@ -1,21 +1,14 @@
 /*
  * GenMC -- Generic Model Checking.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
- * (at your option) any later version.
+ * This project is dual-licensed under the Apache License 2.0 and the MIT License.
+ * You may choose to use, distribute, or modify this software under either license.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Apache License 2.0:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-3.0.html.
- *
- * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
+ * MIT License:
+ *     https://opensource.org/licenses/MIT
  */
 
 #include "GenMCDriver.hpp"
@@ -567,7 +560,6 @@ void GenMCDriver::updateLabelViews(EventLabel *lab)
 	if (!getConf()->symmetryReduction)
 		return;
 
-	auto &v = lab->getPrefixView(); // FIXME: called for sideeffects
 	getSymmChecker().updatePrefixWithSymmetries(lab);
 }
 
@@ -575,12 +567,6 @@ VerificationError GenMCDriver::checkForRaces(const EventLabel *lab)
 {
 	if (getConf()->disableRaceDetection || inEstimationMode())
 		return VerificationError::VE_OK;
-
-	/* Bounding: extensibility not guaranteed; RD should be disabled */
-	if (llvm::isa<WriteLabel>(lab) && !checkAtomicity(llvm::dyn_cast<WriteLabel>(lab))) {
-		BUG_ON(!getConf()->bound.has_value());
-		return VerificationError::VE_OK;
-	}
 
 	/* Check for hard errors */
 	const EventLabel *racyLab = nullptr;
@@ -966,60 +952,61 @@ bool GenMCDriver::checkHelpingCasCondition(const HelpingCasLabel *hLab)
 	return std::ranges::begin(hsView) != std::ranges::end(hsView);
 }
 
-bool GenMCDriver::checkAtomicity(const WriteLabel *wLab)
-{
-	if (violatesAtomicity(wLab)) {
-		moot();
-		return false;
-	}
-	return true;
-}
-
-std::optional<EventLabel *> GenMCDriver::findConsistentRf(ReadLabel *rLab,
-							  std::vector<EventLabel *> &rfs)
+EventLabel *GenMCDriver::findConsistentRf(ReadLabel *rLab, std::vector<EventLabel *> &rfs)
 {
 	auto &g = getExec().getGraph();
 
 	/* For the non-bounding case, maximal extensibility guarantees consistency */
 	if (!getConf()->bound.has_value()) {
-		rLab->setRf(rfs.back());
-		return {rfs.back()};
+		auto *back = rfs.back();
+		rfs.pop_back();
+		rLab->setRf(back);
+		return back;
 	}
 
 	/* Otherwise, search for a consistent rf */
 	while (!rfs.empty()) {
-		rLab->setRf(rfs.back());
+		auto *back = rfs.back();
+		rfs.pop_back();
+		rLab->setRf(back);
 		if (isExecutionValid(rLab))
-			return {rfs.back()};
-		rfs.erase(rfs.end() - 1);
+			return back;
 	}
 
-	/* If none is found, tough luck */
-	moot();
-	return std::nullopt;
+	/* Extensibility is guaranteed with bounding because
+	 * - the consistent choice might lead to a settled atomicity violation and has already been
+	 * filtered-out
+	 * - context bounding's slack might have changed due to an optimization */
+	BUG_ON(!getConf()->bound.has_value() ||
+	       (getConf()->boundType != BoundType::context && !llvm::isa<CasReadLabel>(rLab) &&
+		!llvm::isa<FaiReadLabel>(rLab)));
+	return nullptr;
 }
 
-std::optional<EventLabel *> GenMCDriver::findConsistentCo(WriteLabel *wLab,
-							  std::vector<EventLabel *> &cos)
+EventLabel *GenMCDriver::findConsistentCo(WriteLabel *wLab, std::vector<EventLabel *> &cos)
 {
 	auto &g = getExec().getGraph();
 
 	/* Similarly to the read case: rely on extensibility */
-	wLab->addCo(cos.back());
-	if (!getConf()->bound.has_value())
-		return {cos.back()};
+	auto back = cos.back();
+	wLab->addCo(back);
+	if (!getConf()->bound.has_value()) {
+		cos.pop_back();
+		return back;
+	}
 
+	// FIXME: This is wrong
 	/* In contrast to the read case, we need to be a bit more careful:
 	 * the consistent choice might not satisfy atomicity, but we should
 	 * keep it around to try revisits */
 	while (!cos.empty()) {
-		wLab->moveCo(cos.back());
+		auto back = cos.back();
+		cos.pop_back();
+		wLab->moveCo(back);
 		if (isExecutionValid(wLab))
-			return {cos.back()};
-		cos.erase(cos.end() - 1);
+			return back;
 	}
-	moot();
-	return std::nullopt;
+	return nullptr;
 }
 
 void GenMCDriver::handleThreadKill(std::unique_ptr<ThreadKillLabel> kLab)
@@ -1318,6 +1305,9 @@ EventLabel *GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *>
 				    }),
 		     stores.end());
 
+	/* There is no bounding during estimation; reads are always extensible */
+	BUG_ON(stores.empty());
+
 	MyDist dist(0, stores.size() - 1);
 	auto random = dist(estRng);
 	rLab->setRf(stores[random]);
@@ -1355,23 +1345,25 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	filterOptimizeRfs(lab, stores);
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug3) << "Rfs (optimized): " << format(stores) << "\n";);
 
-	std::optional<EventLabel *> rf = std::nullopt;
+	EventLabel *rf = nullptr;
 	if (inEstimationMode()) {
 		getExec().getChoiceMap().update(lab, stores);
 		filterAtomicityViolations(lab, stores);
 		rf = pickRandomRf(lab, stores);
 	} else {
 		rf = findConsistentRf(lab, stores);
-		/* Push all the other alternatives choices to the Stack (many maximals for wb) */
-		for (const auto &sLab : stores | std::views::take(stores.size() - 1)) {
-			auto status = false; /* MO messes with the status */
+		/* Push all the other alternatives choices to the Stack */
+		for (const auto &sLab : stores) {
 			getExec().getWorkqueue().add(std::make_unique<ReadForwardRevisit>(
-				lab->getPos(), sLab->getPos(), status));
+				lab->getPos(), sLab->getPos()));
 		}
 	}
 
+	if (!rf)
+		moot();
+
 	/* Ensured the selected rf comes from an initialized memory location */
-	if (!rf.has_value() || checkInitializedMem(lab) != VerificationError::VE_OK)
+	if (!rf || checkInitializedMem(lab) != VerificationError::VE_OK)
 		return std::nullopt;
 
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug2) << "--- Added load " << lab->getPos() << "\n"
@@ -1434,7 +1426,7 @@ std::vector<ReadLabel *> GenMCDriver::getRevisitableApproximation(WriteLabel *sL
 	return loads;
 }
 
-void GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos)
+EventLabel *GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos)
 {
 	auto &g = getExec().getGraph();
 
@@ -1450,19 +1442,20 @@ void GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos)
 	 * (during estimation, reads read from arbitrary places anyway).
 	 * If that is the case, we have to ensure that estimation won't stop. */
 	if (cos.empty()) {
-		moot();
+		BUG_ON(!sLab->isRMW());
 		getExec().getWorkqueue().add(std::make_unique<RerunForwardRevisit>());
-		return;
+		return nullptr;
 	}
 
 	MyDist dist(0, cos.size() - 1);
 	auto random = dist(estRng);
 	sLab->moveCo(cos[random]);
+	return cos[random];
 }
 
 void GenMCDriver::calcCoOrderings(WriteLabel *lab, const std::vector<EventLabel *> &cos)
 {
-	for (auto &predLab : cos | std::views::take(cos.size() - 1)) {
+	for (auto &predLab : cos) {
 		getExec().getWorkqueue().add(
 			std::make_unique<WriteForwardRevisit>(lab->getPos(), predLab->getPos()));
 	}
@@ -1477,6 +1470,9 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 
+	/* Stores cannot cause atomicity violation:
+	 * - In normal mode, non-maximal RMW are completed elsewhere
+	 * - In estimation mode, we have already filtered violations on the read part */
 	if (checkAccessValidity(lab) != VerificationError::VE_OK ||
 	    checkInitializedMem(lab) != VerificationError::VE_OK ||
 	    checkFinalAnnotations(lab) != VerificationError::VE_OK ||
@@ -1495,9 +1491,9 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 		reportWarningOnce(lab->getPos(), VerificationError::VE_WWRace, cos[0]);
 	}
 
-	std::optional<EventLabel *> co;
+	EventLabel *co = nullptr;
 	if (inEstimationMode()) {
-		pickRandomCo(lab, cos);
+		co = pickRandomCo(lab, cos);
 		getExec().getChoiceMap().update(lab, cos);
 	} else {
 		co = findConsistentCo(lab, cos);
@@ -1511,7 +1507,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 		return;
 
 	calcRevisits(lab);
-	if (violatesAtomicity(lab))
+	if (!co || violatesAtomicity(lab))
 		moot();
 }
 
@@ -1928,7 +1924,7 @@ bool GenMCDriver::tryOptimizeRevisits(WriteLabel *sLab, std::vector<ReadLabel *>
 		}
 	}
 
-	/* IPR + locks */
+	/* IPR */
 	tryOptimizeIPRs(sLab, loads);
 
 	/* Confirmation: Do not bother with revisits that will lead to unconfirmed reads */
@@ -1951,7 +1947,8 @@ void GenMCDriver::revisitInPlace(const BackwardRevisit &br)
 	rLab->setRf(sLab);
 	rLab->setAddedMax(true); // always true for atomicity violations
 
-	completeRevisitedRMW(rLab);
+	/* CASes shouldn't be handled via IPRs */
+	BUG_ON(rLab->valueMakesRMWSucceed(rLab->getReturnValue()));
 
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug1) << "--- In-place revisiting " << rLab->getPos()
 						<< " <-- " << sLab->getPos() << "\n"
@@ -2038,8 +2035,7 @@ bool GenMCDriver::prefixContainsSameLoc(const BackwardRevisit &r, const EventLab
 
 	/* Some holes need to be treated specially. However, it is _wrong_ to keep
 	 * porf views around. What we should do instead is simply check whether
-	 * an event is "part" of WLAB's pporf view (even if it is not contained in it).
-	 * Similar actions are taken in {WB,MO}Calculator */
+	 * an event is "part" of WLAB's pporf view (even if it is not contained in it). */
 	auto &g = getExec().getGraph();
 	auto &v = *llvm::dyn_cast<DepView>(&getPrefixView(g.getEventLabel(r.getRev())));
 	if (lab->getIndex() <= v.getMax(lab->getThread()) && isFixedHoleInView(g, lab, v))
@@ -2055,17 +2051,16 @@ bool GenMCDriver::isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLab
 
 	auto &g = getExec().getGraph();
 	auto &v = r.getViewNoRel();
-	auto w = llvm::isa<ReadLabel>(mLab) ? llvm::dyn_cast<ReadLabel>(mLab)->getRf()->getPos()
-					    : mLab->getPos();
-	auto succIt = g.getWriteLabel(w) ? g.co_succ_begin(g.getWriteLabel(w))
-					 : g.co_begin(mLab->getAddr());
-	auto succE = g.getWriteLabel(w) ? g.co_succ_end(g.getWriteLabel(w))
-					: g.co_end(mLab->getAddr());
+	auto rLab = llvm::dyn_cast<ReadLabel>(mLab);
+	auto wLab = g.getWriteLabel(rLab ? rLab->getRf()->getPos() : mLab->getPos());
+
+	auto succIt = wLab ? g.co_succ_begin(wLab) : g.co_begin(mLab->getAddr());
+	auto succE = wLab ? g.co_succ_end(wLab) : g.co_end(mLab->getAddr());
 	return any_of(succIt, succE, [&](auto &sLab) {
-		return v->contains(sLab.getPos()) &&
+		/* Exclude the write that revisits from the prefix */
+		return sLab.getPos() != r.getRev() && v->contains(sLab.getPos()) &&
 		       (!getConf()->isDepTrackingModel ||
-			mLab->getIndex() > getPrefixView(&sLab).getMax(mLab->getThread())) &&
-		       sLab.getPos() != r.getRev();
+			mLab->getIndex() > getPrefixView(&sLab).getMax(mLab->getThread()));
 	});
 }
 
@@ -2095,6 +2090,8 @@ bool wasAddedMaximally(const EventLabel *lab)
 
 bool GenMCDriver::isMaximalExtension(const BackwardRevisit &r)
 {
+	/* Only revisit when the write's direct successor (if any) remains in the graph;
+	 * revisits should not only differ on the write's placement */
 	if (!coherenceSuccRemainInGraph(r))
 		return false;
 
@@ -2102,15 +2099,16 @@ bool GenMCDriver::isMaximalExtension(const BackwardRevisit &r)
 	auto &v = r.getViewNoRel();
 
 	for (const auto &lab : g.labels()) {
+		/* Exclude events unaffected by the revisit */
 		if ((lab.getPos() != r.getPos() && v->contains(lab.getPos())) ||
 		    prefixContainsSameLoc(r, &lab))
 			continue;
 
+		if (!lab.isRevisitable())
+			return false;
 		if (!wasAddedMaximally(&lab))
 			return false;
 		if (isCoBeforeSavedPrefix(r, &lab))
-			return false;
-		if (!lab.isRevisitable())
 			return false;
 	}
 	return true;

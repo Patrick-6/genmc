@@ -1,21 +1,14 @@
 /*
  * GenMC -- Generic Model Checking.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
- * (at your option) any later version.
+ * This project is dual-licensed under the Apache License 2.0 and the MIT License.
+ * You may choose to use, distribute, or modify this software under either license.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Apache License 2.0:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-3.0.html.
- *
- * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
+ * MIT License:
+ *     https://opensource.org/licenses/MIT
  */
 
 #ifndef GENMC_GENMC_DRIVER_HPP
@@ -367,7 +360,7 @@ private:
 	EventLabel *pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *> &stores);
 
 	/** Est: Picks (and sets) a random CO among some possible options */
-	void pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos);
+	EventLabel *pickRandomCo(WriteLabel *sLab, std::vector<EventLabel *> &cos);
 
 	/** BAM: Reports an error if the executions is not barrier-well-formed.
 	 * Returns whether the execution is well-formed */
@@ -460,16 +453,10 @@ private:
 	bool isExecutionValid(const EventLabel *lab);
 
 	/** Removes rfs from RFS until a consistent option for RLAB is found */
-	std::optional<EventLabel *> findConsistentRf(ReadLabel *rLab,
-						     std::vector<EventLabel *> &rfs);
+	EventLabel *findConsistentRf(ReadLabel *rLab, std::vector<EventLabel *> &rfs);
 
 	/** Remove cos from COS until a consistent option for WLAB is found */
-	std::optional<EventLabel *> findConsistentCo(WriteLabel *wLab,
-						     std::vector<EventLabel *> &cos);
-
-	/** Checks whether the addition of WLAB creates an atomicity violation.
-	 * If so, returns false and moots the execution if possible. */
-	bool checkAtomicity(const WriteLabel *wLab);
+	EventLabel *findConsistentCo(WriteLabel *wLab, std::vector<EventLabel *> &cos);
 
 	/** SAVer: Checks whether the addition of an event changes our
 	 * perspective of a potential spinloop */
@@ -589,8 +576,6 @@ private:
 	const VectorClock &getPrefixView(const EventLabel *lab) const;
 
 	friend llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const VerificationError &r);
-
-	static constexpr unsigned int defaultFdNum = 20;
 
 	/** Random generator facilities used */
 	using MyRNG = std::mt19937;

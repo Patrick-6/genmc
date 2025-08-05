@@ -1,8 +1,7 @@
 This license concerns only the parts of the software originating from the
 LLVM Compiler Framework (http://llvm.org). This includes parts of the
 files listed below. Originally copied from LLVM-3.5, they were
-subsequently modified. The software is (sub)licensed under GPLv3
-(See COPYING).
+subsequently modified.
 
 src/Interpreter.h
 src/Interpreter.cpp
