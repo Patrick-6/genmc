@@ -62,8 +62,8 @@ public:
 
 	ExecutionGraph()
 		: ExecutionGraph([](const AAccess &access) {
-			  MIRI_LOG() << "TODO GENMC: WARNING: dummy initValGetter used! (returning "
-					"0)\n";
+			  LOG(VerbosityLevel::Warning) << "TODO GENMC: WARNING: dummy "
+							  "initValGetter used! (returning 0)\n";
 			  // TODO GENMC (HACK): this is a temporary hack until Miri can supply the
 			  // initial value (or we rework GenMC)
 			  return SVal(0);

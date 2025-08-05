@@ -343,8 +343,6 @@ static const auto maybeTimeRelinche = [](auto &&relinche, auto &&g) {
 
 std::unique_ptr<ModelCheckerError> GenMCDriver::handleExecutionEnd(std::span<Action> runnable)
 {
-	MIRI_LOG() << "GenMCDriver::handleExecutionEnd (isHalting: " << isHalting()
-		   << ", isMoot: " << isMoot() << ")\n";
 	if (isMoot()) {
 		GENMC_DEBUG(++result.exploredMoot;);
 		return std::make_unique<ModelCheckerError>(
@@ -366,7 +364,6 @@ std::unique_ptr<ModelCheckerError> GenMCDriver::handleExecutionEnd(std::span<Act
 
 	/* Ignore the execution if some assume has failed */
 	if (isExecutionBlocked(runnable)) {
-		MIRI_LOG() << "EXECUTION IS BLOCKED! " /* << runnable */ << "\n";
 		++result.exploredBlocked;
 		if (getConf()->printBlockedExecs)
 			printGraph();
@@ -435,7 +432,6 @@ bool GenMCDriver::isHalting() const
 
 void GenMCDriver::halt(VerificationError status)
 {
-	MIRI_LOG() << "GenMC::halt called! error: " << (uint64_t)status << "\n";
 	shouldHalt = true;
 	result.status = status;
 	if (getThreadPool())
@@ -538,15 +534,13 @@ bool GenMCDriver::partialExecutionExceedsBound() const
 auto GenMCDriver::inReplay(const Event e) const -> bool
 {
 	// return getEE()->getExecState() == llvm::ExecutionState::Replay;
-	MIRI_LOG() << "TODO GENMC: GenMCDriver::inReplay: currently always returning `false`\n";
+	LOG(VerbosityLevel::Warning)
+		<< "TODO GENMC: GenMCDriver::inReplay: currently always returning `false`\n";
 	return false;
 }
 
 EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
-	MIRI_LOG() << "GenMCDriver::addLabelToGraph, label " << *lab
-		   << ", event: " << lab->getPos().thread << ", " << lab->getPos().index << "\n";
-
 	auto &g = getExec().getGraph();
 
 	/* We should not add events to a blocked/terminated thread. */
@@ -625,9 +619,6 @@ VerificationError GenMCDriver::checkForRaces(const EventLabel *lab)
 	const EventLabel *racyLab = nullptr;
 	auto err = getConsChecker().checkErrors(lab, racyLab);
 	if (err != VerificationError::VE_OK) {
-		MIRI_LOG()
-			<< "GenMCDriver::checkForRaces: getConsChecker().checkErrors found error: "
-			<< (uint64_t)err << " == \"" << err << "\"\n";
 		reportError({lab->getPos(), err, "", racyLab});
 		return err;
 	}
@@ -748,10 +739,11 @@ VerificationError GenMCDriver::checkInitializedMem(const ReadLabel *rLab)
 	// TODO GENMC: Q0: what happens when trying to read an initialized local? (so no reads,
 	// meaning getRf()->getPos() is the initializer event?)
 	if (isUninitializedAccess(rLab->getAddr(), rLab->getRf()->getPos())) {
-		MIRI_LOG() << "TODO GENMC: checkInitializedMem: read from uninitialized memory ("
-			   << rLab->getAddr() << ", " << rLab->getAddr().get()
-			   << ")! pos: " << rLab->getRf()->getThread() << ", "
-			   << rLab->getRf()->getIndex() << "\n";
+		LOG(VerbosityLevel::Warning)
+			<< "TODO GENMC: checkInitializedMem: read from uninitialized memory ("
+			<< rLab->getAddr() << ", " << rLab->getAddr().get()
+			<< ")! pos: " << rLab->getRf()->getThread() << ", "
+			<< rLab->getRf()->getIndex() << "\n";
 		reportError({rLab->getPos(), VerificationError::VE_UninitializedMem});
 		return VerificationError::VE_UninitializedMem;
 	}
@@ -1202,23 +1194,18 @@ auto GenMCDriver::handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab)
 
 LoadResult GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabel> lab)
 {
-	MIRI_LOG() << "GenMCDriver::handleThreadJoin: " << *lab << "\n";
 	auto &g = getExec().getGraph();
 
-	if (isExecutionDrivenByGraph(&*lab)) {
-		MIRI_LOG() << "GenMCDriver::handleThreadJoin: label in graph\n";
+	if (isExecutionDrivenByGraph(&*lab))
 		return LoadResult::fromValue(g.getEventLabel(lab->getPos())->getReturnValue());
-	}
 
 	if (!llvm::isa_and_nonnull<ThreadFinishLabel>(g.getLastThreadLabel(lab->getChildId()))) {
 		blockThread(g, JoinBlockLabel::create(lab->getPos(), lab->getChildId()));
-		MIRI_LOG() << "GenMCDriver::handleThreadJoin: child NOT yet finished\n";
 		return LoadResult::fromError(
 			"Thread is blocked"); // TODO GENMC: maybe rename `LoadResult`, and possibly
 					      // use enums here instead of strings
 	}
 
-	MIRI_LOG() << "GenMCDriver::handleThreadJoin: child IS finished\n";
 	auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(addLabelToGraph(std::move(lab)));
 	auto cid = jLab->getChildId();
 
@@ -1418,10 +1405,8 @@ LoadResult GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab,
 	auto &g = getExec().getGraph();
 
 	if (isExecutionDrivenByGraph(&*rLab)) {
-		MIRI_LOG() << "\tReadLabel isExecutionDriverByGraph is true\n";
-		if (oldValSetter) {
+		if (oldValSetter)
 			oldValSetter(rLab->getAddr());
-		}
 		return getReadRetValue(llvm::dyn_cast<ReadLabel>(g.getEventLabel(rLab->getPos())));
 	}
 
@@ -1610,12 +1595,8 @@ StoreResult GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab,
 	if (isExecutionDrivenByGraph(&*wLab)) {
 		// TODO GENMC: add a boolean to indicate whether write is
 		// maximal in the graph (and Miri should thus also do it)
-		MIRI_LOG() << "GenMCDriver::handleStore A: getting co_max for position: "
-			   << wLab->getPos() << "\n";
-		if (oldValSetter) {
-			MIRI_LOG() << "handleStore: calling oldValSetter A\n";
+		if (oldValSetter)
 			oldValSetter(wLab->getAddr());
-		}
 		const bool isCoMaxWrite = g.co_max(wLab->getAddr())->getPos() == wLab->getPos();
 		return StoreResult::ok(isCoMaxWrite);
 	}
@@ -1627,23 +1608,19 @@ StoreResult GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab,
 	 * - In estimation mode, we have already filtered violations on the read part */
 	// TODO GENMC (ERROR HANDLING)
 	if ((err = checkAccessValidity(lab)) != VerificationError::VE_OK) {
-		MIRI_LOG() << "handleStore found an access validity error: " << err << "\n";
 		return StoreResult::fromError(
 			"memory store: AccessValidityError (TODO GENMC: add more info here)");
 	}
 	if ((err = checkInitializedMem(lab)) != VerificationError::VE_OK) {
-		MIRI_LOG() << "handleStore found an initialized memory error: " << err << "\n";
 		return StoreResult::fromError(
 			"memory store: InitializedMemError (TODO GENMC: add more info here)");
 	}
 	if ((err = checkFinalAnnotations(lab)) != VerificationError::VE_OK) {
-		MIRI_LOG() << "handleStore found an final annotations error: " << err << "\n";
 		// TODO GENMC: what is this?
 		return StoreResult::fromError(
 			"memory store: FinalAnnotationsError (TODO GENMC: add more info here)");
 	}
 	if ((err = checkForRaces(lab)) != VerificationError::VE_OK) {
-		MIRI_LOG() << "TODO GENMC: handleStore found a data race error " << err << "\n";
 		// TODO GENMC: use Verification Result instead
 		// std::ostringstream s;
 		std::string buf;
@@ -1657,10 +1634,8 @@ StoreResult GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab,
 	unblockWaitingHelping(lab);
 	checkReconsiderReadOpts(lab);
 
-	if (oldValSetter) {
-		MIRI_LOG() << "handleStore: calling oldValSetter\n";
+	if (oldValSetter)
 		oldValSetter(lab->getAddr());
-	}
 
 	/* Find all possible placings in coherence for this store, and
 	 * print a WW-race warning if appropriate (if this moots,
@@ -1685,10 +1660,6 @@ StoreResult GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab,
 						<< getExec().getGraph(););
 
 	if (inReplay(lab->getPos())) {
-		MIRI_LOG()
-			<< "GenMCDriver::handleStore: inRecoveryMode or inReplay, returning `ok`\n"
-			<< "GenMCDriver::handleStore B: getting co_max for position: "
-			<< lab->getPos() << "\n";
 		const bool isCoMaxWrite = g.co_max(lab->getAddr())->getPos() == lab->getPos();
 		return StoreResult::ok(isCoMaxWrite); // TODO GENMC (ERROR HANDLING)
 	}
@@ -1698,8 +1669,6 @@ StoreResult GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab,
 	if (!co || violatesAtomicity(lab))
 		moot();
 
-	MIRI_LOG() << "GenMCDriver::handleStore C: getting co_max for position: " << lab->getPos()
-		   << "\n";
 	const bool isCoMaxWrite = g.co_max(lab->getAddr())->getPos() == lab->getPos();
 	return StoreResult::ok(isCoMaxWrite); // TODO GENMC (ERROR HANDLING)
 }
@@ -1748,7 +1717,8 @@ void GenMCDriver::handleFree(std::unique_ptr<FreeLabel> dLab)
 
 	/* Check whether there is any memory race */
 	if (checkForRaces(lab) != VerificationError::VE_OK) {
-		MIRI_LOG() << "TODO GENMC: handleFree found a race, need to handle this somehow\n";
+		LOG(VerbosityLevel::Error)
+			<< "TODO GENMC: handleFree found a race, need to handle this somehow\n";
 	}
 }
 
@@ -1827,9 +1797,10 @@ std::unique_ptr<VectorClock> GenMCDriver::getReplayView() const
 
 void GenMCDriver::reportError(const ErrorDetails &details)
 {
-	MIRI_LOG() << "TODO GENMC: properly handle errors: msg: '" << details.msg << "', ("
-		   << details.pos.thread << ", " << details.pos.index << "), " << details.racyLab
-		   << ", " << details.shouldHalt << ", " << details.type << "\n";
+	LOG(VerbosityLevel::Warning)
+		<< "TODO GENMC: properly handle errors: msg: '" << details.msg << "', ("
+		<< details.pos.thread << ", " << details.pos.index << "), " << details.racyLab
+		<< ", " << details.shouldHalt << ", " << details.type << "\n";
 
 	auto &g = getExec().getGraph();
 
@@ -1858,7 +1829,8 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 	 * We have to save the interpreter state as replaying will
 	 * destroy the current execution stack */
 
-	MIRI_LOG() << "TODO GENMC: reportError: get EE to save its state and replay an execution\n";
+	LOG(VerbosityLevel::Warning)
+		<< "TODO GENMC: reportError: get EE to save its state and replay an execution\n";
 	// auto iState = getEE()->saveState();
 
 	// getEE()->replayExecutionBefore(*getReplayView());
@@ -1894,7 +1866,8 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 			       getConf()->dotPrintOnlyClientEvents);
 
 	// getEE()->restoreState(std::move(iState));
-	MIRI_LOG() << "TODO GENMC: reportError: get EE to restore its state (unimplemented)\n";
+	LOG(VerbosityLevel::Warning)
+		<< "TODO GENMC: reportError: get EE to restore its state (unimplemented)\n";
 
 	if (details.shouldHalt)
 		halt(details.type);
@@ -1903,7 +1876,6 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 bool GenMCDriver::reportWarningOnce(Event pos, VerificationError wcode,
 				    const EventLabel *racyLab /* = nullptr */)
 {
-	MIRI_LOG() << "GenMCDriver::reportWarningOnce\n";
 	/* Helper function to determine whether the warning should be treated as an error */
 	auto shouldUpgradeWarning = [&](auto &wcode) {
 		if (wcode != VerificationError::VE_WWRace)
@@ -2363,7 +2335,7 @@ std::unique_ptr<ExecutionGraph> GenMCDriver::copyGraph(const BackwardRevisit *br
 
 void GenMCDriver::calcRevisits(WriteLabel *sLab)
 {
-	MIRI_LOG() << "GenMCDriver::calcRevisits: TODO GENMC: error handling\n";
+	LOG(VerbosityLevel::Warning) << "GenMCDriver::calcRevisits: TODO GENMC: error handling\n";
 	auto &g = getExec().getGraph();
 	auto loads = getRevisitableApproximation(sLab);
 
@@ -2515,7 +2487,6 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 
 bool GenMCDriver::restrictAndRevisit(const WorkList::ItemT &item)
 {
-	MIRI_LOG() << "GenMCDriver::restrictAndRevisit\n";
 	/* First, appropriately restrict the worklist and the graph */
 	auto &g = getExec().getGraph();
 	auto *br = llvm::dyn_cast<BackwardRevisit>(&*item);
@@ -2737,8 +2708,8 @@ void GenMCDriver::printGraph(bool printMetadata /* false */,
 			     });
 
 	/* Print the graph */
-	// BUG(); // TODO GENMC: pass required thread info
-	MIRI_LOG() << "TODO GENMC: printGraph: get EE to print its graph (unimplemented)\n";
+	LOG(VerbosityLevel::Warning)
+		<< "TODO GENMC: printGraph: get EE to print its graph (unimplemented)\n";
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		// auto &thr = EE->getThrById(i);

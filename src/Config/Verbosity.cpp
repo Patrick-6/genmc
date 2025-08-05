@@ -32,9 +32,6 @@ auto operator<<(llvm::raw_ostream &s, VerbosityLevel l) -> llvm::raw_ostream &
 	case VerbosityLevel::Tip:
 		s << "Tip: ";
 		break;
-	case VerbosityLevel::Trace:
-		s << "TRACE: ";
-		break;
 	default:
 		break;
 	};
