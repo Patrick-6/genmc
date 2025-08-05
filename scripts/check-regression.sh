@@ -3,21 +3,14 @@
 # Given two commits A and B, checks whether B introduced any
 # noticeable regressions on A
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+# This program is dual-licensed under the Apache License 2.0 and the MIT License.
+# You may choose to use, distribute, or modify this software under either license.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# Apache License 2.0:
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, you can access it online at
-# http://www.gnu.org/licenses/gpl-2.0.html.
-#
-# Author: Michalis Kokologiannakis <mixaskok@gmail.com>
+# MIT License:
+#     https://opensource.org/licenses/MIT
 
 # display help function
 display_help() {
