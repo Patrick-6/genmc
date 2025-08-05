@@ -10,6 +10,15 @@ released.
 - Merge of MIXER [POPL'25] into mainline GenMC
 - Documentation for LLVM-based Rust frontend
 
+## [0.13.0] - 2025.08.05
+### Changes
+
+- GenMC is now licensed under Apache/MIT
+
+### Fixes
+
+- Minor comments and bug fixes
+
 ## [0.12.0] - 2025.07.24
 ### Added
 
