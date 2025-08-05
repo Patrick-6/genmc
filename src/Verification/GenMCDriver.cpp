@@ -693,29 +693,41 @@ SVal GenMCDriver::getRecReadRetValue(const ReadLabel *rLab)
 
 VerificationError GenMCDriver::checkAccessValidity(const MemAccessLabel *lab)
 {
-	// BUG(); // TODO GENMC: pass required info (label.isStaticallyAllocated())
-	MIRI_LOG()
-		<< "GenMC WARNING: checkAccessValidity doesn't have the required info for checks "
-		   "(unimplemented, returning VE_OK)\n";
-	// /* Static variable validity is handled by the interpreter. *
-	//  * Dynamic accesses are valid if they access allocated memory */
-	// if ((!lab->getAddr().isDynamic() && !getEE()->isStaticallyAllocated(lab->getAddr())) ||
-	//     (lab->getAddr().isDynamic() && !lab->getAlloc())) {
-	// 	reportError({lab->getPos(), VerificationError::VE_AccessNonMalloc});
-	// 	return VerificationError::VE_AccessNonMalloc;
-	// }
+	/* Some interpreters check for access validity already, skip in that case. */
+	if (getConf()->skipAccessValidityChecks)
+		return VerificationError::VE_OK;
+
+	/* Static variable validity is handled by the interpreter. *
+	 * Dynamic accesses are valid if they access allocated memory */
+	if ((!lab->getAddr().isDynamic() && !getEE()->isStaticallyAllocated(lab->getAddr())) ||
+	    (lab->getAddr().isDynamic() && !lab->getAlloc())) {
+		reportError({lab->getPos(), VerificationError::VE_AccessNonMalloc});
+		return VerificationError::VE_AccessNonMalloc;
+	}
 	return VerificationError::VE_OK;
 }
 
 VerificationError GenMCDriver::checkInitializedMem(const ReadLabel *rLab)
 {
-	// TODO GENMC (HACK): disable mixed-size access error for NA accesses:
-	if (getConf()->skipNonAtomicInitializedCheck &&
-	    rLab->getOrdering() == MemOrdering::NotAtomic) {
-		MIRI_LOG() << "TODO GENMC (HACK): WARNING: skipping uninitialized memory check for "
-			      "NA access!!\n";
-		return VerificationError::VE_OK;
+	/* Slightly unrelated check, but ensure there are no mixed-size accesses. */
+	/* Skip checking for mixed-size accesses between two non-atomic accesses depending on
+	 * config. */
+	if (rLab->getRf() &&
+	    (!getConf()->allowNonAtomicMixedSizeAccesses ||
+	     rLab->getOrdering() != MemOrdering::NotAtomic ||
+	     rLab->getRf()->getOrdering() != MemOrdering::NotAtomic) &&
+	    !rLab->getRf()->getPos().isInitializer() &&
+	    llvm::dyn_cast<WriteLabel>(rLab->getRf())->getSize() != rLab->getSize()) {
+		reportError({rLab->getPos(), VerificationError::VE_MixedSize,
+			     "Mixed-size accesses detected: tried to read with a " +
+				     std::to_string(rLab->getSize().get() * 8) + "-bit access!\n" +
+				     "Please check the LLVM-IR.\n"});
+		return VerificationError::VE_MixedSize;
 	}
+
+	/* Some interpreters check for access validity already, skip in that case. */
+	if (getConf()->skipAccessValidityChecks)
+		return VerificationError::VE_OK;
 
 	// FIXME: Have label for mutex-destroy and check type instead of val.
 	//        Also for barriers.
@@ -743,29 +755,15 @@ VerificationError GenMCDriver::checkInitializedMem(const ReadLabel *rLab)
 		reportError({rLab->getPos(), VerificationError::VE_UninitializedMem});
 		return VerificationError::VE_UninitializedMem;
 	}
-
-	/* Slightly unrelated check, but ensure there are no mixed-size accesses */
-	// TODO GENMC: shouldn't mixed-size accesses be allowed for non-atomics / mixed-atomics?
-
-	// TODO GENMC (HACK): disable mixed-size access error for NA accesses:
-	bool check_mixed_size = rLab->getRf() &&
-				!(rLab->getOrdering() == MemOrdering::NotAtomic &&
-				  rLab->getRf()->getOrdering() == MemOrdering::NotAtomic);
-	if (check_mixed_size && rLab->getRf() && !rLab->getRf()->getPos().isInitializer() &&
-	    llvm::dyn_cast<WriteLabel>(rLab->getRf())->getSize() != rLab->getSize()) {
-		// TODO GENMC: do simple check for only readsfrom <==========
-		reportError({rLab->getPos(), VerificationError::VE_MixedSize,
-			     "Mixed-size accesses detected: tried to read with a " +
-				     std::to_string(rLab->getSize().get() * 8) + "-bit access!\n" +
-				     "Please check the LLVM-IR.\n"});
-		//  TODO GENMC: why wasn't this error returned here?
-		return VerificationError::VE_MixedSize;
-	}
 	return VerificationError::VE_OK;
 }
 
 VerificationError GenMCDriver::checkInitializedMem(const WriteLabel *wLab)
 {
+	/* Some interpreters check for access validity already, skip in that case. */
+	if (getConf()->skipAccessValidityChecks)
+		return VerificationError::VE_OK;
+
 	auto &g = getExec().getGraph();
 
 	/* Unlocks should unlock mutexes locked by the same thread */

@@ -66,8 +66,9 @@ struct Config {
 	unsigned int maxExtSize{};
 	bool dotPrintOnlyClientEvents{};
 	bool replayCompletedThreads{};
-	// TODO GENMC: Document, and maybe expose to other front-ends (not just Miri)
-	bool skipNonAtomicInitializedCheck = false;
+	/* Allow interpreter frontend to skip validity checks. */
+	bool skipAccessValidityChecks{};
+	bool allowNonAtomicMixedSizeAccesses{};
 
 	/*** Transformation options ***/
 	std::optional<unsigned> unroll;
