@@ -88,7 +88,7 @@ target_include_directories(genmc_config_includes INTERFACE ${CMAKE_BINARY_DIR}/i
 find_package(Threads REQUIRED)
 find_library(HWLOC hwloc)
 
-add_library(genmc_lib STATIC ${SOURCES})
+add_library(genmc_lib ${GENMC_LIB_TYPE} ${SOURCES})
 install(TARGETS genmc_lib ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME})
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}

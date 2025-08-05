@@ -18,6 +18,7 @@ compile_commands.json
 
 *.ll
 *.out
+*.log
 
 doc/doxygen
 doc/Doxyfile
@@ -53,9 +54,3 @@ Testing/
 
 scripts/*.log
 coverage_report*
-
-scripts/*.log
-scripts/*.trs
-
-.vscode
-*.log
