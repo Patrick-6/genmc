@@ -45,8 +45,6 @@ public:
 	SVal(Value value, Value extra) : value(value), extra(extra) {}
 
 public:
-	static auto fromPtr(Value addr, Value extra) -> SVal { return SVal(addr, extra); }
-
 	/** Returns a (limited) representation of this Value */
 	[[nodiscard]] auto get() const -> uint64_t { return value; }
 
