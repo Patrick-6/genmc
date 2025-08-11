@@ -3655,10 +3655,10 @@ void Interpreter::run()
 	}
 }
 
-int Interpreter::runAsMain(const std::string &main)
+int Interpreter::runMain()
 {
 	setupStaticCtorsDtors(true);
-	setupMain(FindFunctionNamed(main), {"prog"}, nullptr);
+	setupMain(mainFun, {"prog"}, nullptr);
 	setupStaticCtorsDtors(false);
 
 	mainECStack = getThrById(0).initEC = ECStack();

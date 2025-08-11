@@ -43,6 +43,7 @@ class Interpreter;
 }
 class ModuleInfo;
 class ThreadPool;
+class LLIConfig;
 class BoundDecider;
 class ConsistencyChecker;
 class SymmetryChecker;
@@ -254,11 +255,12 @@ protected:
 	friend class ThreadPool;
 	friend class DriverHandlerDispatcher;
 	friend void run(GenMCDriver *driver, llvm::Interpreter *EE);
-	friend auto estimate(std::shared_ptr<const Config> conf,
+	friend auto estimate(const LLIConfig &lliConfig, std::shared_ptr<const Config> conf,
 			     const std::unique_ptr<llvm::Module> &mod,
 			     const std::unique_ptr<ModuleInfo> &modInfo) -> VerificationResult;
-	friend auto verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-			   std::unique_ptr<ModuleInfo> modInfo) -> VerificationResult;
+	friend auto verify(const LLIConfig &lliConfig, std::shared_ptr<const Config> conf,
+			   std::unique_ptr<llvm::Module> mod, std::unique_ptr<ModuleInfo> modInfo)
+		-> VerificationResult;
 
 	GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool = nullptr,
 		    Mode = VerificationMode{});

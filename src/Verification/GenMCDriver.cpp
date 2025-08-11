@@ -2527,18 +2527,11 @@ void GenMCDriver::handleMethodEnd(Event pos, std::string methodName, int32_t ret
  ***********************************************************/
 
 static void executeMDPrint(const EventLabel *lab, const std::pair<int, std::string> &locAndFile,
-			   std::string inputFile, llvm::raw_ostream &os = llvm::outs())
+			   llvm::raw_ostream &os = llvm::outs())
 {
 	std::string errPath = locAndFile.second;
 	Parser::stripSlashes(errPath);
-	Parser::stripSlashes(inputFile);
-
-	os << " ";
-	if (errPath != inputFile)
-		os << errPath << ":";
-	else
-		os << "L.";
-	os << locAndFile.first;
+	os << " " << errPath << ":" << locAndFile.first;
 }
 
 /* Returns true if the corresponding LOC should be printed for this label type */
@@ -2619,8 +2612,7 @@ void GenMCDriver::printGraph(bool printMetadata /* false */,
 			GENMC_DEBUG(if (getConf()->printStamps) s << " @ " << lab.getStamp(););
 			if (printMetadata && thr.prefixLOC[lab.getIndex()].first &&
 			    shouldPrintLOC(&lab)) {
-				executeMDPrint(&lab, thr.prefixLOC[lab.getIndex()],
-					       getConf()->inputFile, s);
+				executeMDPrint(&lab, thr.prefixLOC[lab.getIndex()], s);
 			}
 			s << "\n";
 		}
@@ -2702,7 +2694,7 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const EventLabel *
 			/* And then, print the corresponding line number */
 			if (thr.prefixLOC[j].first && shouldPrintLOC(lab)) {
 				ss << " <FONT COLOR=\"gray\">";
-				executeMDPrint(lab, thr.prefixLOC[j], getConf()->inputFile, ss);
+				executeMDPrint(lab, thr.prefixLOC[j], ss);
 				ss << "</FONT>";
 			}
 			ss << ">";
