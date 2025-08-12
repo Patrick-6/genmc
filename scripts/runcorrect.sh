@@ -177,7 +177,7 @@ runvariants() {
 	explored="$((${explored} - ${slacked}))"
 	explored_failed=""
 	blocked_failed=""
-	time=`echo "${output}" | awk '/\ytime\y/ { print substr($4, 1, length($4)-1) }'`
+	time=`echo "${output}" | awk '/wall-clock/ { print substr($4, 1, length($4)-1) }'`
 	time="${time}" && [[ -z "${time}" ]] && time=0 # if pattern was NOT found
 	test_time=`echo "${test_time}+${time}" | bc -l`
 	runtime=`echo "scale=2; ${runtime}+${time}" | bc -l`
