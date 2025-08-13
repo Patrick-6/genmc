@@ -13,12 +13,12 @@
 
 #include "Verification/Scheduler.hpp"
 #include "ADT/View.hpp"
-#include "Config/Config.hpp"
 #include "ExecutionGraph/Event.hpp"
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/GraphIterators.hpp"
 #include "ExecutionGraph/GraphUtils.hpp"
 #include "Support/Error.hpp"
+#include "Verification/Config.hpp"
 
 #include <llvm/Support/Casting.h>
 

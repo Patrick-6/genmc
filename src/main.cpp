@@ -11,12 +11,12 @@
  *     https://opensource.org/licenses/MIT
  */
 
-#include "Config/Config.hpp"
 #include "Runtime/Interpreter.h"
 #include "Runtime/LLIConfig.hpp"
 #include "Static/LLVMModule.hpp"
 #include "Support/Error.hpp"
 #include "Support/ThreadPool.hpp"
+#include "Verification/Config.hpp"
 #include "Verification/GenMCDriver.hpp"
 
 #include <llvm/Support/CommandLine.h>

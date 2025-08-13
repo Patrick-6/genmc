@@ -15,12 +15,12 @@
 #define GENMC_GENMC_DRIVER_HPP
 
 #include "ADT/Trie.hpp"
-#include "Config/Config.hpp"
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "Support/Hash.hpp"
 #include "Support/SAddrAllocator.hpp"
 #include "Verification/ChoiceMap.hpp"
+#include "Verification/Config.hpp"
 #include "Verification/Relinche/LinearizabilityChecker.hpp"
 #include "Verification/Relinche/Specification.hpp"
 #include "Verification/Scheduler.hpp"

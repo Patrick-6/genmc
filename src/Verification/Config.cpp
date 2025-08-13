@@ -13,8 +13,8 @@
 
 #include "config.h"
 
-#include "Config/Config.hpp"
 #include "Support/Error.hpp"
+#include "Verification/Config.hpp"
 
 static auto doesPolicySupportSeed(const SchedulePolicy policy) -> bool
 {

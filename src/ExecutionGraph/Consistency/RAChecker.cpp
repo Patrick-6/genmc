@@ -18,10 +18,10 @@
 #include "RAChecker.hpp"
 #include "ADT/VSet.hpp"
 #include "ADT/View.hpp"
-#include "Config/Config.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "ExecutionGraph/GraphIterators.hpp"
 #include "ExecutionGraph/GraphUtils.hpp"
+#include "Verification/Config.hpp"
 #include "Verification/VerificationError.hpp"
 
 bool RAChecker::isDepTracking() const { return 0; }
