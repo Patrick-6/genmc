@@ -12,10 +12,10 @@
  */
 
 #include "EliminateAnnotationsPass.hpp"
-#include "Config/Config.hpp"
 #include "Runtime/InterpreterEnumAPI.hpp"
 #include "Static/LLVMUtils.hpp"
 #include "Support/Error.hpp"
+#include "Verification/Config.hpp"
 
 #include <llvm/Analysis/PostDominators.h>
 #include <llvm/IR/Constants.h>

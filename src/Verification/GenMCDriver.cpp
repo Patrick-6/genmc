@@ -12,7 +12,6 @@
  */
 
 #include "GenMCDriver.hpp"
-#include "Config/Config.hpp"
 #include "ExecutionGraph/Consistency/BoundDecider.hpp"
 #include "ExecutionGraph/Consistency/ConsistencyChecker.hpp"
 #include "ExecutionGraph/Consistency/SymmetryChecker.hpp"
@@ -29,6 +28,7 @@
 #include "Support/Parser.hpp"
 #include "Support/SExprVisitor.hpp"
 #include "Support/ThreadPool.hpp"
+#include "Verification/Config.hpp"
 #include "Verification/DriverHandlerDispatcher.hpp"
 #include "Verification/Relinche/LinearizabilityChecker.hpp"
 #include "Verification/Scheduler.hpp"
