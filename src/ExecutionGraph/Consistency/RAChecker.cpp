@@ -2597,44 +2597,45 @@ bool RAChecker::checkWarning8(const EventLabel *lab) const
 
 	return visitWarning8(lab);
 }
-VerificationError RAChecker::checkErrors(const EventLabel *lab, const EventLabel *&race) const
+std::optional<VerificationError> RAChecker::checkErrors(const EventLabel *lab,
+							const EventLabel *&race) const
 {
 	if (!checkError1(lab)) {
 		race = cexLab;
-		return VerificationError::VE_AccessNonMalloc;
+		return {VerificationError::VE_AccessNonMalloc};
 	}
 
 	if (!checkError2(lab)) {
 		race = cexLab;
-		return VerificationError::VE_DoubleFree;
+		return {VerificationError::VE_DoubleFree};
 	}
 
 	if (!checkError3(lab)) {
 		race = cexLab;
-		return VerificationError::VE_AccessFreed;
+		return {VerificationError::VE_AccessFreed};
 	}
 
 	if (!checkError4(lab)) {
 		race = cexLab;
-		return VerificationError::VE_AccessFreed;
+		return {VerificationError::VE_AccessFreed};
 	}
 
 	if (!checkError5(lab)) {
 		race = cexLab;
-		return VerificationError::VE_AccessFreed;
+		return {VerificationError::VE_AccessFreed};
 	}
 
 	if (!checkError6(lab)) {
 		race = cexLab;
-		return VerificationError::VE_AccessFreed;
+		return {VerificationError::VE_AccessFreed};
 	}
 
 	if (!checkError7(lab)) {
 		race = cexLab;
-		return VerificationError::VE_RaceNotAtomic;
+		return {VerificationError::VE_RaceNotAtomic};
 	}
 
-	return VerificationError::VE_OK;
+	return {};
 }
 
 std::vector<VerificationError>

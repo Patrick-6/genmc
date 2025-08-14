@@ -6452,9 +6452,10 @@ bool IMMChecker::checkWarning3(const EventLabel *lab) const
 
 	return visitWarning3(lab);
 }
-VerificationError IMMChecker::checkErrors(const EventLabel *lab, const EventLabel *&race) const
+std::optional<VerificationError> IMMChecker::checkErrors(const EventLabel *lab,
+							 const EventLabel *&race) const
 {
-	return VerificationError::VE_OK;
+	return {};
 }
 
 std::vector<VerificationError>

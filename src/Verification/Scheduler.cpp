@@ -115,13 +115,6 @@ void Scheduler::resetExplorationOptions(const ExecutionGraph &g)
 		if (!rLab)
 			continue;
 
-		if (llvm::isa<LockCasReadLabel>(rLab) &&
-		    llvm::isa_and_nonnull<LockNotAcqBlockLabel>(g.po_imm_succ(rLab)) &&
-		    !getConf()->bound.has_value()) {
-			prioritize(rLab->getRf()->getPos());
-			return;
-		}
-
 		auto rpreds = po_preds(g, rLab);
 		auto oLabIt = std::ranges::find_if(
 			rpreds, [&](auto &oLab) { return llvm::isa<SpeculativeReadLabel>(&oLab); });

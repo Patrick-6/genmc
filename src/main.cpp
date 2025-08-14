@@ -261,8 +261,8 @@ static void printEstimationResults(const std::shared_ptr<const Config> &conf,
 {
 	PRINT(VerbosityLevel::Error) << res.message;
 	PRINT(VerbosityLevel::Error)
-		<< (res.status == VerificationError::VE_OK ? "*** Estimation complete.\n"
-							   : "*** Estimation unsuccessful.\n");
+		<< (!res.status.has_value() ? "*** Estimation complete.\n"
+					    : "*** Estimation unsuccessful.\n");
 
 	auto mean = std::llround(res.estimationMean);
 	auto sd = std::llround(std::sqrt(res.estimationVariance));
@@ -282,7 +282,7 @@ static void printVerificationResults(const std::shared_ptr<const Config> &conf,
 {
 	PRINT(VerbosityLevel::Error) << res.message;
 	PRINT(VerbosityLevel::Error)
-		<< (res.status == VerificationError::VE_OK
+		<< (!res.status.has_value()
 			    ? "*** Verification complete.\nNo errors were detected.\n"
 			    : "*** Verification unsuccessful.\n");
 
@@ -457,7 +457,7 @@ auto main(int argc, char **argv) -> int
 					    "you can use --disable-estimation.\n";
 		auto res = estimate(conf, module, modInfo);
 		printEstimationResults(conf, begin, res);
-		if (res.status != VerificationError::VE_OK)
+		if (res.status.has_value())
 			return EVERIFY;
 	}
 
@@ -474,5 +474,5 @@ auto main(int argc, char **argv) -> int
 		<< "s\n";
 
 	/* TODO: Check globalContext.destroy() and llvm::shutdown() */
-	return res.status == VerificationError::VE_OK ? 0 : EVERIFY;
+	return !res.status.has_value() ? 0 : EVERIFY;
 }

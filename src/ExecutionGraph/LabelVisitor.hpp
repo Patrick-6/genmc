@@ -72,14 +72,6 @@ public:
 	{
 		return DELEGATE_LABEL(BlockLabel);
 	}
-	void visitLockNotAcqBlockLabel(const LockNotAcqBlockLabel &lab)
-	{
-		return DELEGATE_LABEL(BlockLabel);
-	}
-	void visitLockNotRelBlockLabel(const LockNotRelBlockLabel &lab)
-	{
-		return DELEGATE_LABEL(BlockLabel);
-	}
 	void visitBarrierBlockLabel(const BarrierBlockLabel &lab)
 	{
 		return DELEGATE_LABEL(BlockLabel);
