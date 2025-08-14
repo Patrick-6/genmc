@@ -246,12 +246,6 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabel
 	case EventLabel::ConfirmationBlock:
 		s << "BLOCK[conf]";
 		break;
-	case EventLabel::LockNotAcqBlock:
-		s << "BLOCK[lock-unacq]";
-		break;
-	case EventLabel::LockNotRelBlock:
-		s << "BLOCK[lock-unrel]";
-		break;
 	case EventLabel::BarrierBlock:
 		s << "BLOCK[barrier]";
 		break;

@@ -148,8 +148,6 @@ enum class BlockageType {
 	HelpedCas,
 	Confirmation,
 	ReadOptBlock,
-	LockNotAcq,
-	LockNotRel,
 	Barrier,
 	Cons,
 	Error,
@@ -324,7 +322,8 @@ public:
 	({                                                                                         \
 		incPos();                                                                          \
 		auto ret = driver->method(__VA_ARGS__);                                            \
-		if (!ret.has_value() && getExecState() != ExecutionState::Replay) {                \
+		if (!std::holds_alternative<SVal>(ret) &&                                          \
+		    getExecState() != ExecutionState::Replay) {                                    \
 			decPos();                                                                  \
 			--ECStack().back().CurInst;                                                \
 		}                                                                                  \
