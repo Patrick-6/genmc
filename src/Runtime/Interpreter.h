@@ -32,7 +32,6 @@
 
 #include "ADT/View.hpp"
 #include "ADT/value_ptr.hpp"
-#include "Config/Config.hpp"
 #include "ExecutionGraph/LoadAnnotation.hpp"
 #include "Runtime/DepTracker.hpp"
 #include "Runtime/InterpreterEnumAPI.hpp"
@@ -94,6 +93,7 @@
 	})
 
 class GenMCDriver;
+class LLIConfig;
 
 namespace llvm {
 
@@ -279,7 +279,8 @@ protected:
 
 public:
 	explicit Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
-			     GenMCDriver *driver, const Config *userConf, SAddrAllocator &alloctor);
+			     GenMCDriver *driver, const LLIConfig *userConf,
+			     SAddrAllocator &alloctor);
 	virtual ~Interpreter();
 
 	std::unique_ptr<InterpreterState> saveState();
@@ -417,9 +418,11 @@ public:
 
 	/// create - Create an interpreter ExecutionEngine. This can never fail.
 	///
-	static std::unique_ptr<Interpreter>
-	create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI, GenMCDriver *driver,
-	       const Config *userConf, SAddrAllocator &alloctor, std::string *ErrorStr = nullptr);
+	static std::unique_ptr<Interpreter> create(std::unique_ptr<Module> M,
+						   std::unique_ptr<ModuleInfo> MI,
+						   GenMCDriver *driver, const LLIConfig *userConf,
+						   SAddrAllocator &alloctor,
+						   std::string *ErrorStr = nullptr);
 
 /// run - Start execution with the specified function and arguments.
 ///
@@ -479,7 +482,7 @@ public:
 	void run(); // Execute instructions until nothing left to do
 
 	/* run() wrappers */
-	int runAsMain(const std::string &main);
+	int runMain();
 
 	// Opcode Implementations
 	void visitReturnInst(ReturnInst &I);
@@ -611,7 +614,7 @@ private: // Helper functions
 	void collectStaticAddresses(SAddrAllocator &alloctor);
 
 	/* Sets up how some errors will be reported to the user */
-	void setupErrorPolicy(Module *M, const Config *userConf);
+	void setupErrorPolicy(Module *M, const LLIConfig *userConf);
 
 	/* Sets-up the specified thread for execution */
 	void scheduleThread(int tid) { dynState.currentThread = tid; }
