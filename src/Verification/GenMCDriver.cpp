@@ -20,7 +20,6 @@
 #include "ExecutionGraph/GraphIterators.hpp"
 #include "ExecutionGraph/GraphUtils.hpp"
 #include "ExecutionGraph/LabelVisitor.hpp"
-#include "GenMCDriver.hpp"
 // #include "Runtime/Interpreter.h" // FIXME: remove interpreter dependency
 #include "Static/LLVMModule.hpp"
 #include "Support/DotPrint.hpp"
@@ -28,11 +27,9 @@
 #include "Support/Logger.hpp"
 #include "Support/Parser.hpp"
 #include "Support/SExprVisitor.hpp"
-#include "Support/SVal.hpp"
 #include "Support/ThreadPool.hpp"
 #include "Verification/Config.hpp"
 #include "Verification/DriverHandlerDispatcher.hpp"
-#include "Verification/GenMCDriver.hpp"
 #include "Verification/Relinche/LinearizabilityChecker.hpp"
 #include "Verification/Scheduler.hpp"
 #include "Verification/VerificationResult.hpp"
@@ -1363,8 +1360,7 @@ EventLabel *GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<EventLabel *>
 	return stores[random];
 }
 
-GenMCDriver::HandleResult<SVal> GenMCDriver::handleLoad(std::function<void(SAddr)> oldValSetter,
-							std::unique_ptr<ReadLabel> rLab)
+GenMCDriver::HandleResult<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 {
 	auto &g = getExec().getGraph();
 
@@ -1379,10 +1375,6 @@ GenMCDriver::HandleResult<SVal> GenMCDriver::handleLoad(std::function<void(SAddr
 
 	/* Check whether the load forces us to reconsider some existing event */
 	checkReconsiderFaiSpinloop(lab);
-
-	if (oldValSetter) {
-		oldValSetter(lab->getAddr());
-	}
 
 	/* If a CAS read cannot be added maximally, reschedule */
 	if (!getScheduler().isRescheduledRead(lab->getPos()) &&
@@ -1411,8 +1403,6 @@ GenMCDriver::HandleResult<SVal> GenMCDriver::handleLoad(std::function<void(SAddr
 				lab->getPos(), sLab->getPos()));
 		}
 	}
-
-	// TODO GENMC: call oldValSetter here?
 
 	if (!rf) {
 		moot();
@@ -1517,8 +1507,7 @@ void GenMCDriver::calcCoOrderings(WriteLabel *lab, const std::vector<EventLabel 
 	}
 }
 
-GenMCDriver::HandleResult<std::monostate>
-GenMCDriver::handleStore(std::function<void(SAddr)> oldValSetter, std::unique_ptr<WriteLabel> wLab)
+GenMCDriver::HandleResult<std::monostate> GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 {
 	auto &g = getExec().getGraph();
 
@@ -1537,9 +1526,6 @@ GenMCDriver::handleStore(std::function<void(SAddr)> oldValSetter, std::unique_pt
 	checkReconsiderFaiSpinloop(lab);
 	unblockWaitingHelping(lab);
 	checkReconsiderReadOpts(lab);
-
-	if (oldValSetter)
-		oldValSetter(lab->getAddr());
 
 	/* Find all possible placings in coherence for this store, and
 	 * print a WW-race warning if appropriate (if this moots,
@@ -1582,7 +1568,7 @@ SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
 	       oldAddr != aLab->getAllocAddr());
 	if (oldAddr == SAddr())
 		aLab->setAllocAddr(getFreshAddr(&*aLab, getExec().getAllocator()));
-	const auto *lab = llvm::dyn_cast<MallocLabel>(addLabelToGraph(std::move(aLab)));
+	auto *lab = llvm::dyn_cast<MallocLabel>(addLabelToGraph(std::move(aLab)));
 	return SVal(lab->getAllocAddr().get());
 }
 
