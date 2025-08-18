@@ -41,8 +41,6 @@
 #include <algorithm>
 #include <csignal>
 #include <span>
-#include <sstream>
-#include <utility>
 
 /************************************************************
  ** GENERIC MODEL CHECKING DRIVER
