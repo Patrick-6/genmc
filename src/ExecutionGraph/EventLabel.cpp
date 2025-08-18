@@ -16,7 +16,6 @@
 #include "ExecutionGraph/LabelVisitor.hpp"
 #include "Static/ModuleID.hpp"
 #include "Support/SExprVisitor.hpp"
-#include "Support/SVal.hpp"
 
 SVal EventLabel::getAccessValue(const AAccess &access) const
 {

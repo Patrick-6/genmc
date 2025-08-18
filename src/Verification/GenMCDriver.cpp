@@ -2190,15 +2190,15 @@ bool GenMCDriver::isMaximalExtension(const BackwardRevisit &r)
 
 bool GenMCDriver::revisitModifiesGraph(const BackwardRevisit &r) const
 {
-	const auto &g = getExec().getGraph();
-	const auto &v = r.getViewNoRel();
-	for (auto i = 0U; i < g.getNumThreads(); i++) {
+	auto &g = getExec().getGraph();
+	auto &v = r.getViewNoRel();
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		if (v->getMax(i) + 1 != (long)g.getThreadSize(i) &&
 		    !llvm::isa<TerminatorLabel>(g.getEventLabel(Event(i, v->getMax(i) + 1))))
 			return true;
 		if (!getConf()->isDepTrackingModel)
 			continue;
-		for (auto j = 0U; j < g.getThreadSize(i); j++) {
+		for (auto j = 0u; j < g.getThreadSize(i); j++) {
 			auto *lab = g.getEventLabel(Event(i, j));
 			if (!v->contains(lab->getPos()) && !llvm::isa<EmptyLabel>(lab) &&
 			    !llvm::isa<TerminatorLabel>(lab))
@@ -2603,8 +2603,8 @@ std::string GenMCDriver::getVarName(const SAddr &addr) const
 	// BUG(); // TODO GENMC: pass required info (getStaticName)
 	// return getEE()->getStaticName(addr);
 
-	const auto &g = getExec().getGraph();
-	const auto *aLab = findAllocatingLabel(g, addr);
+	auto &g = getExec().getGraph();
+	auto *aLab = findAllocatingLabel(g, addr);
 
 	if (!aLab)
 		return "???";

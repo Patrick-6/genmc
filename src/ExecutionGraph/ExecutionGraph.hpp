@@ -53,17 +53,7 @@ public:
 	using PoLists = std::vector<PoList>;
 	using IoList = llvm::simple_ilist<EventLabel, llvm::ilist_tag<io_tag>>;
 
-	ExecutionGraph()
-		: ExecutionGraph([](const AAccess &access) {
-			  LOG(VerbosityLevel::Warning) << "TODO GENMC: WARNING: dummy "
-							  "initValGetter used! (returning 0)\n";
-			  // TODO GENMC (HACK): this is a temporary hack until Miri can supply the
-			  // initial value (or we rework GenMC)
-			  return SVal(0);
-		  })
-	{}
-
-	ExecutionGraph(InitValGetter f)
+	ExecutionGraph(InitValGetter f) : initValGetter_(std::move(f))
 	{
 		/* Create an entry for main() and push the "initializer" label */
 		events.emplace_back();
@@ -72,7 +62,6 @@ public:
 		iLab->setCalculated({{}});
 		iLab->setViews({{}});
 		iLab->setPrefixView(std::make_unique<View>());
-		initValGetter_ = std::move(f);
 	}
 
 	ExecutionGraph(const ExecutionGraph &) = delete;
