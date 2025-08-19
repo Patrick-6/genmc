@@ -1653,6 +1653,14 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 	if (errLab && isInvalidAccessError(details.type) && llvm::isa<ReadLabel>(errLab))
 		llvm::dyn_cast<ReadLabel>(errLab)->setRf(nullptr);
 
+	/* Don't print warnings or errors if not required by the log level. */
+	if (logLevel < VerbosityLevel::Error ||
+	    (!isHardError(details.type) && logLevel < VerbosityLevel::Warning)) {
+		if (details.shouldHalt)
+			halt(details.type);
+		return;
+	}
+
 	/* Print a basic error message and the graph.
 	 * We have to save the interpreter state as replaying will
 	 * destroy the current execution stack */
