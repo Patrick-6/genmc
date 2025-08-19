@@ -479,6 +479,9 @@ bool GenMCDriver::partialExecutionExceedsBound() const
 
 bool GenMCDriver::inReplay() const
 {
+	/* HACK: No interpreter means no replay. */
+	if (!getEE())
+		return false;
 	return getEE()->getExecState() == llvm::ExecutionState::Replay;
 }
 
@@ -1661,6 +1664,23 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 		return;
 	}
 
+	/* HACK: If no interpreter is set, print a reduced message. */
+	if (!getEE()) {
+		llvm::raw_string_ostream out(result.message);
+
+		out << (isHardError(details.type) ? "Error: " : "Warning: ") << details.type
+		    << "!\n";
+		if (errLab)
+			out << "Event " << errLab->getPos() << " ";
+		if (details.racyLab != nullptr)
+			out << "conflicts with event " << details.racyLab->getPos() << " ";
+		out << "in graph:\n";
+		printGraph(false, out);
+		if (details.shouldHalt)
+			halt(details.type);
+		return;
+	}
+
 	/* Print a basic error message and the graph.
 	 * We have to save the interpreter state as replaying will
 	 * destroy the current execution stack */
@@ -2625,6 +2645,7 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const EventLabel *
 {
 	auto &g = getExec().getGraph();
 	auto *EE = getEE();
+	ERROR_ON(!EE, "missing interpreter, dot printing not supported.");
 	std::ofstream fout(filename);
 	llvm::raw_os_ostream ss(fout);
 	DotPrinter printer([this](const SAddr &saddr) { return getVarName(saddr); },
@@ -2768,6 +2789,8 @@ void GenMCDriver::recPrintTraceBefore(const Event &e, View &a,
 
 	if (a.contains(e))
 		return;
+
+	ERROR_ON(!getEE(), "missing interpreter, printing trace not supported.");
 
 	auto ai = a.getMax(e.thread);
 	a.setMax(e);
