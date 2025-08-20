@@ -141,12 +141,10 @@ Interpreter::getVarNameInfo(Value *v, StorageDuration sd, AddressSpace spc,
 	return nullptr;
 }
 
-std::string Interpreter::getStaticName(SAddr addr) const
+std::optional<std::string> Interpreter::getStaticName(SAddr addr) const
 {
-	/* Don't complain if it's not allocated so that we can safely use it during error reporting
-	 */
 	if (!isStaticallyAllocated(addr))
-		return "";
+		return {};
 
 	auto sBeg = getStaticAllocBegin(staticAllocas, addr);
 	BUG_ON(!staticNames.count(sBeg));
@@ -154,7 +152,7 @@ std::string Interpreter::getStaticName(SAddr addr) const
 	auto gvID = MI->idInfo.VID[gv];
 	BUG_ON(!MI->varInfo.globalInfo.count(gvID));
 	auto &gi = *MI->varInfo.globalInfo.at(gvID);
-	return gv->getName().str() + gi.getNameAtOffset(addr - sBeg);
+	return {gv->getName().str() + gi.getNameAtOffset(addr - sBeg)};
 }
 
 void *Interpreter::getStaticAddr(SAddr addr) const

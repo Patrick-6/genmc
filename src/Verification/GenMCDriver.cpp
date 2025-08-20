@@ -2553,8 +2553,13 @@ bool shouldPrintLOC(const EventLabel *lab)
 
 std::string GenMCDriver::getVarName(const SAddr &addr) const
 {
-	if (addr.isStatic())
-		return getEE()->getStaticName(addr);
+	if (addr.isStatic()) {
+		const auto name = interpreterCallbacks_.getStaticName(addr);
+		if (name)
+			return *name;
+		else
+			return "[UNALLOCATED GLOBAL]";
+	}
 
 	auto &g = getExec().getGraph();
 	auto *aLab = findAllocatingLabel(g, addr);

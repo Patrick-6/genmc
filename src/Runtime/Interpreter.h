@@ -409,7 +409,8 @@ public:
 	/* Returns true if the interpreter has allocated space for the specified static */
 	bool isStaticallyAllocated(SAddr addr) const;
 	void *getStaticAddr(SAddr addr) const;
-	std::string getStaticName(SAddr addr) const;
+	/** Returns the name of a static if the given address refers to one. */
+	std::optional<std::string> getStaticName(SAddr addr) const;
 
 	/// runAtExitHandlers - Run any functions registered by the program's calls to
 	/// atexit(3), which we intercept and store in AtExitHandlers.
