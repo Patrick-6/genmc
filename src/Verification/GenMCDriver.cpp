@@ -50,7 +50,10 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool /*
 	: mode(mode), pool(pool), userConf(std::move(conf))
 {
 	/* Set up the execution context */
-	auto initValGetter = [this](const auto &access) { return getEE()->getLocInitVal(access); };
+	auto initValGetter = [this](const auto &access) {
+		BUG(/* Dummy initValGetter used, please call `GenMCDriver::setInterpCallbacks` */);
+		return SVal(0);
+	};
 	auto execGraph = userConf->isDepTrackingModel
 				 ? std::make_unique<DepExecutionGraph>(initValGetter)
 				 : std::make_unique<ExecutionGraph>(initValGetter);
@@ -91,6 +94,13 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, ThreadPool *pool /*
 }
 
 GenMCDriver::~GenMCDriver() = default;
+
+void GenMCDriver::setInterpCallbacks(InterpreterCallbacks interpCallbacks)
+{
+	interpreterCallbacks_ = std::move(interpCallbacks);
+	/* We have to also reset the initvalgetter */
+	getExec().getGraph().setInitValGetter(interpreterCallbacks_.initValGetter);
+}
 
 GenMCDriver::Execution::Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&m,
 				  SAddrAllocator &&alloctor, Event lastAdded)
@@ -153,15 +163,14 @@ bool GenMCDriver::popExecution()
 	return !execStack.empty();
 }
 
-void GenMCDriver::initFromState(std::unique_ptr<Execution> exec)
+void GenMCDriver::initFromState(std::unique_ptr<Execution> exec,
+				InterpreterCallbacks interpCallbacks)
 {
 	execStack.clear();
 	execStack.emplace_back(std::move(exec->graph), LocalQueueT(), std::move(exec->choices),
 			       std::move(exec->alloctor), exec->lastAdded);
 
-	/* We have to also reset the initvalgetter */
-	getExec().getGraph().setInitValGetter(
-		[&](auto &access) { return getEE()->getLocInitVal(access); });
+	setInterpCallbacks(std::move(interpCallbacks));
 }
 
 std::unique_ptr<GenMCDriver::Execution> GenMCDriver::extractState()
@@ -613,7 +622,8 @@ std::optional<VerificationError> GenMCDriver::checkAccessValidity(const MemAcces
 {
 	/* Static variable validity is handled by the interpreter. *
 	 * Dynamic accesses are valid if they access allocated memory */
-	if ((!lab->getAddr().isDynamic() && !getEE()->isStaticallyAllocated(lab->getAddr())) ||
+	if ((!lab->getAddr().isDynamic() &&
+	     !interpreterCallbacks_.isStaticallyAllocated(lab->getAddr())) ||
 	    (lab->getAddr().isDynamic() && !lab->getAlloc())) {
 		reportError({lab->getPos(), VerificationError::VE_AccessNonMalloc});
 		return {VerificationError::VE_AccessNonMalloc};

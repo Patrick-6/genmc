@@ -822,6 +822,7 @@ auto estimate(const LLIConfig &lliConfig, std::shared_ptr<const Config> conf,
 	auto EE = llvm::Interpreter::create(std::move(newmod), std::move(newMI), &*driver,
 					    &lliConfig, driver->getExec().getAllocator(), &buf);
 	driver->setEE(&*EE);
+	driver->setInterpCallbacks(EE->getCallbacks());
 
 	run(&*driver, &*EE);
 	return std::move(driver->getResult());
@@ -839,6 +840,7 @@ auto verify(const LLIConfig &lliConfig, std::shared_ptr<const Config> conf,
 						    &lliConfig, driver->getExec().getAllocator(),
 						    &buf);
 		driver->setEE(&*EE);
+		driver->setInterpCallbacks(EE->getCallbacks());
 		run(&*driver, &*EE);
 		return std::move(driver->getResult());
 	}

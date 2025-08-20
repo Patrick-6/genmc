@@ -42,6 +42,7 @@
 #include "Support/SAddrAllocator.hpp"
 #include "Support/SVal.hpp"
 #include "Support/ThreadInfo.hpp"
+#include "Verification/InterpreterCallbacks.hpp"
 #include "Verification/VerificationError.hpp"
 
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -465,6 +466,15 @@ public:
 			result, (llvm::GenericValue *)getStaticAddr(access.getAddr()),
 			IntegerType::get(Modules.back()->getContext(), access.getSize().get() * 8));
 		return SVal(result.IntVal.getLimitedValue());
+	}
+
+	InterpreterCallbacks getCallbacks()
+	{
+		return InterpreterCallbacks{
+			[this](SAddr addr) { return this->isStaticallyAllocated(addr); },
+			[this](SAddr addr) { return this->getStaticName(addr); },
+			[this](const AAccess &a) { return this->getLocInitVal(a); },
+		};
 	}
 
 	unsigned int getTypeSize(Type *typ) const;

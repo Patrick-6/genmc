@@ -21,6 +21,7 @@
 #include "Support/SAddrAllocator.hpp"
 #include "Verification/ChoiceMap.hpp"
 #include "Verification/Config.hpp"
+#include "Verification/InterpreterCallbacks.hpp"
 #include "Verification/Relinche/LinearizabilityChecker.hpp"
 #include "Verification/Relinche/Specification.hpp"
 #include "Verification/Scheduler.hpp"
@@ -278,6 +279,9 @@ protected:
 	/** Sets pointer to the interpreter */
 	void setEE(llvm::Interpreter *interp) { EE = interp; }
 
+	/** Set the callbacks for querying the interpreter. */
+	void setInterpCallbacks(InterpreterCallbacks interpCallbacks);
+
 	/** Returns a reference to the current execution */
 	Execution &getExec() { return execStack.back(); }
 	const Execution &getExec() const { return execStack.back(); }
@@ -313,7 +317,7 @@ protected:
 	void setThreadPool(ThreadPool *tp) { pool = tp; }
 
 	/** Initializes the exploration from a given state */
-	void initFromState(std::unique_ptr<Execution> s);
+	void initFromState(std::unique_ptr<Execution> s, InterpreterCallbacks interpCallbacks);
 
 	/** Extracts the current driver state.
 	 * The driver is left in an inconsistent form */
@@ -686,6 +690,9 @@ private:
 
 	/** Dbg: Random-number generators for estimation randomization */
 	MyRNG estRng;
+
+	/** Callbacks for querying information from the interpreter. */
+	InterpreterCallbacks interpreterCallbacks_;
 };
 
 #endif /* GENMC_GENMC_DRIVER_HPP */

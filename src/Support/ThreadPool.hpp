@@ -171,6 +171,7 @@ public:
 							    &*dw, &lliConfig,
 							    dw->getExec().getAllocator(), &buf);
 			dw->setEE(&*EE);
+			dw->setInterpCallbacks(EE->getCallbacks());
 			addWorker(i, std::move(dw), std::move(EE), threadFun);
 		}
 	}
