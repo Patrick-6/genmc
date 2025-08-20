@@ -141,6 +141,9 @@ public:
 	void handleExecutionStart();
 	void handleExecutionEnd(std::span<Action> runnable);
 
+	/** Returns whether the current execution is blocked */
+	auto isExecutionBlocked(std::span<Action> runnable) const -> bool;
+
 	/** Whether there are more executions to be explored */
 	bool done();
 
@@ -391,9 +394,6 @@ private:
 
 	/** Blocks thread at POS with type T. Tries to moot afterward */
 	void blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab);
-
-	/** Returns whether the current execution is blocked */
-	auto isExecutionBlocked(std::span<Action> runnable) const -> bool;
 
 	/** If LAB accesses a valid location, reports an error  */
 	std::optional<VerificationError> checkAccessValidity(const MemAccessLabel *lab);
