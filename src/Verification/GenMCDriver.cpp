@@ -644,6 +644,11 @@ std::optional<VerificationError> GenMCDriver::checkInitializedMem(const ReadLabe
 		return {VerificationError::VE_UninitializedMem};
 	}
 
+	/* FIXME(HACK): Allow interpreter to skip uninit and mixed-size checks (until a permanent
+	 * solution is found). */
+	if (interpreterCallbacks_.skipUninitLoadChecks(rLab->getOrdering()))
+		return {}; /* Interpreter guarantees this access is ok. */
+
 	/* Plain events should read initialized memory if they are dynamic accesses */
 	if (isUninitializedAccess(rLab->getAddr(), rLab->getRf()->getPos())) {
 		reportError({rLab->getPos(), VerificationError::VE_UninitializedMem});

@@ -474,6 +474,8 @@ public:
 			[this](SAddr addr) { return this->isStaticallyAllocated(addr); },
 			[this](SAddr addr) { return this->getStaticName(addr); },
 			[this](const AAccess &a) { return this->getLocInitVal(a); },
+			/** LLI never has to skip GenMCs checks for uninitialized memory. */
+			[](MemOrdering ord) { return false; },
 		};
 	}
 

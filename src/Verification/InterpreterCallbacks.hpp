@@ -18,18 +18,23 @@
 #include "Support/ASize.hpp"
 #include "Support/SAddr.hpp"
 
+#include <cstdint>
 #include <functional>
 
 /** Returns true if the given allocation is a valid static allocation. */
 using IsStaticallyAllocated = std::function<bool(SAddr)>;
 /** Returns the name of a static variable if it exists. */
 using GetStaticName = std::function<std::optional<std::string>(SAddr)>;
+/** Callback to the interpreter to allow it to add extra checks or skip all checks for a memory
+ * load or store. */
+using SkipUninitLoadChecks = std::function<bool(MemOrdering)>;
 
 /** Contains callbacks for querying the current interpreter. */
 struct InterpreterCallbacks {
 	IsStaticallyAllocated isStaticallyAllocated{};
 	GetStaticName getStaticName{};
 	ExecutionGraph::InitValGetter initValGetter{};
+	SkipUninitLoadChecks skipUninitLoadChecks{};
 };
 
 #endif /* GENMC_GENMC_INTERPRETER_CALLBACKS_HPP */
