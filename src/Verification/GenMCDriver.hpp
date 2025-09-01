@@ -142,6 +142,9 @@ public:
 	void handleExecutionStart();
 	void handleExecutionEnd();
 
+	/** Whether the current execution is blocked. */
+	auto isExecutionBlocked() const -> bool { return getExec().getGraph().isBlocked(); }
+
 	/** Whether there are more executions to be explored */
 	bool done();
 
