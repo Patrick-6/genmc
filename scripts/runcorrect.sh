@@ -117,6 +117,7 @@ print_variant_debug_results() {
     if test -n "${failure}" -o -n "${outcome_failure}"
     then
 	echo "${failure_output}"
+	printf "Test command: ${cmd}\n"
     fi
 }
 
@@ -164,7 +165,8 @@ runvariants() {
     for t in $dir/variants/*.c $dir/variants/*.cpp $dir/variants/*.ll
     do
 	vars=$((vars+1))
-	output=`"${GenMC}" ${GENMCFLAGS} "-${model}" -disable-mm-detector $genmc_args -- ${CFLAGS} ${clang_args} "${t}" 2>&1`
+	cmd="${GenMC} ${GENMCFLAGS} -${model} -disable-mm-detector $genmc_args -- ${CFLAGS} ${clang_args} ${t}"
+	output=`${cmd} 2>&1`
 	if test "$?" -ne 0
 	then
 	    failure_output="${output}"
@@ -213,14 +215,17 @@ runvariants() {
 
 runtest() {
     dir=$1
-    if [ -z "$(ls ${dir})" -o ! -d "${dir}/variants" ] # Skip empty directories
+    # Skip empty dirs, dirs without .{c,r}b file (bounding), dirs with no .expected
+    if [ -z "$(ls ${dir})" -o ! -d "${dir}/variants" ]
     then
 	return
     fi
+    test ! -f "${dir}/expected.${model}.${coherence}.in" && return
     bound_file=""
     test "${bound_type}" = "context" && bound_file="${dir}/expected.cb.in"
     test "${bound_type}" = "round" && bound_file="${dir}/expected.rb.in"
     test ! -f "${bound_file}" -a -n "${bound_type}" && return
+
     if test -f "${dir}/args.${model}.${coherence}.in"
     then
 	varNum=0
