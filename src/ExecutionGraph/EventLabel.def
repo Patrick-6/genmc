@@ -170,7 +170,8 @@ HANDLE_LABEL(LockZNESpinEnd)
 HANDLE_LABEL(Empty)
 HANDLE_LABEL(MethodBegin)
 HANDLE_LABEL(MethodEnd)
-LAST_LABEL(Other, MethodEnd)
+HANDLE_LABEL(Output)
+LAST_LABEL(Other, Output)
 
 #undef FIRST_LABEL
 #undef LAST_LABEL

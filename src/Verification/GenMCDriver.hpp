@@ -238,6 +238,7 @@ public:
 	void handleHpProtect(Event pos, SAddr hpAddr, SAddr protAddr);
 	void handleMethodBegin(Event pos, std::string methodName, int32_t argVal);
 	void handleMethodEnd(Event pos, std::string methodName, int32_t retVal);
+	void handleOutput(Event pos, std::string msg);
 
 	/** This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */

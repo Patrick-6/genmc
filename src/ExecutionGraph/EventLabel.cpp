@@ -335,6 +335,9 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabel
 	case EventLabel::MethodEnd:
 		s << "METHOD_END";
 		break;
+	case EventLabel::Output:
+		s << "OUTPUT";
+		break;
 	case EventLabel::Optional:
 		s << "OPTIONAL";
 		break;
