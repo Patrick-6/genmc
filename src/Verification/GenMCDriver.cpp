@@ -2589,8 +2589,8 @@ void GenMCDriver::printGraph(bool printMetadata /* false */,
 
 	/* Print the graph */
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		auto &thr = EE->getThrById(i);
-		s << thr;
+		const auto thrInfo = g.getFirstThreadLabel(i)->getThreadInfo();
+		s << "<" << thrInfo.parentId << ", " << thrInfo.id << ">";
 		if (getConf()->symmetryReduction) {
 			if (auto *bLab = g.getFirstThreadLabel(i)) {
 				auto symm = bLab->getSymmPredTid();
@@ -2608,9 +2608,11 @@ void GenMCDriver::printGraph(bool printMetadata /* false */,
 			s << printer.toString(lab);
 			GENMC_DEBUG(s.resetColor(););
 			GENMC_DEBUG(if (getConf()->printStamps) s << " @ " << lab.getStamp(););
-			if (printMetadata && thr.prefixLOC[lab.getIndex()].first &&
+			if (printMetadata &&
+			    getEE()->getThrById(i).prefixLOC[lab.getIndex()].first &&
 			    shouldPrintLOC(&lab)) {
-				executeMDPrint(&lab, thr.prefixLOC[lab.getIndex()], s);
+				executeMDPrint(&lab,
+					       getEE()->getThrById(i).prefixLOC[lab.getIndex()], s);
 			}
 			s << "\n";
 		}
