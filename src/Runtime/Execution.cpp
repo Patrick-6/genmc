@@ -3581,7 +3581,6 @@ std::string getFilenameFromMData(MDNode *node)
 void Interpreter::replayExecutionBefore(const VectorClock &before)
 {
 	reset();
-	setExecState(ExecutionState::Replay);
 	setProgramState(ProgramState::Main);
 
 	/* We have to replay all threads in order to get debug metadata */

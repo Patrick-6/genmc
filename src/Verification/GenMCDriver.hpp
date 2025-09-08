@@ -15,12 +15,13 @@
 #define GENMC_GENMC_DRIVER_HPP
 
 #include "ADT/Trie.hpp"
-#include "Config/Config.hpp"
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "Support/Hash.hpp"
 #include "Support/SAddrAllocator.hpp"
 #include "Verification/ChoiceMap.hpp"
+#include "Verification/Config.hpp"
+#include "Verification/InterpreterCallbacks.hpp"
 #include "Verification/Relinche/LinearizabilityChecker.hpp"
 #include "Verification/Relinche/Specification.hpp"
 #include "Verification/Scheduler.hpp"
@@ -279,6 +280,9 @@ protected:
 	/** Sets pointer to the interpreter */
 	void setEE(llvm::Interpreter *interp) { EE = interp; }
 
+	/** Set the callbacks for querying the interpreter. */
+	void setInterpCallbacks(InterpreterCallbacks interpCallbacks);
+
 	/** Returns a reference to the current execution */
 	Execution &getExec() { return execStack.back(); }
 	const Execution &getExec() const { return execStack.back(); }
@@ -382,9 +386,6 @@ private:
 	/** Blocks thread at POS with type T. Tries to moot afterward */
 	void blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab);
 
-	/** Returns whether the current execution is blocked */
-	bool isExecutionBlocked() const;
-
 	/** If LAB accesses a valid location, reports an error  */
 	std::optional<VerificationError> checkAccessValidity(const MemAccessLabel *lab);
 
@@ -411,8 +412,12 @@ private:
 	/** Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph(Event pos);
 
-	/** Returns true if we are currently replaying a graph */
-	bool inReplay() const;
+	/** Returns true if we are in error-replaying mode */
+	[[nodiscard]] auto inReplay() const -> bool { return inReplay_; }
+
+	/** Helpers for error replaying (TODO: remove) */
+	void startReplay();
+	void endReplay();
 
 	/** Opt: Caches LAB to optimize scheduling next time */
 	void cacheEventLabel(const EventLabel *lab);
@@ -688,8 +693,14 @@ private:
 	/** Whether we are stopping the exploration (e.g., due to an error found) */
 	bool shouldHalt = false;
 
+	/** Whether we are in error replaying */
+	bool inReplay_ = false;
+
 	/** Dbg: Random-number generators for estimation randomization */
 	MyRNG estRng;
+
+	/** Callbacks for querying information from the interpreter. */
+	InterpreterCallbacks interpreterCallbacks_;
 };
 
 #endif /* GENMC_GENMC_DRIVER_HPP */

@@ -11,15 +11,16 @@
  *     https://opensource.org/licenses/MIT
  */
 
-#include "Config/Config.hpp"
 #include "Runtime/Interpreter.h"
 #include "Runtime/LLIConfig.hpp"
 #include "Static/LLVMModule.hpp"
 #include "Support/Error.hpp"
 #include "Support/ThreadPool.hpp"
+#include "Verification/Config.hpp"
 #include "Verification/GenMCDriver.hpp"
 
 #include <llvm/Support/CommandLine.h>
+#include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
@@ -795,6 +796,8 @@ static auto createExecutionContext(const ExecutionGraph &g) -> std::vector<Threa
 
 void run(GenMCDriver *driver, llvm::Interpreter *EE)
 {
+	driver->setEE(&*EE);
+	driver->setInterpCallbacks(EE->getCallbacks());
 	do {
 		driver->handleExecutionStart();
 		if (driver->runFromCache()) {
@@ -820,8 +823,6 @@ auto estimate(const LLIConfig &lliConfig, std::shared_ptr<const Config> conf,
 	std::string buf;
 	auto EE = llvm::Interpreter::create(std::move(newmod), std::move(newMI), &*driver,
 					    &lliConfig, driver->getExec().getAllocator(), &buf);
-	driver->setEE(&*EE);
-
 	run(&*driver, &*EE);
 	return std::move(driver->getResult());
 }
@@ -837,7 +838,6 @@ auto verify(const LLIConfig &lliConfig, std::shared_ptr<const Config> conf,
 		auto EE = llvm::Interpreter::create(std::move(mod), std::move(modInfo), &*driver,
 						    &lliConfig, driver->getExec().getAllocator(),
 						    &buf);
-		driver->setEE(&*EE);
 		run(&*driver, &*EE);
 		return std::move(driver->getResult());
 	}
@@ -867,6 +867,15 @@ auto main(int argc, char **argv) -> int
 	PRINT(VerbosityLevel::Error)
 		<< PACKAGE_NAME " v" PACKAGE_VERSION << " (LLVM " LLVM_VERSION ")\n"
 		<< "Copyright (C) 2024 MPI-SWS. All rights reserved.\n\n";
+
+	/* Make sure we can resolve symbols in the program. We use 0
+	 * as an argument in order to load the program, not a library. This
+	 * is useful as it allows the executions of external functions in the
+	 * user code. */
+	std::string errorStr;
+	if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr, &errorStr)) {
+		WARN("Could not resolve symbols in the program: " + errorStr);
+	}
 
 	auto ctx = std::make_unique<llvm::LLVMContext>(); // *dtor after module's*
 	auto moduleUP = compileToModule(lliConfig, ctx);

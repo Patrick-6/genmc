@@ -18,10 +18,10 @@
 #include "IMMChecker.hpp"
 #include "ADT/DepView.hpp"
 #include "ADT/VSet.hpp"
-#include "Config/Config.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "ExecutionGraph/GraphIterators.hpp"
 #include "ExecutionGraph/GraphUtils.hpp"
+#include "Verification/Config.hpp"
 #include "Verification/VerificationError.hpp"
 
 bool IMMChecker::isDepTracking() const { return 1; }

@@ -42,6 +42,7 @@
 #include "Support/SAddrAllocator.hpp"
 #include "Support/SVal.hpp"
 #include "Support/ThreadInfo.hpp"
+#include "Verification/InterpreterCallbacks.hpp"
 #include "Verification/VerificationError.hpp"
 
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -217,7 +218,6 @@ struct DynamicComponents {
 	value_ptr<DepTracker, DepTrackerCloner> depTracker = nullptr;
 
 	/* Information about the interpreter's state */
-	ExecutionState execState = ExecutionState::Normal;
 	ProgramState programState = ProgramState::Main; /* Pers */
 
 	GenericValue ExitValue; // The return value of the called function
@@ -323,8 +323,7 @@ public:
 	({                                                                                         \
 		incPos();                                                                          \
 		auto ret = driver->method(__VA_ARGS__);                                            \
-		if (!std::holds_alternative<SVal>(ret) &&                                          \
-		    getExecState() != ExecutionState::Replay) {                                    \
+		if (std::holds_alternative<GenMCDriver::Reset>(ret)) {                             \
 			decPos();                                                                  \
 			--ECStack().back().CurInst;                                                \
 		}                                                                                  \
@@ -396,7 +395,6 @@ public:
 
 	/* Query interpreter's state */
 	ProgramState getProgramState() const { return dynState.programState; }
-	ExecutionState getExecState() const { return dynState.execState; }
 
 	/* Annotation information */
 
@@ -464,6 +462,18 @@ public:
 			result, (llvm::GenericValue *)getStaticAddr(access.getAddr()),
 			IntegerType::get(Modules.back()->getContext(), access.getSize().get() * 8));
 		return SVal(result.IntVal.getLimitedValue());
+	}
+
+	InterpreterCallbacks getCallbacks()
+	{
+		return InterpreterCallbacks{
+			.isStaticallyAllocated =
+				[this](SAddr addr) { return this->isStaticallyAllocated(addr); },
+			.getStaticName = [this](SAddr addr) { return this->getStaticName(addr); },
+			.initValGetter =
+				[this](const AAccess &a) { return this->getLocInitVal(a); },
+			.skipUninitLoadChecks = [](const MemAccessLabel *mLab) { return false; },
+		};
 	}
 
 	unsigned int getTypeSize(Type *typ) const;
@@ -592,7 +602,6 @@ private: // Helper functions
 	void handleSystemError(SystemError code, const std::string &msg);
 
 	void setProgramState(ProgramState s) { dynState.programState = s; }
-	void setExecState(ExecutionState s) { dynState.execState = s; }
 
 	void handleLock(SAddr addr, ASize size, const EventDeps *deps);
 	void handleUnlock(SAddr addr, ASize size, const EventDeps *deps);
