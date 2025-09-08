@@ -477,11 +477,6 @@ bool GenMCDriver::partialExecutionExceedsBound() const
 	return executionExceedsBound(BoundCalculationStrategy::Slacked);
 }
 
-bool GenMCDriver::inReplay() const
-{
-	return getEE()->getExecState() == llvm::ExecutionState::Replay;
-}
-
 EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
 	auto &g = getExec().getGraph();
@@ -572,6 +567,7 @@ GenMCDriver::HandleResult<SVal> GenMCDriver::getReadRetValue(const ReadLabel *rL
 		return Invalid{};
 	}
 
+	using Result = GenMCDriver::HandleResult<SVal>;
 	using Evaluator = SExprEvaluator<ModuleID::ID>;
 	auto res = rLab->getAccessValue(rLab->getAccess());
 	auto &g = getExec().getGraph();
@@ -581,13 +577,13 @@ GenMCDriver::HandleResult<SVal> GenMCDriver::getReadRetValue(const ReadLabel *rL
 	    !Evaluator().evaluate(&*rLab->getAnnot()->expr, res)) {
 		blockThread(g, BlockLabel::createAssumeBlock(rLab->getPos().next(),
 							     rLab->getAnnot()->type));
-		return Reset{};
+		return inReplay() ? Result(Invalid()) : Result(Reset());
 	}
 	if (llvm::isa<BWaitReadLabel>(rLab) &&
 	    !readsBarrierUnblockingValue(llvm::cast<BWaitReadLabel>(rLab))) {
 		blockThread(g, BlockLabel::createAssumeBlock(rLab->getPos().next(),
 							     AssumeType::Barrier));
-		return Reset{};
+		return inReplay() ? Result(Invalid()) : Result(Reset());
 	}
 	return {res};
 }
@@ -1628,6 +1624,28 @@ std::unique_ptr<VectorClock> GenMCDriver::getReplayView() const
 	return v;
 }
 
+/* TODO: Remove */
+static thread_local std::unique_ptr<llvm::InterpreterState> iState = nullptr;
+
+void GenMCDriver::startReplay()
+{
+	auto *EE = getEE();
+
+	inReplay_ = true;
+	if (!EE)
+		return;
+
+	iState = EE->saveState();
+	EE->replayExecutionBefore(*getReplayView());
+}
+
+void GenMCDriver::endReplay()
+{
+	if (getEE())
+		getEE()->restoreState(std::move(iState));
+	inReplay_ = false;
+}
+
 void GenMCDriver::reportError(const ErrorDetails &details)
 {
 	auto &g = getExec().getGraph();
@@ -1656,9 +1674,7 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 	/* Print a basic error message and the graph.
 	 * We have to save the interpreter state as replaying will
 	 * destroy the current execution stack */
-	auto iState = getEE()->saveState();
-
-	getEE()->replayExecutionBefore(*getReplayView());
+	startReplay();
 
 	/* Refetch ERRLAB in case it's a block label and was replaced during replay.
 	 * (This may happen when replaying assume reads.) */
@@ -1672,7 +1688,7 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 	if (details.racyLab != nullptr)
 		out << "conflicts with event " << details.racyLab->getPos() << " ";
 	out << "in graph:\n";
-	printGraph(true, out);
+	printGraph(getEE(), out); // TODO: FIXME (getEE())
 
 	/* Print error trace leading up to the violating event(s) */
 	if (errLab && getConf()->printErrorTrace) {
@@ -1690,7 +1706,7 @@ void GenMCDriver::reportError(const ErrorDetails &details)
 		dotPrintToFile(getConf()->dotFile, errLab, details.racyLab,
 			       getConf()->dotPrintOnlyClientEvents);
 
-	getEE()->restoreState(std::move(iState));
+	endReplay();
 
 	if (details.shouldHalt)
 		halt(details.type);
@@ -2624,6 +2640,11 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const EventLabel *
 {
 	auto &g = getExec().getGraph();
 	auto *EE = getEE();
+
+	// TODO: FIXME
+	if (!EE)
+		return;
+
 	std::ofstream fout(filename);
 	llvm::raw_os_ostream ss(fout);
 	DotPrinter printer([this](const SAddr &saddr) { return getVarName(saddr); },
@@ -2798,6 +2819,10 @@ void GenMCDriver::recPrintTraceBefore(const Event &e, View &a,
 
 void GenMCDriver::printTraceBefore(const EventLabel *lab, llvm::raw_ostream &s /* = llvm::dbgs() */)
 {
+	// TODO: FIXME
+	if (!getEE())
+		return;
+
 	s << "Trace to " << lab->getPos() << ":\n";
 
 	/* Linearize (po U rf) and print trace */

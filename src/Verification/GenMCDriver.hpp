@@ -408,8 +408,12 @@ private:
 	/** Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph(Event pos);
 
-	/** Returns true if we are currently replaying a graph */
-	bool inReplay() const;
+	/** Returns true if we are in error-replaying mode */
+	[[nodiscard]] auto inReplay() const -> bool { return inReplay_; }
+
+	/** Helpers for error replaying (TODO: remove) */
+	void startReplay();
+	void endReplay();
 
 	/** Opt: Caches LAB to optimize scheduling next time */
 	void cacheEventLabel(const EventLabel *lab);
@@ -684,6 +688,9 @@ private:
 
 	/** Whether we are stopping the exploration (e.g., due to an error found) */
 	bool shouldHalt = false;
+
+	/** Whether we are in error replaying */
+	bool inReplay_ = false;
 
 	/** Dbg: Random-number generators for estimation randomization */
 	MyRNG estRng;
