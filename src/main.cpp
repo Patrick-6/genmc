@@ -796,6 +796,8 @@ static auto createExecutionContext(const ExecutionGraph &g) -> std::vector<Threa
 
 void run(GenMCDriver *driver, llvm::Interpreter *EE)
 {
+	driver->setEE(&*EE);
+	driver->setInterpCallbacks(EE->getCallbacks());
 	do {
 		driver->handleExecutionStart();
 		if (driver->runFromCache()) {
@@ -821,8 +823,6 @@ auto estimate(const LLIConfig &lliConfig, std::shared_ptr<const Config> conf,
 	std::string buf;
 	auto EE = llvm::Interpreter::create(std::move(newmod), std::move(newMI), &*driver,
 					    &lliConfig, driver->getExec().getAllocator(), &buf);
-	driver->setEE(&*EE);
-
 	run(&*driver, &*EE);
 	return std::move(driver->getResult());
 }
@@ -838,7 +838,6 @@ auto verify(const LLIConfig &lliConfig, std::shared_ptr<const Config> conf,
 		auto EE = llvm::Interpreter::create(std::move(mod), std::move(modInfo), &*driver,
 						    &lliConfig, driver->getExec().getAllocator(),
 						    &buf);
-		driver->setEE(&*EE);
 		run(&*driver, &*EE);
 		return std::move(driver->getResult());
 	}

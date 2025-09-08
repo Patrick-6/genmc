@@ -170,7 +170,6 @@ public:
 			auto EE = llvm::Interpreter::create(std::move(newmod), std::move(newMI),
 							    &*dw, &lliConfig,
 							    dw->getExec().getAllocator(), &buf);
-			dw->setEE(&*EE);
 			addWorker(i, std::move(dw), std::move(EE), threadFun);
 		}
 	}
