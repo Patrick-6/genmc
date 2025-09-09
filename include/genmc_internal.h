@@ -30,6 +30,15 @@ typedef long __VERIFIER_condattr_t;
 typedef struct { int __private; } __VERIFIER_mutex_t;
 typedef long __VERIFIER_mutexattr_t;
 
+#ifndef __VERIFIER_MAX_THREAD_NUM
+ #define __VERIFIER_MAX_THREAD_NUM 8
+#endif
+
+typedef struct {
+	__VERIFIER_mutex_t __private[__VERIFIER_MAX_THREAD_NUM];
+} __VERIFIER_rwlock_t;
+typedef long __VERIFIER_rwlockattr_t;
+
 typedef struct __VERIFIER_plock {
 	__VERIFIER_mutex_t lock;
 } __VERIFIER_plock_t;
