@@ -2561,7 +2561,7 @@ bool shouldPrintLOC(const EventLabel *lab)
 std::string GenMCDriver::getVarName(const SAddr &addr) const
 {
 	if (addr.isStatic())
-		return getEE()->getStaticName(addr);
+		interpreterCallbacks_.getStaticName(addr);
 
 	auto &g = getExec().getGraph();
 	auto *aLab = findAllocatingLabel(g, addr);

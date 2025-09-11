@@ -22,7 +22,7 @@
 /** Returns true if the given allocation is a valid static allocation */
 using IsStaticallyAllocated = std::function<bool(SAddr)>;
 /** Returns the name of a static variable if it exists */
-using GetStaticName = std::function<std::optional<std::string>(SAddr)>;
+using GetStaticName = std::function<std::string(SAddr)>;
 /** Rerutns whether the interpreter should do uninitialized mem checks */
 using SkipUninitLoadChecks = std::function<bool(const MemAccessLabel *)>;
 
